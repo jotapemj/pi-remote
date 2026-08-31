@@ -97,9 +97,10 @@ It survives the terminal closing, but not a reboot.
 Whichever you pick, remember the machine has to stay awake. A laptop that
 suspends takes the bridge with it.
 
-> Running as a service means nobody reads the console. That is why the missing
+> Running as a service means nobody reads the console. That is why a missing
 > token is also announced **on the page itself**, in a red strip under the
-> header, not only in the log.
+> header — once per browser, so it warns without becoming wallpaper. The
+> current state is always in *about*.
 
 ## Projects and sessions
 

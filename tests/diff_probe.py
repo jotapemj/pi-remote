@@ -96,6 +96,10 @@ async def main():
                               " $('#warnbar').textContent.trim().slice(0,30),"
                               " !!document.querySelector('#warnbar svg')]")
             print("  aviso sin token: oculto=%s %r" % (warn[0], warn[1]))
+            await p.go()                       # segunda visita
+            again = await p.js("[$('#warnbar').hidden,"
+                               " localStorage.getItem('pi.warned')]")
+            print("  al volver: oculto=%s marca=%r" % tuple(again))
 
             checks += [
                 ("solo la edicion lleva cuenta", r[0] == 1),
@@ -109,6 +113,8 @@ async def main():
                  col[1] is True and col[3] is True and col[0] != col[2]),
                 ("sin token se avisa en pantalla",
                  warn[0] is False and warn[2] is True and warn[1] != ""),
+                ("y solo la primera vez",
+                 again[0] is True and again[1] == "1"),
             ]
 
     checks += await with_token()

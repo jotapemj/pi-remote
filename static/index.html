@@ -122,6 +122,12 @@ body{
 }
 .warnbar[hidden]{display:none}
 .warnbar .i{width:15px;height:15px;flex:none}
+.warnbar span{flex:1;min-width:0}
+.wclose{
+  background:none; border:none; color:var(--coral); cursor:pointer;
+  padding:2px; display:flex; flex:none; opacity:.75;
+}
+.wclose:hover{opacity:1}
 
 /* ---------- transcript ---------- */
 main{flex:1; overflow-y:auto; padding:16px var(--gut) 8px; position:relative;
@@ -695,6 +701,7 @@ const ICONS = {
   copy:"M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z",
   check:"M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z",
   lang:"M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z",
+  close:"M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z",
   settings:"M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z",
   menu:"M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z",
   add:"M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z",
@@ -939,10 +946,7 @@ function paint(){
   }
   emptyState(has);
   paintRail();
-  const warn = $("#warnbar");
-  warn.hidden = state.open !== true;
-  if(!warn.hidden && !warn.firstElementChild)
-    warn.innerHTML = ico("warn") + `<span>${esc(T("noToken"))}</span>`;
+  paintWarning();
   marqueeAll($("#title").parentNode);
 
   // the readout is for work in progress: not while pi waits on you
@@ -974,6 +978,25 @@ function title(name){
   if(!el.textContent) return done();     // primera vez: sin fundido
   el.classList.add("out");
   setTimeout(done, 220);
+}
+/* el aviso sale una vez por navegador: dejarlo fijo lo vuelve invisible.
+   El estado del acceso se puede consultar siempre en "acerca de". */
+function warned(){
+  try { return localStorage.getItem("pi.warned") === "1"; }
+  catch(e){ return false; }
+}
+let warnDone = false;              // ya resuelto en esta carga, no tocar mas
+function paintWarning(){
+  const bar = $("#warnbar");
+  if(state.open !== true){ bar.hidden = true; return; }
+  if(warnDone) return;             // sin esto el propio repintado lo tapaba
+  warnDone = true;
+  if(warned()){ bar.hidden = true; return; }
+  bar.innerHTML = ico("warn") + `<span>${esc(T("noToken"))}</span>`
+    + `<button class="wclose" aria-label="close">${ico("close")}</button>`;
+  bar.querySelector(".wclose").onclick = ()=>{ bar.hidden = true; };
+  try { localStorage.setItem("pi.warned", "1"); } catch(e){}
+  bar.hidden = false;
 }
 function emptyState(has){
   let el = $("#nostate");
@@ -1187,6 +1210,8 @@ const PAYPAL = "";                 // drop the donation link here when ready
 function aboutModal(){
   modal(T("about"),
     `<p><b>pi-remote</b></p><p>Jotapeveloper 2026 &middot; MIT</p>`
+    + `<p style="margin-top:12px"><b>${esc(T("access"))}:</b> `
+    + `${esc(state.open === true ? T("noToken") : T("withToken"))}</p>`
     + `<p style="margin-top:14px"><b>${esc(T("thirdParty"))}</b></p><dl>`
     + `<dt>FastAPI</dt><dd>MIT</dd>`
     + `<dt>Uvicorn</dt><dd>BSD-3-Clause</dd>`
@@ -1434,6 +1459,7 @@ const STR = {
       loading:"loading...", noSessionsYet:"no sessions yet",
       copyFailed:"the browser would not let me copy",
       noToken:"no token: anyone on this network can drive the agent",
+      withToken:"a token is required", access:"Access",
       close:"close",
       openSession:"open", deleteSession:"remove session",
       deleteQ:"Remove this session?",
@@ -1464,6 +1490,7 @@ const STR = {
       loading:"cargando...", noSessionsYet:"a\u00fan sin sesiones",
       copyFailed:"el navegador no ha dejado copiar",
       noToken:"sin token: cualquiera en esta red puede pilotar el agente",
+      withToken:"hace falta token", access:"Acceso",
       close:"cerrar",
       openSession:"abrir", deleteSession:"quitar sesi\u00f3n",
       deleteQ:"\u00bfQuitar esta sesi\u00f3n?",
@@ -1491,7 +1518,8 @@ function applyLang(){
     el.textContent = T(el.dataset.t);
   });
   $("#modalOk").textContent = T("ok");
-  $("#warnbar").innerHTML = "";      // se repinta traducido en el proximo paint
+  const wspan = $("#warnbar").querySelector("span");
+  if(wspan) wspan.textContent = T("noToken");   // sin vaciarlo: no se remonta
   nodes.forEach((el, id)=>{                      // notes carry a key, redraw
     if(el.__item && el.__item.kind === "note") el.innerHTML = html(el.__item);
   });
