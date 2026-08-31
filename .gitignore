@@ -4,6 +4,7 @@ CLAUDE.md
 # lo que el puente escribe mientras corre
 state.json
 bridge.log
+bridge.log.1
 
 # lo que deja el harness al correr
 tests/_*

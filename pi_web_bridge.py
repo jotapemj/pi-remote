@@ -68,10 +68,17 @@ def _version():
 VERSION = _version()
 START_CWD = os.environ.get("PI_WEB_CWD", "")
 
+LOG_MAX = 2 * 1024 * 1024        # corriendo meses, el log llena el disco
+
 # pythonw.exe no da consola: sys.stdout es None y todo print() revienta.
 if LOG_FILE or sys.stdout is None:
-    sys.stdout = sys.stderr = open(LOG_FILE or HERE / "bridge.log",
-                                   "a", encoding="utf-8",
+    _log = Path(LOG_FILE or HERE / "bridge.log")
+    try:                         # una vuelta de rotacion basta para depurar
+        if _log.is_file() and _log.stat().st_size > LOG_MAX:
+            _log.replace(_log.with_name(_log.name + ".1"))
+    except OSError:
+        pass
+    sys.stdout = sys.stderr = open(_log, "a", encoding="utf-8",
                                    errors="replace", buffering=1)
 
 LOG_CAP = 400            # transcript items kept for reconnecting clients

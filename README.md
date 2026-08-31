@@ -60,23 +60,61 @@ the fonts, all served locally so the page never calls out to anyone.
 ## Leave it running
 
 The bridge is a server, not a terminal app, so it does not need a console at
-all. The point is not to recover it after closing the terminal: it is to never
-be a child of one.
+all. The goal is not to recover it after closing the terminal: it is to never
+be a child of one. Nothing extra to install — every option below is a feature
+of the operating system.
 
-**Windows — Task Scheduler.** Create a task, trigger *at log on*, action
-`pythonw.exe` with `C:\path\to\pi_web_bridge.py`, and *start in* the folder
-you want. Use **only when the user is logged on**: the other option puts the
-task in session 0, cut off from the desktop. Add a short delay so Tailscale is
-up first, and tick *restart if the task fails*. With `pythonw.exe` there is no
-console and no black window, and the log goes to `bridge.log`.
+### Windows
 
-**Linux — a systemd user service** in
+Three ways, least invasive first.
+
+**1. Startup folder — start here.** Press `Win`+`R`, type `shell:startup`, and
+drop a shortcut in it:
+
+```
+Target:      C:\Path\To\pythonw.exe  C:\Path\To\pi_web_bridge.py
+Start in:    C:\Path\To\pi-remote
+```
+
+`pythonw.exe` is Python without a console, so there is no window and no
+terminal to close; the log goes to `bridge.log`. It starts with your session
+and keeps running. Two minutes, nothing registered, nothing to undo but
+deleting the shortcut.
+
+**2. Task Scheduler — if you want it to come back after a crash.** The startup
+folder starts the bridge; it does not restart it. A task does. The cost is
+that Task Scheduler was built for short maintenance jobs, not for long-lived
+servers, and its defaults reflect that. Four settings decide whether this
+survives:
+
+| Setting | Why |
+|---|---|
+| `ExecutionTimeLimit` = `PT0S` | **Tasks stop after 72 hours by default.** Without this the bridge dies after three days with no clue why |
+| Uncheck both battery options | Otherwise a laptop kills the bridge the moment you unplug it |
+| *Only when the user is logged on* | The other choice runs in session 0, cut off from your desktop |
+| A 30 s delay, and *restart if the task fails* | So Tailscale is up first, and a crash is not the end |
+
+Trigger *at log on*, action `pythonw.exe` with the script, *start in* the
+project folder. The four settings above are only reachable from the task's
+properties or from an XML definition — the quick `schtasks` one-liner cannot
+set them.
+
+**3. A real Windows service.** Possible with NSSM or `pywin32`, and not
+recommended here: both add an external dependency to a project whose whole
+point is that it has almost none. The first two options already give you
+everything a service would.
+
+### Linux — systemd user service
+
 `~/.config/systemd/user/pi-remote.service`:
 
 ```ini
+[Unit]
+Description=pi-remote bridge
+
 [Service]
 ExecStart=/usr/bin/python3 %h/pi-remote/pi_web_bridge.py
-WorkingDirectory=%h/code/your-project
+WorkingDirectory=%h/pi-remote
 Restart=always
 Environment=PI_WEB_TOKEN=...
 
@@ -84,20 +122,31 @@ Environment=PI_WEB_TOKEN=...
 WantedBy=default.target
 ```
 
-Then `systemctl --user enable --now pi-remote` and
-`loginctl enable-linger $USER` so it survives logout.
+```bash
+systemctl --user enable --now pi-remote
+loginctl enable-linger $USER      # survives logging out
+```
 
-**macOS — launchd**: a plist in `~/Library/LaunchAgents` with `RunAtLoad` and
-`KeepAlive`, loaded with `launchctl load`.
+No traps here: `Restart=always` does what it says and there is no time limit.
 
-**By hand**, if you would rather not install anything: `pythonw
-pi_web_bridge.py` on Windows, or `nohup python3 pi_web_bridge.py &` elsewhere.
-It survives the terminal closing, but not a reboot.
+### macOS — launchd
 
-Whichever you pick, remember the machine has to stay awake. A laptop that
-suspends takes the bridge with it.
+A plist in `~/Library/LaunchAgents/dev.pi-remote.plist` with `RunAtLoad` and
+`KeepAlive` set to `true`, `ProgramArguments` pointing at python3 and the
+script, then `launchctl load ~/Library/LaunchAgents/dev.pi-remote.plist`.
+Same behaviour as systemd: starts on login, comes back if it dies.
 
-> Running as a service means nobody reads the console. That is why a missing
+### By hand
+
+`pythonw pi_web_bridge.py` on Windows, `nohup python3 pi_web_bridge.py &`
+elsewhere. Survives closing the terminal, but not a reboot.
+
+### Whichever you choose
+
+The machine has to stay awake. A laptop that suspends takes the bridge with
+it, and no amount of configuration fixes that — check your power plan.
+
+> Running unattended means nobody reads the console. That is why a missing
 > token is also announced **on the page itself**, in a red strip under the
 > header — once per browser, so it warns without becoming wallpaper. The
 > current state is always in *about*.
