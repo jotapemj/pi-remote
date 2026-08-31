@@ -620,6 +620,10 @@ class Bridge:
             self.note("info", "exported", f"exported to {data.get('path')}",
                       path=data.get("path"))
 
+        elif cmd == "set_session_name":
+            # pi no avisa del cambio: sin esto la cabecera se queda con el viejo
+            self.send_pi({"type": "get_state"})
+
         elif cmd == "set_model":
             self.state["model"] = data.get("name")
             self.push_state()

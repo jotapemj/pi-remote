@@ -93,6 +93,8 @@ body{
 .plate h1{
   font:600 13px/1.2 var(--mono); margin:0; letter-spacing:.02em;
 }
+.plate h1 > span{transition:opacity .22s ease}
+.plate h1 > span.out{opacity:0}
 .plate .sub{
   font:400 11px/1.45 var(--mono); color:var(--faint);
   opacity:0; height:0;
@@ -147,11 +149,30 @@ main{flex:1; overflow-y:auto; padding:16px var(--gut) 8px; position:relative;
   margin:.7em 0;
 }
 .said pre code{background:none;padding:0;color:var(--ink);font-size:12.5px}
-.cursor{
-  display:inline-block;width:7px;height:15px;background:var(--amber);
-  vertical-align:-2px;animation:blink 1s steps(2) infinite
+.cwrap{position:relative}
+.cwrap pre{padding-right:48px}
+.copyb{
+  position:absolute; top:8px; right:8px; width:30px; height:30px;
+  border-radius:8px; border:1px solid var(--rule); background:var(--panel);
+  color:var(--dim); cursor:pointer; opacity:.7;
+  display:flex; align-items:center; justify-content:center;
+  transition:opacity .18s ease, color .18s ease, border-color .18s ease;
 }
+.copyb:hover{opacity:1;color:var(--ink);border-color:var(--faint)}
+.copyb .i{width:16px;height:16px}
+.copyb.done{color:var(--mint);border-color:var(--mint);opacity:1}
+.cursor{
+  display:inline-block; width:7px; height:15px; background:var(--amber);
+  vertical-align:-2px; border-radius:1px;
+  animation:pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.15}}
 @keyframes blink{50%{opacity:0}}
+.wordi{
+  font:500 13px/1 var(--mono); color:var(--amber); margin-left:8px;
+  letter-spacing:.02em; transition:opacity .22s ease;
+}
+.wordi.out{opacity:0}
 body.waiting .cursor{display:none}   /* pi no escribe: te espera */
 
 /* ---------- tool rows ---------- */
@@ -230,10 +251,23 @@ body.waiting .cursor{display:none}   /* pi no escribe: te espera */
   padding:7px var(--gut); display:flex; align-items:center; gap:10px;
   font:500 12px/1 var(--mono);
 }
-.readout .w{color:var(--amber);letter-spacing:.03em;flex:1;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  transition:opacity .2s ease}
-.readout .w.out{opacity:0}
+.ctx{
+  flex:1; min-width:0; height:22px; border-radius:11px;
+  background:var(--raise); border:1px solid var(--rule);
+  position:relative; overflow:hidden;
+}
+.ctx i{
+  position:absolute; left:0; top:0; bottom:0; width:0;
+  background:var(--mint); opacity:.32; border-radius:11px;
+  transition:width .45s cubic-bezier(.32,.72,0,1), background-color .3s;
+}
+.ctx.hot i{background:var(--amber)}
+.ctx.max i{background:var(--coral)}
+.ctx span{
+  position:relative; display:block; text-align:center;
+  font:500 11px/20px var(--mono); color:var(--ink);
+  white-space:nowrap; overflow:hidden;
+}
 .stopb{
   background:none; border:1px solid var(--stop); color:var(--coral);
   border-radius:999px; font:500 11px/1 var(--mono); padding:5px 10px;
@@ -242,18 +276,15 @@ body.waiting .cursor{display:none}   /* pi no escribe: te espera */
 .stopb .i{width:15px;height:15px}
 .stopb:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 .readout .sec{color:var(--faint);font-variant-numeric:tabular-nums}
-.bar{display:flex;gap:2px;align-items:center}
-.bar i{width:4px;height:11px;background:var(--rule);border-radius:1px}
-.bar i.lit{background:var(--mint)}
-.bar i.hot{background:var(--amber)}
-.bar i.max{background:var(--coral)}
-.bar .pct{color:var(--faint);margin-left:5px;font-variant-numeric:tabular-nums}
+.readout .sec{flex:none}
 
 /* ---------- composer ---------- */
 footer{
   border-top:1px solid var(--rule); background:var(--surface);
-  padding:9px var(--gut) calc(9px + env(safe-area-inset-bottom));
+  /* --kb es el alto que ocupa el teclado del movil */
+  padding:9px var(--gut) calc(9px + env(safe-area-inset-bottom) + var(--kb,0px));
   position:relative;
+  transition:padding-bottom .18s ease;
 }
 
 .godown{
@@ -585,9 +616,8 @@ body,.plate,.readout,footer,.tool,.ask,.pick,.segb{
 <main id="main"><div class="wrap" id="feed"></div></main>
 
 <div class="readout" id="readout" hidden>
-  <span class="w" id="word"></span>
   <span class="sec" id="secs">0s</span>
-  <span class="bar" id="bar"></span>
+  <div class="ctx" id="bar"><i></i><span></span></div>
   <button class="stopb" id="stopBtn"><span data-t="stop"></span></button>
 </div>
 
@@ -638,6 +668,9 @@ let firstSnap = true;
 const ICONS = {
   remove:"M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z",
   session:"M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z",
+  copy:"M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z",
+  check:"M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z",
+  lang:"M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z",
   settings:"M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z",
   menu:"M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z",
   add:"M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z",
@@ -712,14 +745,18 @@ function md(src){
   const store = [];
   const held = String(src).replace(/```[\s\S]*?```|`[^`\n]+`/g, m => {
     store.push(m.startsWith("```")
-      ? "<pre><code>"+esc(m.replace(/^```[\w+-]*\n?|```$/g,"").replace(/\n$/,""))+"</code></pre>"
+      ? `<div class="cwrap"><pre><code>`
+        + esc(m.replace(/^```[\w+-]*\n?|```$/g,"").replace(/\n$/,""))
+        + `</code></pre><button class="copyb" type="button"`
+        + ` aria-label="copy">${ico("copy")}</button></div>`
       : "<code>"+esc(m.slice(1,-1))+"</code>");
     return "\u0000"+(store.length-1)+"\u0000";
   });
   return block(esc(held))
     .replace(/\u0000(\d+)\u0000/g, (_,i) => store[i])
-    .replace(/<p>(<pre>[\s\S]*?<\/pre>)<\/p>/g, "$1")
-    .replace(/<br>(<pre>)/g, "$1").replace(/(<\/pre>)<br>/g, "$1");
+    .replace(/<p>(<div class="cwrap">[\s\S]*?<\/div>)<\/p>/g, "$1")
+    .replace(/<br>(<div class="cwrap">)/g, "$1")
+    .replace(/(<\/div>)<br>/g, "$1");
 }
 
 /* ---------- rendering ---------- */
@@ -752,14 +789,17 @@ function render(item){
   return el;
 }
 
+const tail = it => it.streaming
+  ? `<span class="cursor"></span><span class="wordi">${esc(curWord)}</span>`
+  : "";
+
 function html(it){
   if(it.kind === "user")
     return `<div class="msg mine"><div class="blk blk-you">`
          + (it.steer ? `<span class="tag">steer</span>` : "")
          + `${esc(it.text)}</div></div>`;
   if(it.kind === "assistant")
-    return `<div class="said" data-body>${md(it.text)}`
-         + `${it.streaming?'<span class="cursor"></span>':""}</div>`;
+    return `<div class="said" data-body>${md(it.text)}${tail(it)}</div>`;
   if(it.kind === "note")
     return `<div class="note ${it.level||""}">`
          + ico(NOTE_ICON[it.level] || "info")
@@ -797,6 +837,37 @@ function html(it){
   }
   return "";
 }
+
+/* delegado: los bloques se rehacen en cada token del streaming */
+function legacyCopy(text){
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand("copy"); } catch(e){}
+  ta.remove();
+  return ok;
+}
+feed.addEventListener("click", async e=>{
+  const b = e.target.closest(".copyb");
+  if(!b) return;
+  const code = b.parentNode.querySelector("code");
+  const text = code ? code.textContent : "";
+  let ok = false;
+  try {                       // sin https no hay clipboard api: hay respaldo
+    await navigator.clipboard.writeText(text);
+    ok = true;
+  } catch(err){ ok = legacyCopy(text); }
+  b.innerHTML = ico(ok ? "check" : "copy");
+  b.classList.toggle("done", ok);
+  if(!ok) note(T("copyFailed"));      // callarse seria peor que fallar
+  setTimeout(()=>{
+    b.innerHTML = ico("copy");
+    b.classList.remove("done");
+  }, 1500);
+});
 
 function wireAsk(el, it){
   el.querySelectorAll(".opt").forEach(b=>b.onclick=()=>{
@@ -848,19 +919,20 @@ function paint(){
   }
   if(busy){ showWord(false); secs(); }
 
-  const c = state.context, bar = $("#bar");
-  if(c && c.percent != null){
-    const n = 12, lit = Math.round(n * c.percent / 100);
-    bar.innerHTML = Array.from({length:n},(_,i)=>{
-      const k = i < lit ? (c.percent > 85 ? "max" : c.percent > 60 ? "hot" : "lit") : "";
-      return `<i class="${k}"></i>`;
-    }).join("") + `<span class="pct">${c.percent}%</span>`;
-  } else bar.innerHTML = "";
+  paintCtx();
 }
 function title(name){
-  $("#title").firstElementChild.textContent =
-    name ? "pi-remote | " + name : "pi-remote";
-  marqueeAll($("#title").parentNode);
+  const el = $("#title").firstElementChild;
+  const txt = name ? "pi-remote | " + name : "pi-remote";
+  if(el.textContent === txt) return;
+  const done = ()=>{
+    el.textContent = txt;
+    el.classList.remove("out");
+    marqueeAll($("#title").parentNode);
+  };
+  if(!el.textContent) return done();     // primera vez: sin fundido
+  el.classList.add("out");
+  setTimeout(done, 220);
 }
 function emptyState(has){
   let el = $("#nostate");
@@ -945,6 +1017,7 @@ function menuModal(title, rows){
     `<button class="mrow${r.bad ? " bad" : ""}" data-i="${i}">`
     + (r.icon ? ico(r.icon) : "") + `<span>${esc(r.label)}</span></button>`
   ).join(""), null);
+  $("#modalOk").textContent = T("close");   // aqui solo cierra
   $("#modalBody").querySelectorAll(".mrow").forEach(b=>{
     b.onclick = () => { closeModal(); rows[+b.dataset.i].run(); };
   });
@@ -1050,6 +1123,17 @@ function closeModal(){ $("#modal").classList.remove("open"); }
 $("#modalNo").onclick = closeModal;
 $("#modal").onclick = e => { if(e.target.id === "modal") closeModal(); };
 
+const LANG_NAME = {en:"English", es:"Espa\u00f1ol"};
+function langModal(){
+  menuModal(T("language"), LANGS.map(l => ({
+    icon: l === lang() ? "check" : null,
+    label: LANG_NAME[l],
+    run: () => {                       // elegir cierra y aplica, sin aceptar
+      setLang(l);
+      if($("#sheet").classList.contains("open")) menuSheet();
+    }})));
+}
+
 function helpModal(){
   const rows = CMDS.map(c =>
     `<dt>/${esc(c.n)}${c.arg ? " &lt;" + esc(argOf(c)) + "&gt;" : ""}</dt>`
@@ -1068,6 +1152,20 @@ function aboutModal(){
     + `<dt>Material Icons</dt><dd>Apache License 2.0</dd>`
     + `<dt>IBM Plex Mono</dt><dd>SIL Open Font License 1.1</dd>`
     + `<dt>Plus Jakarta Sans</dt><dd>SIL Open Font License 1.1</dd></dl>`);
+}
+const kilo = v => v >= 1000 ? Math.round(v / 1000) + "k" : String(v || 0);
+function paintCtx(){
+  const c = state.context, bar = $("#bar");
+  const fill = bar.firstElementChild, label = bar.lastElementChild;
+  if(!c || c.percent == null){
+    fill.style.width = "0%"; label.textContent = ""; return;
+  }
+  const p = Math.max(0, Math.min(100, c.percent));
+  fill.style.width = p + "%";
+  bar.classList.toggle("hot", p > 60 && p <= 85);
+  bar.classList.toggle("max", p > 85);
+  label.textContent = p.toFixed(2) + "%"
+    + (c.tokens != null ? "  |  " + kilo(c.tokens) + "/" + kilo(c.window) : "");
 }
 function secs(){
   if(!state.startedAt) return;
@@ -1115,7 +1213,7 @@ function connect(){
       el.__item = el.__item || {kind:"assistant", text:"", streaming:true, id:m.id};
       el.__item.text += m.delta;
       const body = el.querySelector("[data-body]");
-      if(body) body.innerHTML = md(el.__item.text) + '<span class="cursor"></span>';
+      if(body) body.innerHTML = md(el.__item.text) + tail(el.__item);
       else el.innerHTML = html(el.__item);
       keepDown(was);
     }
@@ -1292,6 +1390,8 @@ const STR = {
       removeQ:"Remove this project from the list?",
       removeB:"The folder and its sessions stay where they are.",
       loading:"loading...", noSessionsYet:"no sessions yet",
+      copyFailed:"the browser would not let me copy",
+      close:"close",
       openSession:"open", deleteSession:"remove session",
       deleteQ:"Remove this session?",
       deleteB:"It is moved to a _trash folder next to it, not erased.",
@@ -1319,6 +1419,8 @@ const STR = {
       removeQ:"\u00bfQuitar este proyecto de la lista?",
       removeB:"La carpeta y sus sesiones se quedan donde est\u00e1n.",
       loading:"cargando...", noSessionsYet:"a\u00fan sin sesiones",
+      copyFailed:"el navegador no ha dejado copiar",
+      close:"cerrar",
       openSession:"abrir", deleteSession:"quitar sesi\u00f3n",
       deleteQ:"\u00bfQuitar esta sesi\u00f3n?",
       deleteB:"Se mueve a una carpeta _trash al lado, no se borra.",
@@ -1483,11 +1585,11 @@ function pickWord(){
   curWord = w;
 }
 function showWord(fade){
-  const el = $("#word"), txt = state.tool || curWord;
-  if(el.textContent === txt) return;
-  if(!fade){ el.textContent = txt; return; }
+  const el = feed.querySelector(".wordi");
+  if(!el || el.textContent === curWord) return;
+  if(!fade){ el.textContent = curWord; return; }
   el.classList.add("out");
-  setTimeout(()=>{ el.textContent = txt; el.classList.remove("out"); }, 200);
+  setTimeout(()=>{ el.textContent = curWord; el.classList.remove("out"); }, 220);
 }
 
 /* ---------- theme ---------- */
@@ -1540,14 +1642,13 @@ function menuSheet(){
 
   head("appearance");
   segment(THEMES, themePref(), setTheme, t => T(t));
-  head("language");
-  segment(LANGS, lang(), setLang, l => l === "es" ? "Espa\u00f1ol" : "English");
 
   const act = (key, icon, run) => body.appendChild(pickBtn({
     icon: icon, label: T(key),
     run: () => { $("#sheet").classList.remove("open"); run(); }}));
   const h = document.createElement("div");
   h.className = "shead"; h.textContent = "\u00a0"; body.appendChild(h);
+  act("language", "lang", langModal);
   act("help", "help", helpModal);
   act("about", "info", aboutModal);
   act("donate", "donate", () => PAYPAL ? open(PAYPAL, "_blank", "noopener")
@@ -1578,6 +1679,18 @@ function marqueeAll(root){
 }
 if(document.fonts) document.fonts.ready.then(()=> marqueeAll());
 addEventListener("resize", ()=> marqueeAll());
+
+/* el teclado no encoge la ventana, solo el viewport visual */
+if(window.visualViewport){
+  const vv = window.visualViewport;
+  const fitKeyboard = ()=>{
+    const gap = Math.max(0, innerHeight - vv.height - vv.offsetTop);
+    document.documentElement.style.setProperty("--kb", Math.round(gap) + "px");
+  };
+  vv.addEventListener("resize", fitKeyboard);
+  vv.addEventListener("scroll", fitKeyboard);
+  fitKeyboard();
+}
 STILL.addEventListener("change", ()=> marqueeAll());
 
 const mqSpan = (cls, text) =>
