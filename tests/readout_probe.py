@@ -110,7 +110,7 @@ async def main():
                           " !!$('#modalNo') && $('#modalNo').hidden]")
             print("  idioma: segmentos en el menu=%s dialogo=%s %s"
                   % (seg, lm[0], lm[1]))
-            checks.append(("ya no es un segmento", seg == 1))
+            checks.append(("ya no quedan segmentos", seg == 0))
             checks.append(("es un dialogo con los idiomas",
                            lm[0] and len(lm[1]) == 2))
 
@@ -124,6 +124,67 @@ async def main():
             checks.append(("elegir cierra solo", aft[0] is False))
             checks.append(("y aplica el idioma",
                            aft[1] == "en" and aft[3] == "menu"))
+
+            # el tema se previsualiza al tocarlo, pero pide Aceptar
+            await js("closeModal(); setTheme('dark'); menuSheet(); themeModal()")
+            await asyncio.sleep(0.4)
+            rows = await js("[...document.querySelectorAll('#modalBody .mrow')]"
+                            ".map(b=>b.dataset.t)")
+            await js("[...document.querySelectorAll('#modalBody .mrow')]"
+                     ".find(b=>b.dataset.t==='klaude').click()")
+            await asyncio.sleep(0.3)
+            preview = await js("[document.documentElement.dataset.theme,"
+                               " $('#modal').classList.contains('open'),"
+                               " localStorage.getItem('pi.theme')]")
+            await js("$('#modalNo').click()")
+            await asyncio.sleep(0.4)
+            cancelled = await js("[document.documentElement.dataset.theme,"
+                                 " $('#modal').classList.contains('open')]")
+            await js("menuSheet(); themeModal()")
+            await asyncio.sleep(0.3)
+            await js("[...document.querySelectorAll('#modalBody .mrow')]"
+                     ".find(b=>b.dataset.t==='klaude').click();"
+                     " $('#modalOk').click()")
+            await asyncio.sleep(0.4)
+            accepted = await js("[document.documentElement.dataset.theme,"
+                                " localStorage.getItem('pi.theme'),"
+                                " getComputedStyle(document.body)"
+                                ".backgroundColor]")
+            print("  temas: %s" % rows)
+            print("  al tocar Klaude: %s abierto=%s guardado=%r"
+                  % (preview[0], preview[1], preview[2]))
+            print("  al cancelar    : %s" % cancelled[0])
+            print("  al aceptar     : %s guardado=%r fondo=%s"
+                  % (accepted[0], accepted[1], accepted[2]))
+
+            # el tamano del texto
+            await js("closeModal(); menuSheet()")
+            await asyncio.sleep(0.3)
+            size = await js("(() => {"
+                            " const i = document.querySelector('.track input');"
+                            " i.value = 6; i.dispatchEvent(new Event('input'));"
+                            " return [getComputedStyle(document.documentElement)"
+                            ".getPropertyValue('--chat-size').trim(),"
+                            " localStorage.getItem('pi.size'),"
+                            " document.querySelectorAll('.fsize .a').length];"
+                            "})()")
+            print("  tamano al 6: %s guardado=%r letras=%s" % tuple(size))
+
+            checks += [
+                ("cuatro temas, Klaude incluido",
+                 rows == ["auto", "light", "dark", "klaude"]),
+                ("tocar uno lo previsualiza sin cerrar ni guardar",
+                 preview[0] == "klaude" and preview[1] is True
+                 and preview[2] == "dark"),
+                ("cancelar lo deshace",
+                 cancelled[0] == "dark" and cancelled[1] is False),
+                ("aceptar lo aplica y lo guarda",
+                 accepted[0] == "klaude" and accepted[1] == "klaude"
+                 and "21, 21, 21" in accepted[2]),
+                ("el tamano del texto se aplica y se guarda",
+                 size[0] == "19px" and size[1] == "6"),
+                ("con una A a cada lado", size[2] == 2),
+            ]
 
             kb = await js("[getComputedStyle(document.querySelector('footer'))"
                           ".paddingBottom,"
