@@ -101,7 +101,52 @@ async def main():
                                " localStorage.getItem('pi.warned')]")
             print("  al volver: oculto=%s marca=%r" % tuple(again))
 
+            await p.js(SEED)        # la recarga de antes vacio el feed
+
+            # el spinner mientras llega el historial
+            await p.js("spinner(true)")
+            await asyncio.sleep(0.2)
+            spin_on = await p.js("[!!$('#spin'),"
+                                 " getComputedStyle($('#spin')).animationName]")
+            await p.js("spinner(false)")
+            await asyncio.sleep(0.1)
+            spin_mid = await p.js("$('#spin') ? [Number(getComputedStyle("
+                                  "$('#spin')).opacity),"
+                                  " $('#spin').classList.contains('out')]"
+                                  " : [null, null]")
+            await asyncio.sleep(0.4)
+            spin_off = await p.js("!!$('#spin')")
+            print("  spinner: aparece=%s gira=%r | al irse opacidad=%s"
+                  " | queda=%s" % (spin_on[0], spin_on[1], spin_mid[0],
+                                   spin_off))
+
+            # los desplegables de las herramientas
+            det = """(() => {
+              const d = document.querySelector('.tool');
+              const b = d.querySelector(':scope > .diff, :scope > pre');
+              return [d.open, getComputedStyle(b).height,
+                      d.classList.contains('moving')];
+            })()"""
+            before = await p.js(det)
+            await p.js("document.querySelector('.tool > summary').click()")
+            await asyncio.sleep(0.09)
+            mid = await p.js(det)
+            await asyncio.sleep(0.4)
+            after = await p.js(det)
+            print("  desplegable: %s %s -> a 90ms %s %s -> %s %s"
+                  % (before[0], before[1], mid[0], mid[1],
+                     after[0], after[1]))
+
             checks += [
+                ("el spinner sale y gira",
+                 spin_on[0] is True and spin_on[1] == "turn"),
+                ("y se va desvaneciendo",
+                 spin_mid[1] is True and 0 <= (spin_mid[0] or 0) < 1),
+                ("sin dejar rastro", spin_off is False),
+                ("el desplegable se cierra animando",
+                 before[0] is True and mid[2] is True
+                 and mid[1] not in ("0px", before[1])),
+                ("y acaba cerrado", after[0] is False),
                 ("solo la edicion lleva cuenta", r[0] == 1),
                 ("suma en verde y resta en rojo",
                  r[1] == "+3" and r[2] == "-2"),

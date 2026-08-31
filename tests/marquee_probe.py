@@ -10,8 +10,8 @@ state = {running:false, waiting:false, alive:true, cwd:"",
   queue:{steering:[],followUp:[]},
   recent:[
     {name:"ESP32S3_lab_devices_controller",
-     path:"C:\\\\proyectos\\\\demo"},
-    {name:"corto", path:"C:\\\\proyectos\\\\demo"}]};
+     path:"C:\\\\proyectos\\\\largo"},
+    {name:"corto", path:"C:\\\\proyectos\\\\corto"}]};
 window.__sent = []; ws.send = s => window.__sent.push(s);
 paint(); openRail();
 """
@@ -45,6 +45,9 @@ async def main():
             await js(SEED)
             await asyncio.sleep(1.0)
 
+            plegado = await js(ROW % 0)
+            await js('toggleProj("C:\\\\proyectos\\\\largo")')
+            await asyncio.sleep(0.7)
             largo = await js(ROW % 0)
             corto = await js(ROW % 1)
             print("  nombre largo : run=%s shift=%s dur=%s %s"
@@ -64,7 +67,9 @@ async def main():
             print("  desplazamientos vistos:", sorted(vistos))
 
             checks = [
-                ("el largo se desplaza", largo[0] is True),
+                ("quieto mientras esta plegado", plegado[0] is False),
+                ("se desplaza al desplegarlo", largo[0] is True),
+                ("el otro sigue quieto", corto[0] is False),
                 ("con recorrido negativo",
                  largo[1].startswith("-") and largo[1].endswith("px")),
                 ("y duracion propia", largo[2].endswith("s")),

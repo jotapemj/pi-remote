@@ -212,6 +212,10 @@ body.waiting .cursor{display:none}   /* pi no escribe: te espera */
 .tool[data-s="done"] .dot{background:var(--mint)}
 .tool[data-s="error"] .dot{background:var(--coral)}
 .tool[data-s="running"] .dot{animation:blink 1.1s steps(2) infinite}
+.tool > pre, .tool > .diff{
+  transition:height .18s cubic-bezier(.32,.72,0,1);
+}
+.tool.moving > pre, .tool.moving > .diff{overflow:hidden}
 .tool pre{
   margin:0; padding:10px 11px; border-top:1px solid var(--rule);
   font:400 12px/1.5 var(--mono); color:var(--dim);
@@ -462,6 +466,16 @@ textarea:focus{outline:none;border-color:var(--faint)}
 }
 .usebtn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .pick small.mk{color:var(--amber)}
+.spin{
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  width:34px; height:34px; border-radius:50%;
+  border:3px solid var(--rule); border-top-color:var(--amber);
+  animation:turn .8s linear infinite;
+  transition:opacity .25s ease;
+}
+.spin.out{opacity:0}
+@keyframes turn{to{transform:translate(-50%,-50%) rotate(360deg)}}
+
 .empty{
   position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
   width:min(86%,300px); background:none; cursor:pointer;
@@ -888,6 +902,32 @@ function legacyCopy(text){
   ta.remove();
   return ok;
 }
+/* los <details> nativos abren de golpe: se anima la altura a mano */
+feed.addEventListener("click", e=>{
+  const sum = e.target.closest(".tool > summary");
+  if(!sum) return;
+  const det = sum.parentNode;
+  const body = det.querySelector(":scope > pre, :scope > .diff");
+  if(!body || STILL.matches) return;          // sin cuerpo, comportamiento normal
+  e.preventDefault();
+  const done = () => {
+    det.classList.remove("moving");
+    body.style.height = "";
+  };
+  det.classList.add("moving");
+  if(det.open){
+    body.style.height = body.scrollHeight + "px";
+    requestAnimationFrame(()=>{ body.style.height = "0px"; });
+    setTimeout(()=>{ det.open = false; done(); }, 190);
+  } else {
+    det.open = true;
+    const h = body.scrollHeight;
+    body.style.height = "0px";
+    requestAnimationFrame(()=>{ body.style.height = h + "px"; });
+    setTimeout(done, 190);
+  }
+});
+
 feed.addEventListener("click", async e=>{
   const b = e.target.closest(".copyb");
   if(!b) return;
@@ -998,9 +1038,31 @@ function paintWarning(){
   try { localStorage.setItem("pi.warned", "1"); } catch(e){}
   bar.hidden = false;
 }
+/* el historial tarda un instante en llegar: sin esto la pantalla
+   se queda en blanco y parece que no hay nada */
+let spinTimer = null;
+function spinner(on){
+  clearTimeout(spinTimer);
+  let el = $("#spin");
+  if(!on){
+    if(!el) return;
+    el.classList.add("out");
+    setTimeout(()=>{ if(el.parentNode) el.remove(); }, 260);
+    return;
+  }
+  if(el) return;
+  el = document.createElement("div");
+  el.id = "spin"; el.className = "spin";
+  main.appendChild(el);
+  spinTimer = setTimeout(()=> spinner(false), 8000);   // por si nunca llega
+}
+
 function emptyState(has){
   let el = $("#nostate");
-  if(has || feed.children.length){ if(el) el.remove(); return; }
+  if(has || feed.children.length || $("#spin")){
+    if(el) el.remove();
+    return;
+  }
   if(!el){
     el = document.createElement("button");
     el.id = "nostate"; el.className = "empty";
@@ -1066,12 +1128,14 @@ async function toggleProj(path){
   if(openProj === path){            // solo la clase: repintar mata la
     openProj = "";                  // transicion, el nodo naceria ya abierto
     g.classList.remove("open");
+    marqueeAll($("#rail"));
     return;
   }
   document.querySelectorAll(".pgroup.open")
     .forEach(x => x.classList.remove("open"));
   openProj = path;
   g.classList.add("open");
+  marqueeAll($("#rail"));            // arranca el suyo, para el del anterior
   if(sessCache[path]){ fillSubs(g, path); return; }   // repinta lo cacheado
   const list = await fetchSessions(path);
   sessCache[path] = list;
@@ -1265,6 +1329,7 @@ function connect(){
         jumpTo(goEnd ? main.scrollHeight : stay);
         feed.classList.remove("nofx");
         goDown();
+        spinner(false);              // ya hay contenido que ensenar
       });
     }
     else if(m.type === "item") render(m.item);
@@ -1289,6 +1354,7 @@ function connect(){
     else if(m.type === "cleared"){
       feed.innerHTML=""; nodes.clear();
       if(state.cwd) delete sessCache[state.cwd];   // pudo nacer una sesion
+      spinner(true);
       paint();
     }
     else if(m.type === "rpc") onRpc(m);
@@ -1738,6 +1804,13 @@ const STILL = matchMedia("(prefers-reduced-motion: reduce)");
 function marquee(el){
   const inner = el.firstElementChild;
   if(!inner) return;
+  // en la barra lateral solo se mueve el proyecto desplegado: cuatro
+  // textos deslizandose a la vez marean mas de lo que ayudan
+  const group = el.closest(".pgroup");
+  if(group && !group.classList.contains("open")){
+    el.classList.remove("run");
+    return;
+  }
   const over = inner.scrollWidth - el.clientWidth;
   if(over > 3 && !STILL.matches){
     el.style.setProperty("--mq-shift", -(over + 4) + "px");
