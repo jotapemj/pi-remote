@@ -1,32 +1,48 @@
 # pi-remote
 
-Two ways to drive the [pi coding agent](https://pi.dev) from your phone:
-a Telegram bot and a self-hosted web app. Both wrap `pi --mode rpc` and speak
-its JSONL protocol, so the agent runs on your machine and keeps its session.
+Drive the [pi coding agent](https://pi.dev) from your phone, on **native
+Windows**, with nothing in between. One Python process wraps `pi --mode rpc`
+and serves a web app over your tailnet. No daemon, no Unix socket, no relay,
+no third party: your browser talks to your own machine.
 
-Both handle guardrail prompts. When an extension asks whether pi may run a
-command or touch a file outside the workspace, the question reaches you with
-its real options, and your answer goes back to the agent.
+<!-- CAPTURA 1 — la principal, la que se ve en GitHub sin hacer scroll.
+     Un turno completo en el móvil, tema oscuro: tu burbuja arriba a la
+     derecha, la respuesta a ancho completo con un bloque de código, una
+     fila de herramienta y, abajo, la tarjeta ámbar de permiso.
+     Ancho ~400px. -->
 
-| | `pi_telegram_bridge.py` | `pi_web_bridge.py` |
+> **Whoever reaches this port can run commands on your machine.** There is no
+> sandbox: the bridge starts a real agent in a real folder. Set `PI_WEB_TOKEN`,
+> and only expose it inside your tailnet. Read [Security](#security) before
+> leaving it running.
+
+## Why this exists
+
+The agent has to run where the code is. If your code lives on Windows, the
+existing options do not fit:
+
+| | runs on native Windows | transcript stays home |
 |---|---|---|
-| Setup | a bot token, nothing to host | one Python process |
-| Reach | anywhere Telegram works | your tailnet or LAN |
-| Data | transcript passes through Telegram | never leaves your network |
-| Streaming | reply arrives when the turn ends | token by token |
-| Deps | `requests` | `fastapi`, `uvicorn` |
+| [pi-web](https://github.com/jmfederico/pi-web) | no, WSL only | yes |
+| [remote-pi](https://github.com/jacobaraujo7/remote_pi) | needs a relay | self-hosted relay |
+| [pi-remote-control](https://github.com/CleverCloud/pi-remote-control) | via a hosted relay | no |
+| Telegram bridges | yes | no |
+| **this** | **yes** | **yes** |
 
-## Web bridge
+The ones that keep everything at home assume a daemon plus a Unix domain
+socket, which is exactly what Windows does not have.
+
+## Install
 
 ```bash
-pip install fastapi "uvicorn[standard]"
-cd /path/to/your/project
+pip install -r requirements.txt
+cd C:\path\to\your\project
 python pi_web_bridge.py
 ```
 
 Open `http://<your-machine>:8770`. Over Tailscale, use the tailnet name.
-Keep the `static/` folder next to the script: it holds the page, the icons
-and the fonts, all served locally so the page never calls out to anyone.
+Keep the `static/` folder next to the script: it holds the page, the icons and
+the fonts, all served locally so the page never calls out to anyone.
 
 | Variable | Default | Meaning |
 |---|---|---|
@@ -41,63 +57,128 @@ and the fonts, all served locally so the page never calls out to anyone.
 | `PI_WEB_STATE` | `state.json` | where recent projects are kept |
 | `PI_WEB_LOG` | `bridge.log` | log file when there is no console |
 
-Without `PI_WEB_TOKEN`, anyone who can reach the port can drive the agent.
-On a tailnet that is usually the point; on a LAN it usually is not.
+## Projects and sessions
 
-## Telegram bridge
+The bridge starts with no project. Pick a folder and it launches pi there;
+the choice is remembered, so after a restart it comes back where you left off.
 
-```bash
-pip install requests
-export TG_TOKEN=...      # from @BotFather
-export TG_CHAT=...       # your numeric chat id
-cd /path/to/your/project
-python pi_telegram_bridge.py
-```
+<!-- CAPTURA 2 — la barra lateral abierta con tres o cuatro proyectos, uno
+     de ellos desplegado mostrando "sesión nueva" en ámbar y sus sesiones
+     con fecha. Usa nombres genéricos, no los de tus proyectos reales. -->
 
-`python pi_telegram_bridge.py --botfather` prints a command list you can paste
-into BotFather's `/setcommands`.
+- **Tap a project** to unfold its sessions. Tap a session to open exactly that
+  one; tap *new session* to start a fresh one in that folder.
+- **Hold a project or a session** for a dialog with its actions.
+- Removing a session does not delete it: pi has no delete over RPC, so the
+  `.jsonl` is moved to a `_trash` folder beside it. The open session is
+  refused.
 
-The bridge only accepts messages from `TG_CHAT`. Do not remove that check:
-whoever can message the bot can run shell commands on your machine.
+<!-- CAPTURA 3 — el selector de carpetas: tarjetas desde C:\Users, con la
+     flecha de subir arriba y el botón ámbar "usar esta carpeta". -->
+
+Opening a project rebuilds the transcript from pi's own `get_messages`, so the
+history is the real session on disk, not something kept in memory.
+
+## Permission dialogs
+
+This is the part worth understanding, because it is where a remote agent
+becomes safe to use.
+
+pi ships **no permission prompts of its own**. Without a guardrails extension
+installed, the agent runs whatever it decides to run. With one, the extension
+asks, and that question arrives here as an `extension_ui_request` that
+**blocks the turn until you answer** — indefinitely, since `pi-guardrails`
+sets no timeout.
+
+<!-- CAPTURA 4 — la tarjeta de permiso ampliada: cabecera "pi pregunta",
+     el título de la extensión, el comando en monoespaciada, y los botones
+     con las opciones reales. Y una segunda, ya respondida, con el check
+     verde y "respondido: permitir una vez". -->
+
+Three things that are easy to get wrong, and that this bridge handles:
+
+- **A permission is not yes or no.** A `select` dialog carries the extension's
+  real options — allow once, allow for the session, deny — and they are shown
+  as they come, never invented.
+- **While pi waits for you it is not working.** The readout bar disappears and
+  leaves the screen to the approval card, so a blocked turn never looks like a
+  busy one.
+- **`notify` and `setStatus` need no answer** and are shown as plain notes.
+
+The four dialog kinds — `select`, `confirm`, `input`, `editor` — are all
+answered from the browser.
+
+<!-- CAPTURA 5 — la barra de lectura mientras genera: la palabra rotatoria
+     junto al cursor dentro del mensaje, y abajo el medidor de contexto con
+     "56.79% | 56k/131k" y el botón de parar. -->
+
+## Commands
+
+Type `/` or tap the button inside the composer. Twenty-two commands, filtered
+as you type, with keyboard navigation on a desktop browser.
+
+<!-- CAPTURA 6 — el diálogo de ayuda con la lista de comandos y su
+     descripción, sobre el fondo desenfocado. -->
+
+The ones that cannot be undone — `/compact`, `/clearq`, `/new` — ask first.
+`/bash` runs a command **skipping the model entirely**, and with it the
+guardrails: it is your hand, not the agent's.
+
+## Look and language
+
+Two themes and two languages (English and Spanish), picked from the menu and
+remembered per browser. Fonts, icons and everything else are served by the
+bridge, so the page works on a tailnet with no route to the internet.
+
+<!-- CAPTURA 7 — el menú de ajustes: apariencia con auto/claro/oscuro, la
+     tarjeta de idioma, y ayuda / acerca de / donar. Una en cada tema, lado
+     a lado, estaría bien. -->
+
+## Security
+
+- Without `PI_WEB_TOKEN` anyone who can reach the port can drive the agent.
+  On a tailnet that is usually the point; on a LAN it usually is not.
+- The WebSocket checks `Origin`, because WebSockets ignore the same-origin
+  policy: any page you visit could otherwise open one against your tailnet.
+  Behind a proxy such as `tailscale serve` the origin no longer matches the
+  host, so set `PI_WEB_ORIGINS`.
+- The page ships a strict CSP, `nosniff` and `no-referrer`, and the token is
+  compared in constant time.
+- pi ships no permission prompts of its own. Install a guardrails extension.
 
 ## How it works
+
+```
+browser  <--WebSocket-->  pi_web_bridge.py  <--stdin/stdout JSONL-->  pi --mode rpc
+```
 
 The script spawns `pi --mode rpc` and owns its stdin and stdout. Events
 (`agent_start`, `message_update`, `tool_execution_*`, `agent_settled`) become
 messages to you; what you send becomes `prompt`, `steer` or `abort` commands.
-Guardrail dialogs arrive as `extension_ui_request` and block the turn until an
-`extension_ui_response` with the matching id comes back.
 
-Sessions are pi's own JSONL files under `~/.pi/agent/sessions/`, so a session
-started in the terminal can be resumed here and the other way round. One
-process at a time per session file: two writers corrupt the history.
-
-## Caveats
-
-- The bridge starts its own agent. It cannot attach to a pi already running in
-  a terminal, because a process has one stdin.
-- The WebSocket checks `Origin`, because WebSockets ignore the same-origin
-  policy. Behind a proxy such as `tailscale serve` the origin no longer matches
-  the host, so set `PI_WEB_ORIGINS`.
-- pi cannot delete sessions over RPC. "Remove session" moves the `.jsonl` into a
-  `_trash` folder beside it; nothing is erased, and the open session is refused.
-- pi ships no permission prompts of its own. Install a guardrails extension, or
-  the bridge will happily run whatever the model decides to run.
-- `/bash` and the shell command in the web menu bypass the model entirely, and
-  the guardrail extensions with it.
-- `session_dir()` locates pi's folder for the current directory by normalising
-  names. If session listing comes up empty, the Telegram bridge has `/sessdir`
-  to show what it found.
+It cannot attach to a pi already running in a terminal: a process has one
+stdin. What is shared is the session file on disk, so a session started in the
+terminal can be opened here and the other way round. One writer at a time.
 
 ## Testing without a model
 
-`fake_pi.py` speaks enough of the RPC protocol to exercise both bridges:
-streaming, a tool call, a permission dialog that blocks until answered, and
-`get_messages` for history.
+`tests/fake_pi.py` speaks enough of the RPC protocol to exercise everything:
+streaming, tool calls, a permission dialog that blocks until answered, and
+`get_messages` for history. No API key and no model needed.
 
-`test_web_bridge.py` and `test_palette.js` still point at a Linux sandbox and do
-not run on Windows yet.
+```bash
+python tests/run.py            # everything, about 80 seconds
+python tests/run.py rail       # just the ones matching "rail"
+```
+
+Sixteen checks: the page is driven in a real headless Chrome through the
+DevTools protocol, which is how the animation, contrast, layout and security
+checks are measured rather than assumed. Chrome or Edge is found
+automatically; point `CHROME` at it otherwise.
 
 ## License
 
-MIT.
+MIT. See [LICENSE](LICENSE).
+
+Third-party components: FastAPI (MIT), Uvicorn and Starlette (BSD-3-Clause),
+Material Icons (Apache-2.0), IBM Plex Mono and Plus Jakarta Sans (OFL-1.1).

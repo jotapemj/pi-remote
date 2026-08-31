@@ -1,0 +1,6 @@
+# El puente. Nada mas: el cliente es html plano y las fuentes van dentro.
+fastapi>=0.110
+uvicorn[standard]>=0.27
+
+# Solo para el harness (tests/). El puente no lo necesita.
+# websockets ya viene con uvicorn[standard].

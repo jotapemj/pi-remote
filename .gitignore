@@ -1,6 +1,12 @@
+# bitacora de trabajo, no forma parte del producto
+CLAUDE.md
+
 # lo que el puente escribe mientras corre
 state.json
 bridge.log
+
+# lo que deja el harness al correr
+tests/_*
 
 # python
 __pycache__/

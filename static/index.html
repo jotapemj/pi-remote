@@ -951,12 +951,13 @@ function emptyState(has){
 function openRail(){
   const sc = $("#scrim");
   sc.hidden = false;
-  marqueeAll($("#rail"));         // fuera de pantalla los anchos enganan
   void sc.offsetWidth;              // force layout, or the class lands too soon
   requestAnimationFrame(()=> requestAnimationFrame(()=>{
     sc.classList.add("on");
     $("#rail").classList.add("on");
   }));
+  // a mitad del deslizamiento los anchos aun no valen: medir al terminar
+  setTimeout(()=> marqueeAll($("#rail")), 320);
 }
 function closeRail(){
   $("#rail").classList.remove("on");
