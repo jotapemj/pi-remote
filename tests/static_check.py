@@ -55,6 +55,10 @@ checks = [
     ("boton stop en la barra", 'id="stopBtn"' in body and ".stopb{" in css),
     ("nombre de carpeta, no la ruta entera",
      "CWD.split(/[\\\\/]/)" in h),
+    ("version en un solo sitio",
+     (ROOT / "version.txt").is_file()
+     and 'state.version' in h and "VERSION" in
+     io.open(ROOT / "pi_web_bridge.py", encoding="utf-8").read()),
     ("iconos material embebidos", "const ICONS = {" in h),
     ("sin svg dibujados a mano", "stroke-linecap" not in h),
     ("licencia apache citada", "Apache License 2.0" in h),

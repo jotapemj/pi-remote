@@ -56,6 +56,16 @@ LOG_FILE = os.environ.get("PI_WEB_LOG", "")
 # el harness apunta esto a otro sitio: sus pruebas no deben
 # tocar los proyectos que el usuario tiene guardados
 STATE_FILE = Path(os.environ.get("PI_WEB_STATE") or HERE / "state.json")
+
+def _version():
+    """Fuente unica: version.txt en la raiz."""
+    try:
+        return (HERE / "version.txt").read_text(encoding="utf-8").strip()
+    except OSError:
+        return "0.0.0"
+
+
+VERSION = _version()
 START_CWD = os.environ.get("PI_WEB_CWD", "")
 
 # pythonw.exe no da consola: sys.stdout es None y todo print() revienta.
@@ -354,7 +364,7 @@ class Bridge:
             "alive": True, "cwd": "", "waiting": False, "recent": [],
             "sessionFile": None,
             # como servicio nadie lee la consola: el aviso va a la pantalla
-            "open": not TOKEN,
+            "open": not TOKEN, "version": VERSION,
         }
         self.pending = OrderedDict()         # dialog id -> item id
         self.cur = None                      # assistant item being streamed
@@ -845,7 +855,7 @@ bridge: "Bridge | None" = None
 async def lifespan(app: FastAPI):
     global bridge
     bridge = Bridge(asyncio.get_running_loop())
-    print(f"pi web bridge on http://localhost:{PORT}  "
+    print(f"pi-remote {VERSION} on http://localhost:{PORT}  "
           f"(project: {bridge.cwd or 'none yet'})")
     if not TOKEN:
         print("no PI_WEB_TOKEN set: anyone on this network can drive pi")

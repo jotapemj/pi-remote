@@ -1210,6 +1210,7 @@ const PAYPAL = "";                 // drop the donation link here when ready
 function aboutModal(){
   modal(T("about"),
     `<p><b>pi-remote</b></p><p>Jotapeveloper 2026 &middot; MIT</p>`
+    + `<p style="color:var(--faint)">v${esc(state.version || "?")}</p>`
     + `<p style="margin-top:12px"><b>${esc(T("access"))}:</b> `
     + `${esc(state.open === true ? T("noToken") : T("withToken"))}</p>`
     + `<p style="margin-top:14px"><b>${esc(T("thirdParty"))}</b></p><dl>`
