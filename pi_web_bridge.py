@@ -24,6 +24,7 @@ import asyncio
 import json
 import os
 import re
+import difflib
 import hmac
 import shutil
 import subprocess
@@ -66,6 +67,7 @@ if LOG_FILE or sys.stdout is None:
 LOG_CAP = 400            # transcript items kept for reconnecting clients
 RECENT_CAP = 12          # projects remembered for the sidebar
 HISTORY_CAP = 150        # messages replayed when a session opens
+DIFF_CAP = 400           # diff lines kept per edit
 
 
 # Commands a browser may forward straight to pi. Everything else is refused.
@@ -218,6 +220,31 @@ def list_sessions(cwd, limit=20):
              "mtime": int(f.stat().st_mtime)} for f in files[:limit]]
 
 
+def edit_diff(args):
+    """Las lineas que cambia una llamada a `edit`.
+
+    Se calcula de los propios argumentos, que traen `oldText` y `newText`.
+    El resultado de pi tambien lleva un diff, pero su forma no esta
+    documentada y las extensiones la cambian; esto no depende de eso.
+    """
+    lines, added, removed = [], 0, 0
+    for e in args.get("edits") or []:
+        old = (e.get("oldText") or "").splitlines()
+        new = (e.get("newText") or "").splitlines()
+        for ln in difflib.unified_diff(old, new, lineterm="", n=2):
+            if ln.startswith(("---", "+++")):
+                continue
+            if ln.startswith("+"):
+                added += 1
+            elif ln.startswith("-"):
+                removed += 1
+            if len(lines) < DIFF_CAP:
+                lines.append(ln)
+    if not (added or removed):
+        return None
+    return {"lines": lines, "added": added, "removed": removed}
+
+
 def text_of(content):
     """A message body is either a string or a list of typed blocks."""
     if isinstance(content, str):
@@ -326,6 +353,8 @@ class Bridge:
             "context": None, "queue": {"steering": [], "followUp": []},
             "alive": True, "cwd": "", "waiting": False, "recent": [],
             "sessionFile": None,
+            # como servicio nadie lee la consola: el aviso va a la pantalla
+            "open": not TOKEN,
         }
         self.pending = OrderedDict()         # dialog id -> item id
         self.cur = None                      # assistant item being streamed
@@ -524,9 +553,13 @@ class Bridge:
 
         elif t == "tool_execution_start":
             self.state["tool"] = ev.get("toolName")
-            self.push({"kind": "tool", "name": ev.get("toolName"),
-                       "args": ev.get("args"), "status": "running",
-                       "callId": ev.get("toolCallId")})
+            item = {"kind": "tool", "name": ev.get("toolName"),
+                    "args": ev.get("args"), "status": "running",
+                    "callId": ev.get("toolCallId")}
+            diff = edit_diff(ev.get("args") or {})
+            if diff:
+                item.update(diff)
+            self.push(item)
             self.push_state()
 
         elif t == "tool_execution_end":
@@ -669,10 +702,14 @@ class Bridge:
                         add({"kind": "assistant", "text": b["text"],
                              "streaming": False, "t": stamp})
                     elif kind == "toolCall":
-                        calls[b.get("id")] = add({
-                            "kind": "tool", "name": b.get("name"),
-                            "args": b.get("arguments"), "status": "running",
-                            "callId": b.get("id"), "t": stamp})
+                        item = {"kind": "tool", "name": b.get("name"),
+                                "args": b.get("arguments"),
+                                "status": "running",
+                                "callId": b.get("id"), "t": stamp}
+                        diff = edit_diff(b.get("arguments") or {})
+                        if diff:
+                            item.update(diff)
+                        calls[b.get("id")] = add(item)
                     # thinking blocks stay out, same as during a live turn
 
             elif role == "toolResult":

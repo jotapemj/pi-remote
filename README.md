@@ -57,6 +57,50 @@ the fonts, all served locally so the page never calls out to anyone.
 | `PI_WEB_STATE` | `state.json` | where recent projects are kept |
 | `PI_WEB_LOG` | `bridge.log` | log file when there is no console |
 
+## Leave it running
+
+The bridge is a server, not a terminal app, so it does not need a console at
+all. The point is not to recover it after closing the terminal: it is to never
+be a child of one.
+
+**Windows — Task Scheduler.** Create a task, trigger *at log on*, action
+`pythonw.exe` with `C:\path\to\pi_web_bridge.py`, and *start in* the folder
+you want. Use **only when the user is logged on**: the other option puts the
+task in session 0, cut off from the desktop. Add a short delay so Tailscale is
+up first, and tick *restart if the task fails*. With `pythonw.exe` there is no
+console and no black window, and the log goes to `bridge.log`.
+
+**Linux — a systemd user service** in
+`~/.config/systemd/user/pi-remote.service`:
+
+```ini
+[Service]
+ExecStart=/usr/bin/python3 %h/pi-remote/pi_web_bridge.py
+WorkingDirectory=%h/code/your-project
+Restart=always
+Environment=PI_WEB_TOKEN=...
+
+[Install]
+WantedBy=default.target
+```
+
+Then `systemctl --user enable --now pi-remote` and
+`loginctl enable-linger $USER` so it survives logout.
+
+**macOS — launchd**: a plist in `~/Library/LaunchAgents` with `RunAtLoad` and
+`KeepAlive`, loaded with `launchctl load`.
+
+**By hand**, if you would rather not install anything: `pythonw
+pi_web_bridge.py` on Windows, or `nohup python3 pi_web_bridge.py &` elsewhere.
+It survives the terminal closing, but not a reboot.
+
+Whichever you pick, remember the machine has to stay awake. A laptop that
+suspends takes the bridge with it.
+
+> Running as a service means nobody reads the console. That is why the missing
+> token is also announced **on the page itself**, in a red strip under the
+> header, not only in the log.
+
 ## Projects and sessions
 
 The bridge starts with no project. Pick a folder and it launches pi there;

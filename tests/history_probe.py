@@ -45,7 +45,11 @@ async def main():
                 ("el bloque thinking no se cuela",
                  "esto no debe salir" not in texts),
                 ("orden de los turnos",
-                 kinds[:4] == ["user", "assistant", "tool", "assistant"]),
+                 kinds[:5] == ["user", "assistant", "tool", "tool",
+                               "assistant"]),
+                ("una edicion trae su recuento",
+                 any(t.get("added") == 3 and t.get("removed") == 2
+                     for t in tools)),
                 ("mensaje de usuario en texto plano",
                  "primer encargo" in texts),
                 ("mensaje de usuario en bloques", "segundo encargo" in texts),

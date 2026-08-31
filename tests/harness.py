@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -80,13 +81,19 @@ class Bridge:
     def __enter__(self):
         if self.fresh and self.state.exists():
             self.state.unlink()
+        try:                       # un puente huerfano falsearia la prueba
+            urllib.request.urlopen(URL, timeout=1).read()
+            raise RuntimeError("el puerto %d ya esta ocupado" % PORT)
+        except urllib.error.URLError:
+            pass
         self.proc = subprocess.Popen(
             [sys.executable, "pi_web_bridge.py"], cwd=str(ROOT),
             env=bridge_env(self.state, self.extra),
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         for _ in range(80):
             try:
-                urllib.request.urlopen(URL + "api/browse", timeout=2).read()
+                # la raiz no pide token: sirve aunque el puente lo exija
+                urllib.request.urlopen(URL, timeout=2).read()
                 return self
             except Exception:
                 time.sleep(0.25)

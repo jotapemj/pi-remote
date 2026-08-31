@@ -46,6 +46,7 @@ try{
   --veil:#0009;
   --cast:0 -14px 28px #0007;
   --lift:none;
+  --mint-wash:#4fb8941f; --coral-wash:#e2574c1f;
   --mono:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
   --sans:"Plus Jakarta Sans",system-ui,-apple-system,Segoe UI,sans-serif;
   --gut:14px;
@@ -68,6 +69,7 @@ try{
   --veil:#1b202899;
   --cast:0 -14px 28px #0f172a1f;
   --lift:0 1px 2px #0f172a12;
+  --mint-wash:#0d735514; --coral-wash:#b8342a14;
   --cast-card:14px 17px 40px 4px rgba(112,144,176,.08);
 }
 *{box-sizing:border-box}
@@ -111,6 +113,15 @@ body{
 .i{width:18px;height:18px;flex:none;display:block}
 .i-lg{width:32px;height:32px;margin:0 auto 10px;color:var(--faint)}
 .iconbtn:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+.warnbar{
+  display:flex; align-items:center; gap:8px; flex:none;
+  padding:7px var(--gut); background:var(--coral-wash);
+  border-bottom:1px solid var(--rule); color:var(--coral);
+  font:500 11px/1.4 var(--mono);
+}
+.warnbar[hidden]{display:none}
+.warnbar .i{width:15px;height:15px;flex:none}
 
 /* ---------- transcript ---------- */
 main{flex:1; overflow-y:auto; padding:16px var(--gut) 8px; position:relative;
@@ -200,6 +211,18 @@ body.waiting .cursor{display:none}   /* pi no escribe: te espera */
   font:400 12px/1.5 var(--mono); color:var(--dim);
   white-space:pre-wrap; word-break:break-word; max-height:340px; overflow:auto;
 }
+/* cuenta de lineas en la fila plegada, como en la tui */
+.tally{display:flex;gap:7px;flex:none;font:600 11px/1 var(--mono)}
+.tally .plus{color:var(--mint)}
+.tally .minus{color:var(--coral)}
+.diff{
+  margin:0; border-top:1px solid var(--rule); max-height:340px;
+  overflow:auto; font:400 12px/1.55 var(--mono);
+}
+.diff div{padding:1px 11px; white-space:pre-wrap; word-break:break-word}
+.diff .add{color:var(--mint); background:var(--mint-wash)}
+.diff .del{color:var(--coral); background:var(--coral-wash)}
+.diff .at{color:var(--faint)}
 
 /* ---------- notes ---------- */
 .note{
@@ -613,6 +636,7 @@ body,.plate,.readout,footer,.tool,.ask,.pick,.segb{
   <button class="iconbtn ico" id="menuBtn"></button>
 </header>
 
+<div class="warnbar" id="warnbar" hidden></div>
 <main id="main"><div class="wrap" id="feed"></div></main>
 
 <div class="readout" id="readout" hidden>
@@ -805,11 +829,18 @@ function html(it){
          + ico(NOTE_ICON[it.level] || "info")
          + `<span>${esc(noteText(it))}</span></div>`;
   if(it.kind === "tool"){
-    const out = it.output ? `<pre>${esc(it.output)}</pre>` : "";
-    const arg = it.args ? " " + esc(JSON.stringify(it.args)).slice(0,90) : "";
+    const body = it.lines ? diffHtml(it.lines)
+               : it.output ? `<pre>${esc(it.output)}</pre>` : "";
+    const out = body;
+    const arg = it.lines
+      ? " " + esc((it.args && (it.args.path || it.args.filePath)) || "")
+      : it.args ? " " + esc(JSON.stringify(it.args)).slice(0,90) : "";
+    const tally = it.added != null
+      ? `<span class="tally"><span class="plus">+${it.added}</span>`
+        + `<span class="minus">-${it.removed}</span></span>` : "";
     return `<details class="tool" data-s="${it.status||"running"}"${it.output?"":" open"}>
       <summary><span class="dot"></span>${ico(toolIcon(it.name))}`
-    + `<span class="nm">${esc(it.name||T("tools"))}${arg}</span>`
+    + `<span class="nm">${esc(it.name||T("tools"))}${arg}</span>${tally}`
     + `</summary>${out}</details>`;
   }
   if(it.kind === "ask"){
@@ -869,6 +900,12 @@ feed.addEventListener("click", async e=>{
   }, 1500);
 });
 
+const diffHtml = lines => '<div class="diff">' + lines.map(l => {
+  const k = l[0] === "+" ? "add" : l[0] === "-" ? "del"
+          : l[0] === "@" ? "at" : "";
+  return `<div class="${k}">${esc(l)}</div>`;
+}).join("") + "</div>";
+
 function wireAsk(el, it){
   el.querySelectorAll(".opt").forEach(b=>b.onclick=()=>{
     let choice = b.dataset.c;
@@ -902,6 +939,10 @@ function paint(){
   }
   emptyState(has);
   paintRail();
+  const warn = $("#warnbar");
+  warn.hidden = state.open !== true;
+  if(!warn.hidden && !warn.firstElementChild)
+    warn.innerHTML = ico("warn") + `<span>${esc(T("noToken"))}</span>`;
   marqueeAll($("#title").parentNode);
 
   // the readout is for work in progress: not while pi waits on you
@@ -1392,6 +1433,7 @@ const STR = {
       removeB:"The folder and its sessions stay where they are.",
       loading:"loading...", noSessionsYet:"no sessions yet",
       copyFailed:"the browser would not let me copy",
+      noToken:"no token: anyone on this network can drive the agent",
       close:"close",
       openSession:"open", deleteSession:"remove session",
       deleteQ:"Remove this session?",
@@ -1421,6 +1463,7 @@ const STR = {
       removeB:"La carpeta y sus sesiones se quedan donde est\u00e1n.",
       loading:"cargando...", noSessionsYet:"a\u00fan sin sesiones",
       copyFailed:"el navegador no ha dejado copiar",
+      noToken:"sin token: cualquiera en esta red puede pilotar el agente",
       close:"cerrar",
       openSession:"abrir", deleteSession:"quitar sesi\u00f3n",
       deleteQ:"\u00bfQuitar esta sesi\u00f3n?",
@@ -1448,6 +1491,7 @@ function applyLang(){
     el.textContent = T(el.dataset.t);
   });
   $("#modalOk").textContent = T("ok");
+  $("#warnbar").innerHTML = "";      // se repinta traducido en el proximo paint
   nodes.forEach((el, id)=>{                      // notes carry a key, redraw
     if(el.__item && el.__item.kind === "note") el.innerHTML = html(el.__item);
   });
