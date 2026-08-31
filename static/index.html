@@ -1,0 +1,1694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12151a">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%3E%3Crect%20width%3D%2724%27%20height%3D%2724%27%20rx%3D%275%27%20fill%3D%27%2312151a%27%2F%3E%3Cg%20transform%3D%27translate%282.4%202.4%29%20scale%28.8%29%27%3E%3Cpath%20d%3D%27M20%2C4H4C2.89%2C4%2C2%2C4.9%2C2%2C6v12c0%2C1.1%2C0.89%2C2%2C2%2C2h16c1.1%2C0%2C2-0.9%2C2-2V6C22%2C4.9%2C21.11%2C4%2C20%2C4z%20M20%2C18H4V8h16V18z%20M18%2C17h-6v-2%20h6V17z%20M7.5%2C17l-1.41-1.41L8.67%2C13l-2.59-2.59L7.5%2C9l4%2C4L7.5%2C17z%27%20fill%3D%27%23f2a63b%27%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E">
+<title>pi remote</title>
+<script id="boot">
+/* pick the theme before first paint, or the wrong one flashes on load */
+try{
+  var p = localStorage.getItem("pi.theme") || "auto";
+  document.documentElement.dataset.theme = p !== "auto" ? p
+    : (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+}catch(e){}
+</script>
+<style>
+/* fonts served by the bridge itself: no google, no internet needed */
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/plex-mono-400-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/plex-mono-400-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:500;font-display:swap;src:url('/fonts/plex-mono-500-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:500;font-display:swap;src:url('/fonts/plex-mono-500-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:600;font-display:swap;src:url('/fonts/plex-mono-600-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:600;font-display:swap;src:url('/fonts/plex-mono-600-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+@font-face{font-family:'Plus Jakarta Sans';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/jakarta-400-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
+@font-face{font-family:'Plus Jakarta Sans';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/jakarta-400-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+@font-face{font-family:'Plus Jakarta Sans';font-style:normal;font-weight:500;font-display:swap;src:url('/fonts/jakarta-500-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
+@font-face{font-family:'Plus Jakarta Sans';font-style:normal;font-weight:500;font-display:swap;src:url('/fonts/jakarta-500-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+@font-face{font-family:'Plus Jakarta Sans';font-style:normal;font-weight:600;font-display:swap;src:url('/fonts/jakarta-600-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
+@font-face{font-family:'Plus Jakarta Sans';font-style:normal;font-weight:600;font-display:swap;src:url('/fonts/jakarta-600-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+@font-face{font-family:'Plus Jakarta Sans';font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/jakarta-700-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
+@font-face{font-family:'Plus Jakarta Sans';font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/jakarta-700-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+
+:root{
+  /* dark stays the base, so the page is right even if the theme script dies */
+  color-scheme:dark;
+  --panel:#12151a; --surface:#191e25; --raise:#212832; --rule:#2b333e;
+  --ink:#dde2e8; --dim:#8b95a2; --faint:#7d8794;
+  --amber:#f2a63b; --mint:#4fb894; --coral:#e2574c;
+  --on-amber:#12151a;                    /* ink that sits on an amber fill */
+  --plate-a:#1a1f27; --plate-b:#151a21;  /* nameplate gradient */
+  --ask-a:#1e1c16;   --ask-b:#191e25;    /* approval card gradient */
+  --deck:#0e1116;                        /* readout, sunk below the panel */
+  --lit:#e8c98a;                         /* inline code */
+  --stop:#3b2723;
+  --veil:#0009;
+  --cast:0 -14px 28px #0007;
+  --lift:none;
+  --mono:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+  --sans:"Plus Jakarta Sans",system-ui,-apple-system,Segoe UI,sans-serif;
+  --gut:14px;
+  /* shape, lifted from the horizon template */
+  --r-card:14px; --r-tool:12px; --r-pill:26px; --r-bubble:18px;
+  --cast-card:none;
+}
+:root[data-theme="light"]{
+  /* same instrument under bench light: paper, not a chat app */
+  color-scheme:light;
+  --panel:#eceef2; --surface:#ffffff; --raise:#e4e8ee; --rule:#cfd5de;
+  --ink:#151920; --dim:#59636f; --faint:#6f7987;
+  --amber:#8f5405; --mint:#0d7355; --coral:#b8342a;
+  --on-amber:#fff8ec;
+  --plate-a:#ffffff; --plate-b:#f3f5f9;
+  --ask-a:#fdf5e6;   --ask-b:#ffffff;
+  --deck:#e6eaf0;
+  --lit:#8a5a10;
+  --stop:#e3c3bf;
+  --veil:#1b202899;
+  --cast:0 -14px 28px #0f172a1f;
+  --lift:0 1px 2px #0f172a12;
+  --cast-card:14px 17px 40px 4px rgba(112,144,176,.08);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--panel); color:var(--ink);
+  font:15px/1.55 var(--sans);
+  -webkit-font-smoothing:antialiased;
+  display:flex; flex-direction:column;
+  padding-top:env(safe-area-inset-top);
+}
+
+/* ---------- header: instrument nameplate ---------- */
+.plate{
+  display:flex; align-items:center; gap:10px;
+  padding:9px var(--gut); border-bottom:1px solid var(--rule);
+  background:linear-gradient(var(--plate-a),var(--plate-b));
+}
+.plate .txt{
+  flex:1; min-width:0; display:flex; flex-direction:column;
+  justify-content:center;
+}
+.plate h1{
+  font:600 13px/1.2 var(--mono); margin:0; letter-spacing:.02em;
+}
+.plate .sub{
+  font:400 11px/1.45 var(--mono); color:var(--faint);
+  opacity:0; height:0;
+  transition:opacity .3s ease, height .28s cubic-bezier(.32,.72,0,1);
+}
+.plate .sub.on{opacity:1;height:16px}
+.iconbtn{
+  background:none;border:1px solid var(--rule);color:var(--dim);
+  font:500 11px/1 var(--mono); padding:7px 9px;border-radius:5px;
+  cursor:pointer; flex:none;
+}
+.iconbtn:hover{color:var(--ink);border-color:var(--faint)}
+.ico{padding:7px;display:flex}
+.i{width:18px;height:18px;flex:none;display:block}
+.i-lg{width:32px;height:32px;margin:0 auto 10px;color:var(--faint)}
+.iconbtn:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* ---------- transcript ---------- */
+main{flex:1; overflow-y:auto; padding:16px var(--gut) 8px; position:relative;
+  overscroll-behavior:contain; scroll-behavior:smooth}
+.wrap{max-width:760px;margin:0 auto}
+.turn{margin-bottom:20px;animation:rise-in .22s ease-out}
+.nofx .turn{animation:none}   /* a snapshot must not animate 40 rows */
+
+/* you are a bubble on the right; pi answers across the whole width */
+.msg{display:flex; justify-content:flex-end}
+.blk-you{
+  max-width:80%; border-radius:var(--r-bubble);
+  background:var(--raise); border:1px solid var(--rule);
+  padding:13px 17px; color:var(--ink); font-weight:500;
+  white-space:pre-wrap; word-break:break-word;
+}
+.tag{
+  display:block; font:600 10px/1.4 var(--mono); letter-spacing:.09em;
+  color:var(--amber); text-transform:uppercase; margin-bottom:5px;
+}
+
+.said{word-break:break-word}
+.said p{margin:0 0 .7em}
+.said p:last-child{margin-bottom:0}
+.said h4{font:600 15px/1.4 var(--sans);margin:1.1em 0 .4em}
+.said ul,.said ol{margin:.2em 0 .8em;padding-left:1.25em}
+.said li{margin:.15em 0}
+.said a{color:var(--mint)}
+.said code{
+  font:500 13px/1.4 var(--mono); background:var(--raise);
+  padding:1px 5px; border-radius:3px; color:var(--lit);
+}
+.said pre{
+  background:var(--surface); border:1px solid var(--rule);
+  border-radius:var(--r-tool); padding:12px 13px; overflow-x:auto;
+  margin:.7em 0;
+}
+.said pre code{background:none;padding:0;color:var(--ink);font-size:12.5px}
+.cursor{
+  display:inline-block;width:7px;height:15px;background:var(--amber);
+  vertical-align:-2px;animation:blink 1s steps(2) infinite
+}
+@keyframes blink{50%{opacity:0}}
+body.waiting .cursor{display:none}   /* pi no escribe: te espera */
+
+/* ---------- tool rows ---------- */
+.tool{
+  border:1px solid var(--rule); border-radius:var(--r-tool);
+  background:var(--surface); margin:9px 0; overflow:hidden;
+  box-shadow:var(--lift);
+}
+.tool>summary{
+  list-style:none; cursor:pointer; padding:8px 11px;
+  font:500 12px/1.4 var(--mono); color:var(--dim);
+  display:flex; align-items:center; gap:8px;
+  white-space:nowrap; overflow:hidden;      /* args largos no desbordan */
+}
+.tool>summary .nm{
+  flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;
+}
+.tool>summary::-webkit-details-marker{display:none}
+.tool .dot{width:6px;height:6px;border-radius:50%;background:var(--amber);flex:none}
+.tool[data-s="done"] .dot{background:var(--mint)}
+.tool[data-s="error"] .dot{background:var(--coral)}
+.tool[data-s="running"] .dot{animation:blink 1.1s steps(2) infinite}
+.tool pre{
+  margin:0; padding:10px 11px; border-top:1px solid var(--rule);
+  font:400 12px/1.5 var(--mono); color:var(--dim);
+  white-space:pre-wrap; word-break:break-word; max-height:340px; overflow:auto;
+}
+
+/* ---------- notes ---------- */
+.note{
+  font:500 12px/1.5 var(--mono); color:var(--dim);
+  border-left:2px solid var(--faint); padding:3px 0 3px 11px; margin:10px 0;
+  display:flex; align-items:flex-start; gap:8px;
+}
+.note .i{width:16px;height:16px;margin-top:1px}
+.note.warn{border-color:var(--amber);color:var(--amber)}
+.note.error{border-color:var(--coral);color:var(--coral)}
+
+/* ---------- approval card ---------- */
+.ask{
+  border:1px solid var(--amber); border-radius:var(--r-card); margin:14px 0;
+  box-shadow:var(--cast-card);
+  background:linear-gradient(var(--ask-a),var(--ask-b));
+}
+.ask .cap{
+  font:600 10px/1 var(--mono); letter-spacing:.11em; text-transform:uppercase;
+  color:var(--amber); padding:10px 13px 0;
+}
+.ask h3{font:600 14px/1.4 var(--sans);margin:6px 13px 0}
+.ask .body{
+  font:400 12.5px/1.5 var(--mono); color:var(--dim);
+  margin:6px 13px 0; white-space:pre-wrap; word-break:break-word;
+}
+.ask .opts{display:flex;flex-wrap:wrap;gap:7px;padding:11px 13px 13px}
+.opt{
+  font:500 12.5px/1 var(--mono); padding:9px 13px; border-radius:5px;
+  border:1px solid var(--rule); background:var(--raise); color:var(--ink);
+  cursor:pointer; flex:1 1 auto; min-width:96px;
+}
+.opt:hover{border-color:var(--amber)}
+.opt:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.opt.yes{border-color:var(--mint);color:var(--mint)}
+.opt.no{border-color:var(--coral);color:var(--coral)}
+.ask.done{border-color:var(--rule);background:var(--surface)}
+.ask.done .opts{display:none}
+.ask .verdict{
+  font:500 12px/1 var(--mono); color:var(--mint); padding:9px 13px 12px;
+  display:flex; align-items:center; gap:7px;
+}
+.ask .verdict .i{width:16px;height:16px}
+
+/* ---------- readout: the signature ---------- */
+.readout[hidden]{display:none}     /* display:flex below beats [hidden] */
+.readout{
+  border-top:1px solid var(--rule); background:var(--deck);
+  padding:7px var(--gut); display:flex; align-items:center; gap:10px;
+  font:500 12px/1 var(--mono);
+}
+.readout .w{color:var(--amber);letter-spacing:.03em;flex:1;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  transition:opacity .2s ease}
+.readout .w.out{opacity:0}
+.stopb{
+  background:none; border:1px solid var(--stop); color:var(--coral);
+  border-radius:999px; font:500 11px/1 var(--mono); padding:5px 10px;
+  cursor:pointer; flex:none; display:flex; align-items:center; gap:5px;
+}
+.stopb .i{width:15px;height:15px}
+.stopb:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.readout .sec{color:var(--faint);font-variant-numeric:tabular-nums}
+.bar{display:flex;gap:2px;align-items:center}
+.bar i{width:4px;height:11px;background:var(--rule);border-radius:1px}
+.bar i.lit{background:var(--mint)}
+.bar i.hot{background:var(--amber)}
+.bar i.max{background:var(--coral)}
+.bar .pct{color:var(--faint);margin-left:5px;font-variant-numeric:tabular-nums}
+
+/* ---------- composer ---------- */
+footer{
+  border-top:1px solid var(--rule); background:var(--surface);
+  padding:9px var(--gut) calc(9px + env(safe-area-inset-bottom));
+  position:relative;
+}
+
+.godown{
+  position:absolute; left:50%; bottom:calc(100% + 12px); z-index:14;
+  width:40px; height:40px; border-radius:50%; cursor:pointer;
+  background:var(--surface); border:1px solid var(--rule); color:var(--ink);
+  box-shadow:var(--cast); display:flex; align-items:center;
+  justify-content:center;
+  opacity:0; visibility:hidden; transform:translateX(-50%) scale(.7);
+  transition:opacity .2s ease,
+             transform .24s cubic-bezier(.32,.72,0,1),
+             visibility 0s linear .24s;
+}
+.godown.on{
+  opacity:1; visibility:visible; transform:translateX(-50%) scale(1);
+  transition:opacity .2s ease,
+             transform .24s cubic-bezier(.32,.72,0,1), visibility 0s;
+}
+.godown .i{width:20px;height:20px;transform:rotate(180deg)}
+
+/* ---------- rows inside a dialog ---------- */
+.mrow{
+  display:flex; align-items:center; gap:11px; width:100%; text-align:left;
+  background:var(--raise); border:1px solid var(--rule);
+  border-radius:var(--r-tool); color:var(--ink); cursor:pointer;
+  padding:13px 14px; margin-bottom:7px; font:400 13px/1.35 var(--sans);
+}
+.mrow:hover{border-color:var(--amber)}
+.mrow.bad{color:var(--coral)}
+.mrow.bad .i{color:var(--coral)}
+.mrow .i{color:var(--faint)}
+
+/* ---------- slash palette ---------- */
+.palette{
+  position:absolute; left:0; right:0; bottom:100%;
+  background:var(--surface); border-top:1px solid var(--rule);
+  border-bottom:1px solid var(--rule);
+  max-height:52vh; overflow-y:auto; z-index:15;
+  box-shadow:var(--cast);
+  opacity:0; visibility:hidden; transform:translateY(10px);
+  transition:opacity .18s ease,
+             transform .22s cubic-bezier(.32,.72,0,1),
+             visibility 0s linear .22s;
+}
+.palette.open{
+  opacity:1; visibility:visible; transform:none;
+  transition:opacity .18s ease,
+             transform .22s cubic-bezier(.32,.72,0,1),
+             visibility 0s;
+}
+.palette .phead{
+  font:600 10px/1 var(--mono); letter-spacing:.11em; text-transform:uppercase;
+  color:var(--faint); padding:11px var(--gut) 8px;
+  position:sticky; top:0; background:var(--surface);
+}
+.cmd{
+  display:flex; align-items:baseline; gap:10px; width:100%;
+  background:none; border:none; border-left:2px solid transparent;
+  padding:9px var(--gut); cursor:pointer; text-align:left; color:var(--ink);
+}
+.cmd b{font:600 13px/1.3 var(--mono);color:var(--ink);flex:none}
+.cmd span{font:400 12px/1.3 var(--sans);color:var(--faint);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmd.sel{background:var(--raise);border-left-color:var(--amber)}
+.cmd.sel b{color:var(--amber)}
+.cmd:focus-visible{outline:2px solid var(--amber);outline-offset:-2px}
+.palette .none{padding:12px var(--gut) 16px;font:400 12px/1.4 var(--mono);
+  color:var(--faint)}
+.entry{display:flex;gap:8px;align-items:flex-end}
+.field{flex:1; min-width:0; position:relative; display:flex}
+textarea{
+  flex:1; resize:none; background:var(--panel); color:var(--ink);
+  border:1px solid var(--rule); border-radius:var(--r-pill);
+  padding:15px 20px 15px 48px; font:15px/1.45 var(--sans);
+  max-height:38vh; min-height:54px;
+  transition:padding-left .22s cubic-bezier(.32,.72,0,1),
+             background-color .18s, border-color .18s, color .18s;
+}
+.field.typing textarea{padding-left:20px}
+
+/* the key that opens the palette, shown as itself */
+.slashb{
+  position:absolute; left:9px; top:50%; transform:translateY(-50%);
+  width:36px; height:36px; border-radius:50%; flex:none;
+  border:1px solid var(--rule); background:var(--raise); color:var(--amber);
+  font:600 16px/1 var(--mono); cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:opacity .18s ease,
+             transform .22s cubic-bezier(.32,.72,0,1);
+}
+.slashb:hover{border-color:var(--amber)}
+.slashb:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.field.typing .slashb{
+  opacity:0; transform:translateY(-50%) scale(.55); pointer-events:none;
+}
+textarea:focus{outline:none;border-color:var(--faint)}
+.send{
+  background:var(--amber); color:var(--on-amber); border:none;
+  width:54px; height:54px; border-radius:50%; padding:0; cursor:pointer;
+  flex:none; display:flex; align-items:center; justify-content:center;
+}
+.send .i{width:22px;height:22px}
+.send:disabled{background:var(--rule);color:var(--faint);cursor:default}
+
+/* ---------- sheet ---------- */
+.sheet{
+  position:fixed; inset:0; background:var(--veil); display:flex;
+  align-items:flex-end; justify-content:center; z-index:20;
+  opacity:0; visibility:hidden;
+  transition:opacity .22s ease, visibility 0s linear .22s;
+}
+.sheet.open{
+  opacity:1; visibility:visible;
+  transition:opacity .22s ease, visibility 0s;
+}
+.sheet .card{
+  background:var(--surface); border:1px solid var(--rule);
+  border-radius:12px 12px 0 0; width:100%; max-width:760px;
+  max-height:78vh; overflow-y:auto;
+  padding:14px var(--gut) calc(18px + env(safe-area-inset-bottom));
+  transform:translateY(100%); will-change:transform;
+  transition:transform .3s cubic-bezier(.32,.72,0,1);
+}
+.sheet.open .card{transform:none}
+.sheet h2{font:600 11px/1 var(--mono);letter-spacing:.1em;color:var(--faint);
+  text-transform:uppercase;margin:2px 0 12px}
+.pick{
+  display:flex; align-items:center; gap:11px; width:100%; text-align:left;
+  background:var(--raise); border:1px solid var(--rule);
+  border-radius:var(--r-tool); color:var(--ink);
+  padding:13px 14px; margin-bottom:7px; cursor:pointer;
+  font:400 13px/1.35 var(--sans); box-shadow:var(--lift);
+}
+.pick .txt{flex:1;min-width:0}
+.pick .ch{width:16px;height:16px;color:var(--faint)}
+.pick:hover{border-color:var(--amber)}
+.pick small{display:block;font:400 11px/1.4 var(--mono);color:var(--faint);
+  margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav{display:flex;gap:8px;align-items:center;margin-bottom:9px}
+.nav .path{flex:1;font:400 11px/1.35 var(--mono);color:var(--dim);
+  word-break:break-all}
+.usebtn{
+  display:block; width:100%; background:var(--amber); color:var(--on-amber);
+  border:none; border-radius:7px; font:600 12.5px/1 var(--mono);
+  padding:12px; margin-bottom:11px; cursor:pointer;
+}
+.usebtn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.pick small.mk{color:var(--amber)}
+.empty{
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  width:min(86%,300px); background:none; cursor:pointer;
+  border:1.5px dashed var(--rule); border-radius:16px; padding:30px 22px;
+  text-align:center; color:var(--faint); font:400 12.5px/1.5 var(--sans);
+  transition:border-color .18s,color .18s;
+}
+.empty:hover{border-color:var(--amber);color:var(--dim)}
+.nosub{padding:14px 4px;color:var(--faint);font:400 12.5px/1.5 var(--sans)}
+.empty:focus-visible{outline:2px solid var(--amber);outline-offset:3px}
+.empty b{display:block;font:600 12px/1.4 var(--mono);color:var(--amber);
+  letter-spacing:.06em;text-transform:uppercase;margin-bottom:7px}
+
+/* ---------- side rail: projects ---------- */
+.scrim{position:fixed;inset:0;background:var(--veil);z-index:25;
+  opacity:0;transition:opacity .22s ease}
+.scrim.on{opacity:1}
+.scrim{will-change:opacity}
+.scrim[hidden]{display:none}
+.rail{
+  position:fixed; top:0; bottom:0; left:0; width:min(82%,292px); z-index:26;
+  background:var(--surface); border-right:1px solid var(--rule);
+  padding:calc(15px + env(safe-area-inset-top)) 11px
+          calc(15px + env(safe-area-inset-bottom));
+  overflow-y:auto; transform:translateX(-101%);
+  transition:transform .3s cubic-bezier(.32,.72,0,1),
+             background-color .18s, border-color .18s;
+  will-change:transform;
+}
+.rail.on{transform:none}
+.railtop{font:600 15px/1.2 var(--mono);color:var(--ink);padding:4px 8px 15px}
+.addp{
+  display:flex; align-items:center; gap:9px; width:100%;
+  background:var(--amber); color:var(--on-amber); border:none;
+  border-radius:var(--r-tool); padding:12px 14px; cursor:pointer;
+  font:600 13px/1 var(--mono); margin-bottom:5px;
+}
+.addp svg{width:17px;height:17px;flex:none}
+.proj{
+  display:flex; align-items:center; gap:10px; width:100%; text-align:left;
+  background:none; border:none; border-radius:var(--r-tool);
+  padding:10px 13px; cursor:pointer;
+  color:var(--ink); font:500 13px/1.3 var(--sans);
+}
+.proj .txt{flex:1;min-width:0}
+.proj .i{color:var(--faint)}
+.proj.on .i{color:var(--amber)}
+.proj:hover{background:var(--raise)}
+.proj.on{background:var(--raise);color:var(--amber)}
+.proj small{
+  display:block; font:400 10.5px/1.4 var(--mono); color:var(--faint);
+  margin-top:3px;
+}
+.proj .ch{
+  margin-left:auto; transition:transform .26s cubic-bezier(.32,.72,0,1);
+}
+.pgroup.open .proj .ch{transform:rotate(90deg)}
+
+/* the session list grows from nothing: 0fr to 1fr needs no known height */
+.subs{
+  display:grid; grid-template-rows:0fr; opacity:0;
+  transition:grid-template-rows .28s cubic-bezier(.32,.72,0,1),
+             opacity .2s ease;
+}
+.pgroup.open .subs{grid-template-rows:1fr; opacity:1}
+.subs > div{overflow:hidden}
+.sess{
+  display:flex; align-items:center; gap:9px; width:100%; text-align:left;
+  background:none; border:none; border-radius:var(--r-tool);
+  padding:9px 12px 9px 30px; cursor:pointer; color:var(--dim);
+  font:400 12.5px/1.3 var(--sans);
+}
+.sess:hover{background:var(--raise);color:var(--ink)}
+.sess .i{width:15px;height:15px;color:var(--faint);flex:none}
+.sess .txt{flex:1;min-width:0}
+.sess small{display:block;font:400 10px/1.4 var(--mono);color:var(--faint);
+  margin-top:2px}
+.sess.new{color:var(--amber);font-weight:600}
+.sess.new .i{color:var(--amber)}
+.subs .none{padding:8px 12px 10px 30px;color:var(--faint);
+  font:400 11.5px/1.4 var(--mono)}
+
+/* ---------- modal dialogs ---------- */
+.modal{
+  position:fixed; inset:0; z-index:30; display:flex; padding:20px;
+  align-items:center; justify-content:center; background:var(--veil);
+  backdrop-filter:blur(7px); -webkit-backdrop-filter:blur(7px);
+  opacity:0; visibility:hidden;
+  transition:opacity .2s ease, visibility 0s linear .2s;
+}
+.modal.open{
+  opacity:1; visibility:visible;
+  transition:opacity .2s ease, visibility 0s;
+}
+.mcard{
+  background:var(--surface); border:1px solid var(--rule);
+  border-radius:var(--r-card); box-shadow:var(--cast-card);
+  width:100%; max-width:470px; max-height:82vh; padding:20px;
+  display:flex; flex-direction:column;
+  transform:scale(.94) translateY(14px); will-change:transform;
+  transition:transform .26s cubic-bezier(.32,.72,0,1);
+}
+.modal.open .mcard{transform:none}
+.mcard h3{font:600 15px/1.3 var(--sans);margin:0 0 13px;color:var(--ink)}
+.mbody{overflow-y:auto;font:400 13px/1.55 var(--sans);color:var(--dim)}
+.mbody dt{font:600 12.5px/1.5 var(--mono);color:var(--amber);margin-top:11px}
+.mbody dt:first-child{margin-top:0}
+.mbody dd{margin:1px 0 0}
+.mbody p{margin:0 0 9px}
+.mbody b{color:var(--ink)}
+.macts{display:flex; gap:8px; margin-top:16px; flex:none}
+.ok{
+  flex:1; background:var(--amber); color:var(--on-amber);
+  border:1px solid transparent; border-radius:var(--r-tool);
+  padding:12px; cursor:pointer; font:600 13px/1 var(--mono);
+}
+.ok:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.ok.alt{background:var(--raise);color:var(--dim);border-color:var(--rule)}
+.ok.alt:hover{color:var(--ink)}
+/* what it does cannot be undone: outline, not a filled button */
+.ok.danger{background:none;border-color:var(--coral);color:var(--coral)}
+@keyframes rise-in{from{opacity:0;transform:translateY(7px)}
+                   to{opacity:1;transform:none}}
+/* what does not fit slides by, faded at both ends.
+   the mask only exists while it runs, or a short label would
+   sit there with its edges dissolved for no reason. */
+.mq{display:block; overflow:hidden}   /* un span inline mide 0 de ancho */
+.mq > span{display:block; white-space:nowrap}
+.mq:not(.run) > span{overflow:hidden; text-overflow:ellipsis}
+.mq.run{
+  -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 12px,
+                     #000 calc(100% - 12px), transparent 100%);
+  mask-image:linear-gradient(90deg, transparent 0, #000 12px,
+             #000 calc(100% - 12px), transparent 100%);
+}
+.mq.run > span{
+  width:max-content; will-change:transform;
+  animation:mq var(--mq-dur, 9s) linear infinite;
+}
+@keyframes mq{
+  0%,14%    {transform:translateX(0)}
+  46%,54%   {transform:translateX(var(--mq-shift))}
+  86%,100%  {transform:translateX(0)}
+}
+
+.shead{
+  font:600 10px/1 var(--mono); letter-spacing:.11em; text-transform:uppercase;
+  color:var(--faint); margin:15px 0 9px;
+}
+.shead:first-child{margin-top:0}
+.shead[hidden]{display:none}
+.seg{display:flex;gap:6px;margin-bottom:2px}
+.segb{
+  flex:1; font:500 12px/1 var(--mono); padding:11px 8px; border-radius:8px;
+  border:1px solid var(--rule); background:var(--raise); color:var(--dim);
+  cursor:pointer; text-transform:capitalize;
+}
+.segb.on{border-color:var(--amber);color:var(--amber);background:var(--surface)}
+.segb:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* only the theme swap animates; everything else stays instrument-quick */
+body,.plate,.readout,footer,.tool,.ask,.pick,.segb{
+  transition:background-color .18s,border-color .18s,color .18s;
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important;scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+
+<header class="plate">
+  <button class="iconbtn ico" id="railBtn" aria-label="projects"></button>
+  <div class="txt">
+    <h1 class="mq" id="title"><span>connecting</span></h1>
+    <div class="sub mq" id="sub"><span></span></div>
+  </div>
+  <button class="iconbtn ico" id="menuBtn"></button>
+</header>
+
+<main id="main"><div class="wrap" id="feed"></div></main>
+
+<div class="readout" id="readout" hidden>
+  <span class="w" id="word"></span>
+  <span class="sec" id="secs">0s</span>
+  <span class="bar" id="bar"></span>
+  <button class="stopb" id="stopBtn"><span data-t="stop"></span></button>
+</div>
+
+<footer>
+  <button class="godown" id="godown" aria-label="down"></button>
+  <div class="palette" id="palette">
+    <div class="phead" id="phead">commands</div>
+    <div id="plist"></div>
+  </div>
+  <div class="entry">
+    <div class="field" id="field">
+      <button class="slashb" id="slashBtn" aria-label="/">/</button>
+      <textarea id="box" rows="1"></textarea>
+    </div>
+    <button class="send" id="send" aria-label="send"></button>
+  </div>
+</footer>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="rail" id="rail">
+  <div class="railtop">pi remote</div>
+  <button class="addp" id="addBtn"><span data-t="addProject"></span></button>
+  <div class="shead" id="recentHead" data-t="recent"></div>
+  <div id="recents"></div>
+</aside>
+
+<div class="sheet" id="sheet"><div class="card">
+  <h2 id="sheetTitle">pick</h2><div id="sheetBody"></div>
+</div></div>
+
+<div class="modal" id="modal"><div class="mcard">
+  <h3 id="modalTitle"></h3>
+  <div class="mbody" id="modalBody"></div>
+  <div class="macts">
+    <button class="ok alt" id="modalNo" hidden></button>
+    <button class="ok" id="modalOk">OK</button>
+  </div>
+</div></div>
+
+<script>
+const TOKEN = new URLSearchParams(location.search).get("token") || "";
+const $ = s => document.querySelector(s);
+const feed = $("#feed"), main = $("#main");
+let ws, state = {}, nodes = new Map(), tick = null, CWD = "";
+let firstSnap = true;
+
+/* ---------- material icons, apache 2.0 ---------- */
+const ICONS = {
+  remove:"M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z",
+  session:"M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z",
+  settings:"M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z",
+  menu:"M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z",
+  add:"M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z",
+  folder:"M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z",
+  folderOpen:"M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z",
+  help:"M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z",
+  info:"M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z",
+  donate:"M16,3.25C16.65,2.49,17.66,2,18.7,2C20.55,2,22,3.45,22,5.3c0,2.27-2.91,4.9-6,7.7c-3.09-2.81-6-5.44-6-7.7 C10,3.45,11.45,2,13.3,2C14.34,2,15.35,2.49,16,3.25z M20,17h-7l-2.09-0.73l0.33-0.94L13,16h2.82c0.65,0,1.18-0.53,1.18-1.18v0c0-0.49-0.31-0.93-0.77-1.11L8.97,11H7v9.02 L14,22l8.01-3v0C22,17.9,21.11,17,20,17z",
+  stop:"M12,2C6.48,2,2,6.48,2,12c0,5.52,4.48,10,10,10s10-4.48,10-10C22,6.48,17.52,2,12,2z M16,16H8V8h8V16z",
+  terminal:"M20,4H4C2.89,4,2,4.9,2,6v12c0,1.1,0.89,2,2,2h16c1.1,0,2-0.9,2-2V6C22,4.9,21.11,4,20,4z M20,18H4V8h16V18z M18,17h-6v-2 h6V17z M7.5,17l-1.41-1.41L8.67,13l-2.59-2.59L7.5,9l4,4L7.5,17z",
+  read:"M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z",
+  edit:"M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z",
+  search:"M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z",
+  tool:"M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z",
+  warn:"M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z",
+  error:"M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z",
+  chevron:"M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z",
+  up:"M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z",
+  done:"M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z",
+};
+const ico = (k, cls) => ICONS[k]
+  ? `<svg class="i${cls ? " " + cls : ""}" viewBox="0 0 24 24"`
+    + ` fill="currentColor" aria-hidden="true"><path d="${ICONS[k]}"/></svg>`
+  : "";
+function toolIcon(name){
+  const t = (name || "").toLowerCase();
+  if(/bash|shell|command|exec|terminal|run/.test(t)) return "terminal";
+  if(/read|cat|view|fetch|get/.test(t)) return "read";
+  if(/edit|write|patch|replace|create|apply/.test(t)) return "edit";
+  if(/search|grep|glob|find|list|ls/.test(t)) return "search";
+  return "tool";
+}
+const NOTE_ICON = {error:"error", warn:"warn", info:"info"};
+
+
+/* ---------- tiny markdown ---------- */
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;")
+  .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+const LIST = /^\s*([-*+]|\d+[.)])\s+/;
+function inline(t){
+  return t
+    .replace(/\*\*\*(.+?)\*\*\*/gs,"<strong><em>$1</em></strong>")
+    .replace(/\*\*(.+?)\*\*/gs,"<strong>$1</strong>")
+    .replace(/(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])/gs,"<em>$1</em>")
+    .replace(/~~(.+?)~~/gs,"<s>$1</s>")
+    .replace(/\[(.+?)\]\((https?:\/\/[^\s)]+)\)/g,
+             '<a href="$2" target="_blank" rel="noopener">$1</a>');
+}
+function block(src){
+  return src.split(/\n{2,}/).map(chunk=>{
+    const lines = chunk.split("\n").filter(l => l.trim() !== "");
+    let out = "", para = [], list = [], ol = false;
+    const flushP = () => { if(para.length){ out += "<p>"+para.join("<br>")+"</p>"; para=[]; } };
+    const flushL = () => { if(list.length){
+      const tag = ol ? "ol" : "ul";
+      out += `<${tag}>`+list.join("")+`</${tag}>`; list=[]; } };
+    for(const l of lines){
+      const h = l.match(/^#{1,6}\s*(.+)$/);
+      if(h){ flushP(); flushL(); out += "<h4>"+inline(h[1])+"</h4>"; }
+      else if(LIST.test(l)){
+        const num = /^\s*\d/.test(l);
+        if(list.length && num !== ol) flushL();
+        ol = num; flushP();
+        list.push("<li>"+inline(l.replace(LIST,""))+"</li>"); }
+      else { flushL(); para.push(inline(l)); }
+    }
+    flushP(); flushL();
+    return out;
+  }).join("");
+}
+function md(src){
+  const store = [];
+  const held = String(src).replace(/```[\s\S]*?```|`[^`\n]+`/g, m => {
+    store.push(m.startsWith("```")
+      ? "<pre><code>"+esc(m.replace(/^```[\w+-]*\n?|```$/g,"").replace(/\n$/,""))+"</code></pre>"
+      : "<code>"+esc(m.slice(1,-1))+"</code>");
+    return "\u0000"+(store.length-1)+"\u0000";
+  });
+  return block(esc(held))
+    .replace(/\u0000(\d+)\u0000/g, (_,i) => store[i])
+    .replace(/<p>(<pre>[\s\S]*?<\/pre>)<\/p>/g, "$1")
+    .replace(/<br>(<pre>)/g, "$1").replace(/(<\/pre>)<br>/g, "$1");
+}
+
+/* ---------- rendering ---------- */
+function atBottom(){ return main.scrollHeight - main.scrollTop - main.clientHeight < 90; }
+function goDown(){
+  const show = feed.children.length && !atBottom()
+            && !palette.classList.contains("open");
+  $("#godown").classList.toggle("on", !!show);
+}
+addEventListener("load", ()=>{
+  main.addEventListener("scroll", goDown, {passive:true});
+  $("#godown").onclick = ()=>
+    main.scrollTo({top:main.scrollHeight, behavior:"smooth"});
+});
+const jumpTo = y => main.scrollTo({top:y, behavior:"instant"});
+function keepDown(was){
+  if(was) jumpTo(main.scrollHeight);   // instant: el suave llega tarde
+  requestAnimationFrame(goDown);
+}
+
+function render(item){
+  const was = atBottom();
+  let el = nodes.get(item.id);
+  if(!el){ el = document.createElement("div"); el.className="turn";
+           nodes.set(item.id, el); feed.appendChild(el); }
+  el.__item = item;
+  el.innerHTML = html(item);
+  if(item.kind === "ask") wireAsk(el, item);
+  keepDown(was);
+  return el;
+}
+
+function html(it){
+  if(it.kind === "user")
+    return `<div class="msg mine"><div class="blk blk-you">`
+         + (it.steer ? `<span class="tag">steer</span>` : "")
+         + `${esc(it.text)}</div></div>`;
+  if(it.kind === "assistant")
+    return `<div class="said" data-body>${md(it.text)}`
+         + `${it.streaming?'<span class="cursor"></span>':""}</div>`;
+  if(it.kind === "note")
+    return `<div class="note ${it.level||""}">`
+         + ico(NOTE_ICON[it.level] || "info")
+         + `<span>${esc(noteText(it))}</span></div>`;
+  if(it.kind === "tool"){
+    const out = it.output ? `<pre>${esc(it.output)}</pre>` : "";
+    const arg = it.args ? " " + esc(JSON.stringify(it.args)).slice(0,90) : "";
+    return `<details class="tool" data-s="${it.status||"running"}"${it.output?"":" open"}>
+      <summary><span class="dot"></span>${ico(toolIcon(it.name))}`
+    + `<span class="nm">${esc(it.name||T("tools"))}${arg}</span>`
+    + `</summary>${out}</details>`;
+  }
+  if(it.kind === "ask"){
+    const done = it.answered ? " done" : "";
+    let opts = "";
+    const cancel = `<button class="opt no" data-c="__cancel__">`
+                 + `${esc(T("cancel"))}</button>`;
+    if(it.method === "confirm")
+      opts = `<button class="opt yes" data-c="__yes__">${esc(T("yes"))}</button>`
+           + `<button class="opt no" data-c="__no__">${esc(T("no"))}</button>`;
+    else if(it.method === "select")
+      opts = (it.options||[]).map(o=>`<button class="opt" data-c="${esc(o)}">${esc(o)}</button>`).join("")
+           + cancel;
+    else
+      opts = `<button class="opt" data-c="__text__">${esc(T("typeAnswer"))}`
+           + `</button>` + cancel;
+    return `<div class="ask${done}" data-rid="${esc(it.rid)}">
+      <div class="cap">${esc(T("asking"))}</div>
+      <h3>${esc(it.title)}</h3>
+      ${it.body?`<div class="body">${esc(it.body)}</div>`:""}
+      <div class="opts">${opts}</div>
+      ${it.answered?`<div class="verdict">${ico("done")}`
+        + `<span>${esc(T("answered"))}: ${esc(it.answered)}</span></div>`:""}
+    </div>`;
+  }
+  return "";
+}
+
+function wireAsk(el, it){
+  el.querySelectorAll(".opt").forEach(b=>b.onclick=()=>{
+    let choice = b.dataset.c;
+    if(choice === "__text__"){
+      const v = prompt(it.title, it.prefill||"");
+      if(v === null) return;
+      choice = v;
+    }
+    send({type:"answer", rid: it.rid, choice});
+  });
+}
+
+/* ---------- state ---------- */
+function paint(){
+  const has = !!state.cwd;
+  if(has) CWD = state.cwd;
+  $("#send").disabled = !has;
+  box.placeholder = has ? T("ask") : T("pickFirst");
+
+  if(!has){
+    title("");
+    $("#sub").classList.remove("on");   // se desvanece
+  } else {
+    title(state.sessionName || T("unnamed"));
+    const bits = [CWD.split(/[\\/]/).filter(Boolean).pop() || CWD,
+                  state.model || T("noModel"), state.thinking || "-"];
+    if(state.queue && (state.queue.followUp||[]).length)
+      bits.push(state.queue.followUp.length + " " + T("queued"));
+    $("#sub").firstElementChild.textContent = bits.join("  ·  ");
+    $("#sub").classList.add("on");
+  }
+  emptyState(has);
+  paintRail();
+  marqueeAll($("#title").parentNode);
+
+  // the readout is for work in progress: not while pi waits on you
+  document.body.classList.toggle("waiting", !!state.waiting);
+  const busy = state.running && !state.waiting;
+  $("#readout").hidden = !busy;
+  if(busy && !tick) tick = setInterval(secs, 1000);
+  if(!busy && tick){ clearInterval(tick); tick = null; }
+  if(busy && !wordTimer){
+    if(!curWord) pickWord();
+    wordTimer = setInterval(()=>{ pickWord(); showWord(true); }, WORD_ROTATE);
+  }
+  if(!busy && wordTimer){
+    clearInterval(wordTimer); wordTimer = null; curWord = "";
+  }
+  if(busy){ showWord(false); secs(); }
+
+  const c = state.context, bar = $("#bar");
+  if(c && c.percent != null){
+    const n = 12, lit = Math.round(n * c.percent / 100);
+    bar.innerHTML = Array.from({length:n},(_,i)=>{
+      const k = i < lit ? (c.percent > 85 ? "max" : c.percent > 60 ? "hot" : "lit") : "";
+      return `<i class="${k}"></i>`;
+    }).join("") + `<span class="pct">${c.percent}%</span>`;
+  } else bar.innerHTML = "";
+}
+function title(name){
+  $("#title").firstElementChild.textContent =
+    name ? "pi-remote | " + name : "pi-remote";
+  marqueeAll($("#title").parentNode);
+}
+function emptyState(has){
+  let el = $("#nostate");
+  if(has || feed.children.length){ if(el) el.remove(); return; }
+  if(!el){
+    el = document.createElement("button");
+    el.id = "nostate"; el.className = "empty";
+    el.onclick = () => browse("");
+    main.appendChild(el);
+  }
+  el.innerHTML = ico("folderOpen", "i-lg")
+    + `<b>${esc(T("noProject"))}</b>${esc(T("noProjectHint"))}`;
+}
+
+/* ---------- side rail ---------- */
+function openRail(){
+  const sc = $("#scrim");
+  sc.hidden = false;
+  marqueeAll($("#rail"));         // fuera de pantalla los anchos enganan
+  void sc.offsetWidth;              // force layout, or the class lands too soon
+  requestAnimationFrame(()=> requestAnimationFrame(()=>{
+    sc.classList.add("on");
+    $("#rail").classList.add("on");
+  }));
+}
+function closeRail(){
+  $("#rail").classList.remove("on");
+  $("#scrim").classList.remove("on");
+  setTimeout(()=>{ $("#scrim").hidden = true; }, 300);
+}
+/* hold a row instead of tapping it: same gesture as a long press */
+function longPress(el, run){
+  let timer = null, fired = false, x = 0, y = 0;
+  const stop = () => { clearTimeout(timer); timer = null; };
+  el.addEventListener("pointerdown", e=>{
+    fired = false; x = e.clientX; y = e.clientY;
+    timer = setTimeout(()=>{ fired = true; stop(); run(); }, 480);
+  });
+  el.addEventListener("pointermove", e=>{
+    if(timer && Math.hypot(e.clientX - x, e.clientY - y) > 10) stop();
+  });
+  ["pointerup","pointerleave","pointercancel"].forEach(k=>
+    el.addEventListener(k, stop));
+  el.addEventListener("contextmenu", e=> e.preventDefault());
+  el.addEventListener("click", e=>{
+    if(fired){ e.preventDefault(); e.stopPropagation(); fired = false; }
+  }, true);
+}
+
+let openProj = "";                 // one folder unfolded at a time
+const sessCache = {};
+
+async function fetchSessions(path){
+  const u = "/api/sessions?token=" + encodeURIComponent(TOKEN)
+          + "&path=" + encodeURIComponent(path);
+  try { return (await (await fetch(u)).json()).sessions || []; }
+  catch(e){ return []; }
+}
+function groupOf(path){
+  return [...document.querySelectorAll(".pgroup")]
+    .find(g => g.dataset.path === path);
+}
+async function toggleProj(path){
+  const g = groupOf(path);
+  if(!g) return;
+  if(openProj === path){            // solo la clase: repintar mata la
+    openProj = "";                  // transicion, el nodo naceria ya abierto
+    g.classList.remove("open");
+    return;
+  }
+  document.querySelectorAll(".pgroup.open")
+    .forEach(x => x.classList.remove("open"));
+  openProj = path;
+  g.classList.add("open");
+  if(sessCache[path]){ fillSubs(g, path); return; }   // repinta lo cacheado
+  const list = await fetchSessions(path);
+  sessCache[path] = list;
+  if(openProj === path && groupOf(path)) fillSubs(groupOf(path), path);
+}
+function menuModal(title, rows){
+  openModal(title, rows.map((r, i) =>
+    `<button class="mrow${r.bad ? " bad" : ""}" data-i="${i}">`
+    + (r.icon ? ico(r.icon) : "") + `<span>${esc(r.label)}</span></button>`
+  ).join(""), null);
+  $("#modalBody").querySelectorAll(".mrow").forEach(b=>{
+    b.onclick = () => { closeModal(); rows[+b.dataset.i].run(); };
+  });
+}
+
+function projMenu(r){
+  menuModal(r.name, [
+    {icon:"add", label:T("newSession"), run:()=>{
+      closeRail(); send({type:"open_project", path:r.path}); }},
+    {icon:"remove", bad:true, label:T("removeProject"), run:()=>
+      confirmModal(T("removeQ"), esc(T("removeB")),
+                   ()=>send({type:"forget_project", path:r.path}))},
+  ]);
+}
+
+function sessMenu(projPath, x){
+  menuModal(x.label, [
+    {icon:"session", label:T("openSession"), run:()=>{
+      closeRail();
+      send({type:"open_project", path:projPath, session:x.path}); }},
+    {icon:"remove", bad:true, label:T("deleteSession"), run:()=>
+      confirmModal(T("deleteQ"), esc(T("deleteB")),
+                   ()=>send({type:"delete_session", path:x.path}))},
+  ]);
+}
+
+function paintRail(){
+  const list = $("#recents"), rec = state.recent || [];
+  $("#recentHead").hidden = !rec.length;
+  list.innerHTML = "";
+  rec.forEach(r=>{
+    const group = document.createElement("div");
+    group.className = "pgroup" + (openProj === r.path ? " open" : "");
+    group.dataset.path = r.path;
+
+    const head = pickBtn({
+      cls: "proj" + (r.path === state.cwd ? " on" : ""),
+      icon: "folder", label: r.name, hint: r.path, chevron: true,
+      run: () => toggleProj(r.path)});
+    longPress(head, () => projMenu(r));
+    group.appendChild(head);
+
+    const subs = document.createElement("div");
+    subs.className = "subs";
+    subs.appendChild(document.createElement("div"));
+    group.appendChild(subs);
+    list.appendChild(group);
+    fillSubs(group, r.path);
+  });
+  marqueeAll(list);
+}
+
+function fillSubs(group, path){
+  const inner = group.querySelector(".subs > div");
+  inner.innerHTML = "";
+  inner.appendChild(pickBtn({
+    cls: "sess new", icon: "add", label: T("newSession"),
+    run: () => { closeRail(); send({type:"open_project", path}); }}));
+
+  const cached = sessCache[path];
+  const note = txt => {
+    const p = document.createElement("div");
+    p.className = "none"; p.textContent = txt; inner.appendChild(p);
+  };
+  if(!cached) return void (group.classList.contains("open") && note(T("loading")));
+  if(!cached.length) return note(T("noSessionsYet"));
+  cached.forEach(x=>{
+    const b = pickBtn({
+      cls:"sess", icon:"session", label:x.label,
+      hint:new Date(x.mtime*1000).toLocaleString(),
+      run: () => { closeRail();
+        send({type:"open_project", path, session:x.path}); }});
+    longPress(b, () => sessMenu(path, x));
+    inner.appendChild(b);
+  });
+  marqueeAll(inner);
+}
+$("#railBtn").innerHTML = ico("menu");
+$("#menuBtn").innerHTML = ico("settings");
+$("#addBtn").insertAdjacentHTML("afterbegin", ico("add"));
+$("#stopBtn").insertAdjacentHTML("afterbegin", ico("stop"));
+$("#send").innerHTML = ico("up");
+$("#godown").innerHTML = ico("up");
+$("#railBtn").onclick = openRail;
+$("#scrim").onclick = closeRail;
+$("#addBtn").onclick = () => { closeRail(); browse(""); };
+
+/* ---------- modal dialogs ---------- */
+function openModal(title, body, run){
+  $("#modalTitle").textContent = title;
+  $("#modalBody").innerHTML = body;
+  const no = $("#modalNo"), ok = $("#modalOk");
+  no.textContent = T("cancel");
+  no.hidden = !run;                        // informativo: un solo boton
+  ok.textContent = T("ok");
+  ok.classList.toggle("danger", !!run);
+  ok.onclick = run ? () => { closeModal(); run(); } : closeModal;
+  $("#modal").classList.add("open");
+}
+const modal = (title, body) => openModal(title, body, null);
+const confirmModal = (title, body, run) => openModal(title, body, run);
+function closeModal(){ $("#modal").classList.remove("open"); }
+$("#modalNo").onclick = closeModal;
+$("#modal").onclick = e => { if(e.target.id === "modal") closeModal(); };
+
+function helpModal(){
+  const rows = CMDS.map(c =>
+    `<dt>/${esc(c.n)}${c.arg ? " &lt;" + esc(argOf(c)) + "&gt;" : ""}</dt>`
+    + `<dd>${esc(lang() === "es" && c.hEs ? c.hEs : c.h)}</dd>`).join("");
+  modal(T("help"), "<dl>" + rows + "</dl>");
+}
+
+const PAYPAL = "";                 // drop the donation link here when ready
+function aboutModal(){
+  modal(T("about"),
+    `<p><b>pi-remote</b></p><p>Jotapeveloper 2026 &middot; MIT</p>`
+    + `<p style="margin-top:14px"><b>${esc(T("thirdParty"))}</b></p><dl>`
+    + `<dt>FastAPI</dt><dd>MIT</dd>`
+    + `<dt>Uvicorn</dt><dd>BSD-3-Clause</dd>`
+    + `<dt>Starlette</dt><dd>BSD-3-Clause</dd>`
+    + `<dt>Material Icons</dt><dd>Apache License 2.0</dd>`
+    + `<dt>IBM Plex Mono</dt><dd>SIL Open Font License 1.1</dd>`
+    + `<dt>Plus Jakarta Sans</dt><dd>SIL Open Font License 1.1</dd></dl>`);
+}
+function secs(){
+  if(!state.startedAt) return;
+  $("#secs").textContent = Math.round(Date.now()/1000 - state.startedAt) + "s";
+}
+
+/* ---------- socket ---------- */
+let backoff = 500;
+function connect(){
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  ws = new WebSocket(`${proto}://${location.host}/ws?token=${encodeURIComponent(TOKEN)}`);
+  ws.onopen = () => { backoff = 500; };
+  ws.onclose = () => {
+    state.alive = false; paint();
+    title(T("reconnecting"));
+    setTimeout(connect, backoff); backoff = Math.min(backoff*2, 8000);
+  };
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    if(m.type === "snapshot"){
+      // al reconectar se conserva donde estabas leyendo
+      const stay = main.scrollTop, wasDown = atBottom();
+      feed.classList.add("nofx");
+      feed.innerHTML = ""; nodes.clear(); CWD = m.cwd || "";
+      m.items.forEach(render); state = m.state; paint();
+      const goEnd = firstSnap || wasDown;
+      firstSnap = false;
+      requestAnimationFrame(()=>{
+        jumpTo(goEnd ? main.scrollHeight : stay);
+        feed.classList.remove("nofx");
+        goDown();
+      });
+    }
+    else if(m.type === "item") render(m.item);
+    else if(m.type === "patch"){
+      const it = m.fields, el = nodes.get(m.id);
+      if(!el) return;
+      const cur = Object.assign(el.__item || {}, it);
+      el.__item = cur; el.innerHTML = html(cur);
+      if(cur.kind === "ask") wireAsk(el, cur);
+    }
+    else if(m.type === "delta"){
+      const el = nodes.get(m.id); if(!el) return;
+      const was = atBottom();
+      el.__item = el.__item || {kind:"assistant", text:"", streaming:true, id:m.id};
+      el.__item.text += m.delta;
+      const body = el.querySelector("[data-body]");
+      if(body) body.innerHTML = md(el.__item.text) + '<span class="cursor"></span>';
+      else el.innerHTML = html(el.__item);
+      keepDown(was);
+    }
+    else if(m.type === "state"){ state = m.state; paint(); }
+    else if(m.type === "cleared"){
+      feed.innerHTML=""; nodes.clear();
+      if(state.cwd) delete sessCache[state.cwd];   // pudo nacer una sesion
+      paint();
+    }
+    else if(m.type === "rpc") onRpc(m);
+  };
+}
+const send = o => ws && ws.readyState === 1 && ws.send(JSON.stringify(o));
+
+/* ---------- commands ---------- */
+const CMDS = [
+  {n:"project", h:"Pick the folder pi works in", hEs:"Elige la carpeta donde trabaja pi",      run:()=>browse("")},
+  {n:"resume",  h:"Switch to another session", hEs:"Cambiar a otra sesión",        run:()=>loadSessions()},
+  {n:"new",     h:"Start a new session", hEs:"Empezar una sesión nueva",              run:()=>confirmModal(T("newQ"), esc(T("newB")),
+                     ()=>send({type:"new_session"}))},
+  {n:"name",    h:"Set the session name", hEs:"Poner nombre a la sesión",   arg:"label", argEs:"etiqueta",
+                run:a=>a&&send({type:"set_session_name", name:a})},
+  {n:"fork",    h:"Branch from an earlier message", hEs:"Ramificar desde un mensaje anterior",   run:()=>send({type:"get_fork_messages"})},
+  {n:"stats",   h:"Tokens, cost, context usage", hEs:"Tokens, coste y uso de contexto",      run:()=>send({type:"get_session_stats"})},
+  {n:"state",   h:"Current session, model, thinking", hEs:"Sesión, modelo y nivel actuales", run:()=>send({type:"get_state"})},
+  {n:"compact", h:"Shrink the context now",
+                hEs:"Comprimir el contexto ahora",
+                run:()=>confirmModal(T("compactQ"), esc(T("compactB")),
+                                     ()=>send({type:"compact"}))},
+  {n:"last",    h:"Repeat the last reply", hEs:"Repetir la última respuesta",            run:()=>send({type:"get_last_assistant_text"})},
+  {n:"export",  h:"Write an html transcript", hEs:"Guardar el transcripto en html",         run:()=>send({type:"export_html"})},
+  {n:"model",   h:"Switch model", hEs:"Cambiar de modelo",                     run:()=>send({type:"get_available_models"})},
+  {n:"think",   h:"Set the reasoning level", hEs:"Nivel de razonamiento",          run:()=>send({type:"get_available_thinking_levels"})},
+  {n:"steer",   h:"Redirect the running turn", hEs:"Corregir el turno en curso", arg:"instruction", argEs:"instrucción",
+                run:a=>a&&send({type:"steer", message:a})},
+  {n:"abort",   h:"Stop the current turn", hEs:"Parar el turno actual",            run:()=>send({type:"abort"})},
+  {n:"queue",   h:"Show queued messages", hEs:"Ver los mensajes en cola",             run:()=>{
+      const q = state.queue||{};
+      note(`steering: ${(q.steering||[]).length}   follow-up: ${(q.followUp||[]).length}`);}},
+  {n:"clearq",  h:"Drop queued messages",
+                hEs:"Vaciar la cola de mensajes",
+                run:()=>confirmModal(T("clearqQ"), "",
+                                     ()=>send({type:"clear_queue"}))},
+  {n:"bash",    h:"Run a command, skipping the model", hEs:"Ejecutar un comando saltando el modelo", arg:"command", argEs:"comando",
+                run:a=>a&&send({type:"bash", id:"web", command:a})},
+  {n:"cwd",     h:"Show the working directory", hEs:"Mostrar el directorio de trabajo",       run:()=>note(CWD||"unknown")},
+  {n:"pend",    h:"Jump to a waiting approval", hEs:"Ir a la aprobación pendiente",       run:()=>{
+      const el=[...document.querySelectorAll(".ask:not(.done)")].pop();
+      el ? el.scrollIntoView({block:"center"})
+         : note(T("nothingWaiting"));}},
+  {n:"sessdir", h:"Debug the session folder lookup", hEs:"Depurar la búsqueda de sesiones",  run:async()=>{
+      const d = await (await fetch("/api/sessions?token="+encodeURIComponent(TOKEN))).json();
+      note(`${d.dir}\n${(d.sessions||[]).length} session files`);}},
+  {n:"ping",    h:"Check the bridge is alive", hEs:"Comprobar que el puente responde",        run:()=>note(
+      `socket ${ws&&ws.readyState===1?"open":"down"} - agent ${state.running?"working":"idle"} - pi ${state.alive===false?"gone":"up"}`)},
+  {n:"help",    h:"List every command", hEs:"Listar todos los comandos",
+                run:()=>helpModal()},
+];
+
+let localId = -1;
+function note(text){
+  render({id: localId--, kind:"note", level:"info", text});
+  main.scrollTop = main.scrollHeight;
+}
+
+/* ---------- composer ---------- */
+const box = $("#box"), palette = $("#palette"), plist = $("#plist");
+let sel = 0, shown = [];
+
+function slashToggle(){
+  $("#field").classList.toggle("typing", box.value.length > 0);
+}
+box.addEventListener("input", ()=>{
+  box.style.height = "auto"; box.style.height = Math.min(box.scrollHeight, 320)+"px";
+  paintPalette(); slashToggle();
+});
+$("#slashBtn").onclick = ()=>{
+  box.value = "/";              // sin focus: el teclado movia toda la vista
+  paintPalette(); slashToggle();
+};
+box.addEventListener("blur", ()=>setTimeout(()=>closePalette(), 150));
+
+function query(){
+  const v = box.value;
+  if(!v.startsWith("/") || v.includes("\n")) return null;
+  const m = v.slice(1).match(/^(\S*)(\s?)/);
+  return m[2] ? null : m[1];       // once you type a space, it is an argument
+}
+function paintPalette(){
+  const q = query();
+  if(q === null) return closePalette();
+  shown = CMDS.filter(c => c.n.startsWith(q.toLowerCase()));
+  if(!shown.length){
+    plist.innerHTML = `<div class="none">no command matches /${esc(q)}</div>`;
+    palette.classList.add("open"); return;
+  }
+  if(sel >= shown.length) sel = 0;
+  plist.innerHTML = shown.map((c,i)=>
+    `<button class="cmd${i===sel?" sel":""}" data-i="${i}">
+       <b>/${c.n}${c.arg?" &lt;"+esc(argOf(c))+"&gt;":""}</b><span>${esc(c.h)}</span></button>`
+  ).join("");
+  plist.querySelectorAll(".cmd").forEach(b=>{
+    b.onmousedown = e => e.preventDefault();      // keep focus in the textarea
+    b.onclick = () => choose(shown[+b.dataset.i]);
+  });
+  $("#phead").textContent = q ? `${T("commands")} ${T("matching")} /${q}`
+                              : T("commands");
+  palette.classList.add("open");
+}
+function closePalette(){
+  palette.classList.remove("open"); sel = 0;
+  if(box.value === "/"){        // barra suelta de un panel que no se uso
+    box.value = ""; box.style.height = "auto"; slashToggle();
+  }
+}
+main.addEventListener("pointerdown", ()=>{
+  if(palette.classList.contains("open")) closePalette();
+});
+function choose(c){
+  if(c.arg){                                   // needs text: prefill and wait
+    box.value = "/" + c.n + " ";
+    box.focus(); closePalette(); slashToggle(); return;
+  }
+  box.value = ""; box.style.height = "auto";
+  closePalette(); slashToggle(); c.run();
+}
+function runLine(text){
+  const m = text.match(/^\/(\S+)\s*([\s\S]*)$/);
+  const c = CMDS.find(x => x.n === m[1].toLowerCase());
+  if(!c) return note(`no command called /${m[1]}. type / to see the list`);
+  if(c.arg && !m[2].trim()) return note(`/${c.n} <${argOf(c)}>`);
+  c.run(m[2].trim());
+}
+
+box.addEventListener("keydown", e=>{
+  if(palette.classList.contains("open") && shown.length){
+    if(e.key === "ArrowDown"){ e.preventDefault(); sel=(sel+1)%shown.length; paintPalette(); return; }
+    if(e.key === "ArrowUp"){ e.preventDefault(); sel=(sel-1+shown.length)%shown.length; paintPalette(); return; }
+    if(e.key === "Tab"){ e.preventDefault(); choose(shown[sel]); return; }
+    if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); choose(shown[sel]); return; }
+    if(e.key === "Escape"){ closePalette(); return; }
+  }
+  if(e.key === "Enter" && !e.shiftKey && !matchMedia("(pointer:coarse)").matches){
+    e.preventDefault(); submit();
+  }
+});
+$("#send").onclick = submit;
+function submit(){
+  const text = box.value.trim(); if(!text) return;
+  box.value = ""; box.style.height = "auto"; closePalette(); slashToggle();
+  if(text.startsWith("/")) return runLine(text);
+  send({type:"prompt", message:text});
+}
+
+$("#stopBtn").onclick = () => send({type:"abort"});
+/* ---------- language ---------- */
+const LANGS = ["en", "es"];
+const STR = {
+  en:{menu:"menu", send:"send", stop:"stop", addProject:"Add project",
+      recent:"recent", appearance:"appearance", language:"language",
+      help:"help", about:"about pi-remote", donate:"donate", ok:"OK",
+      auto:"auto", light:"light", dark:"dark",
+      noProject:"no project", noProjectHint:"Tap to choose a folder",
+      project:"project", commands:"commands", useFolder:"use this folder",
+      up:"up", noSub:"no subfolders here", ask:"Ask pi to do something",
+      pickFirst:"Pick a project first",
+      unnamed:"unnamed session", noModel:"no model", queued:"queued",
+      reconnecting:"reconnecting", matching:"matching",
+      thirdParty:"Third-party components", nothingWaiting:"nothing waiting",
+      sessions:"sessions", noSessions:"No sessions in this folder",
+      asking:"pi is asking", cancel:"cancel", yes:"yes", no:"no",
+      newQ:"Start a new session?", newB:"The current context is lost.",
+      newSession:"new session", removeProject:"remove from the list",
+      removeQ:"Remove this project from the list?",
+      removeB:"The folder and its sessions stay where they are.",
+      loading:"loading...", noSessionsYet:"no sessions yet",
+      openSession:"open", deleteSession:"remove session",
+      deleteQ:"Remove this session?",
+      deleteB:"It is moved to a _trash folder next to it, not erased.",
+      compactQ:"Compress the context now?",
+      compactB:"The conversation gets summarised. It cannot be undone.",
+      clearqQ:"Drop the queued messages?",
+      typeAnswer:"type an answer", answered:"answered", tools:"tool"},
+  es:{menu:"men\u00fa", send:"enviar", stop:"parar",
+      addProject:"A\u00f1adir proyecto",
+      recent:"recientes", appearance:"apariencia", language:"idioma",
+      help:"ayuda", about:"acerca de pi-remote", donate:"donar", ok:"Aceptar",
+      auto:"auto", light:"claro", dark:"oscuro",
+      noProject:"sin proyecto", noProjectHint:"Toca para elegir carpeta",
+      project:"proyecto", commands:"comandos", useFolder:"usar esta carpeta",
+      up:"subir", noSub:"aqu\u00ed no hay subcarpetas", ask:"Pide algo a pi",
+      pickFirst:"Elige un proyecto",
+      unnamed:"sesi\u00f3n sin nombre", noModel:"sin modelo", queued:"en cola",
+      reconnecting:"reconectando", matching:"que empiezan por",
+      thirdParty:"Componentes de terceros", nothingWaiting:"nada esperando",
+      sessions:"sesiones", noSessions:"No hay sesiones en esta carpeta",
+      asking:"pi pregunta", cancel:"cancelar", yes:"s\u00ed", no:"no",
+      newQ:"\u00bfEmpezar una sesi\u00f3n nueva?",
+      newB:"Se pierde el contexto actual.",
+      newSession:"sesi\u00f3n nueva", removeProject:"quitar de la lista",
+      removeQ:"\u00bfQuitar este proyecto de la lista?",
+      removeB:"La carpeta y sus sesiones se quedan donde est\u00e1n.",
+      loading:"cargando...", noSessionsYet:"a\u00fan sin sesiones",
+      openSession:"abrir", deleteSession:"quitar sesi\u00f3n",
+      deleteQ:"\u00bfQuitar esta sesi\u00f3n?",
+      deleteB:"Se mueve a una carpeta _trash al lado, no se borra.",
+      compactQ:"\u00bfComprimir el contexto ahora?",
+      compactB:"La conversaci\u00f3n se resume. No se puede deshacer.",
+      clearqQ:"\u00bfDescartar los mensajes en cola?",
+      typeAnswer:"escribir respuesta", answered:"respondido",
+      tools:"herramienta"},
+};
+function lang(){
+  try { const v = localStorage.getItem("pi.lang");
+        if(LANGS.includes(v)) return v; } catch(e){}
+  return (navigator.language || "en").startsWith("es") ? "es" : "en";
+}
+const T = k => (STR[lang()] || STR.en)[k] || STR.en[k] || k;
+const argOf = c => (lang() === "es" && c.argEs) ? c.argEs : c.arg;
+function setLang(v){
+  try { localStorage.setItem("pi.lang", v); } catch(e){}
+  applyLang();
+}
+function applyLang(){
+  document.documentElement.lang = lang();
+  document.querySelectorAll("[data-t]").forEach(el=>{
+    el.textContent = T(el.dataset.t);
+  });
+  $("#modalOk").textContent = T("ok");
+  nodes.forEach((el, id)=>{                      // notes carry a key, redraw
+    if(el.__item && el.__item.kind === "note") el.innerHTML = html(el.__item);
+  });
+  for(const [id, k] of [["#menuBtn","menu"], ["#railBtn","project"],
+                        ["#send","send"]]){
+    $(id).title = $(id).ariaLabel = T(k);
+  }
+  curWord = "";
+  paint();
+}
+
+/* ---------- the status words, one batch per language ---------- */
+const WORDS = {
+en:["Actioning","Actualizing","Architecting","Baking","Beaming","Befuddling",
+"Billowing","Blanching","Bloviating","Boogieing","Boondoggling","Booping",
+"Bootstrapping","Brewing","Burrowing","Calculating","Canoodling","Caramelizing",
+"Cascading","Catapulting","Cerebrating","Channeling","Choreographing",
+"Churning","Coalescing","Cogitating","Combobulating","Composing","Computing",
+"Concocting","Considering","Contemplating","Cooking","Crafting","Creating",
+"Crunching","Crystallizing","Cultivating","Deciphering","Deliberating",
+"Determining","Dilly-dallying","Discombobulating","Doodling","Drizzling",
+"Effecting","Elucidating","Embellishing","Enchanting","Envisioning",
+"Evaporating","Fermenting","Fiddle-faddling","Finagling","Flambeing",
+"Flibbertigibbeting","Flowing","Flummoxing","Fluttering","Forging","Forming",
+"Frolicking","Frosting","Gallivanting","Galloping","Garnishing","Generating",
+"Gesticulating","Germinating","Grooving","Gusting","Harmonizing","Hashing",
+"Hatching","Herding","Hullaballooing","Hyperspacing","Ideating","Imagining",
+"Improvising","Incubating","Inferring","Infusing","Ionizing","Jitterbugging",
+"Julienning","Kneading","Leavening","Levitating","Lollygagging","Manifesting",
+"Marinating","Meandering","Metamorphosing","Misting","Moonwalking","Moseying",
+"Mulling","Mustering","Musing","Nebulizing","Nesting","Noodling","Nucleating",
+"Orbiting","Orchestrating","Osmosing","Perambulating","Percolating","Perusing",
+"Philosophising","Photosynthesizing","Pollinating","Pondering","Pontificating",
+"Pouncing","Precipitating","Prestidigitating","Processing","Proofing",
+"Propagating","Puttering","Puzzling","Quantumizing","Razzle-dazzling",
+"Recombobulating","Reticulating","Roosting","Ruminating","Sauteing",
+"Scampering","Schlepping","Scurrying","Seasoning","Shenaniganing","Shimmying",
+"Simmering","Skedaddling","Sketching","Slithering","Smooshing","Spelunking",
+"Spinning","Sprouting","Stewing","Sublimating","Swirling","Swooping",
+"Synthesizing","Tempering","Thinking","Thundering","Tinkering","Tomfoolering",
+"Topsy-turvying","Transfiguring","Transmuting","Twisting","Undulating",
+"Unfurling","Unravelling","Vibing","Waddling","Wandering","Warping",
+"Whirlpooling","Whirring","Whisking","Wibbling","Working","Wrangling",
+"Zesting","Zigzagging"],
+es:["Abrillantando","Acechando","Aclarando","Acoplando","Adobando","Afinando",
+"Agitando","Ahumando","Alambicando","Aleteando","Almibarando","Amasando",
+"Analizando","Anidando","Apilando","Arando","Armonizando","Arremolinando",
+"Aserrando","Atizando","Aventando","Bailoteando","Balanceando","Bamboleando",
+"Barajando","Barnizando","Barruntando","Batiendo","Bordando","Borboteando",
+"Brincando","Brotando","Bru\u00f1endo","Bullendo","Burbujeando","Cabeceando",
+"Cacharreando","Calculando","Calibrando","Callejeando","Canturreando",
+"Caramelizando","Carburando","Cavilando","Cepillando","Chapoteando",
+"Chapurreando","Chisporroteando","Cincelando","Cociendo","Cocinando","Colando",
+"Columpiando","Combinando","Componiendo","Computando","Concibiendo",
+"Condensando","Confabulando","Conjeturando","Conjugando","Contemplando",
+"Coreografiando","Cosechando","Cosiendo","Cristalizando","Cultivando",
+"Curioseando","Curtiendo","Danzando","Decantando","Deduciendo","Deliberando",
+"Derritiendo","Descifrando","Desenredando","Deshilando","Destilando",
+"Devanando","Dibujando","Digiriendo","Discurriendo","Divagando","Domando",
+"Dorando","Elucubrando","Embadurnando","Emborronando","Empollando","Encajando",
+"Enredando","Ensamblando","Entretejiendo","Esbozando","Escarbando",
+"Esculpiendo","Espumando","Estofando","Evaporando","Fabulando","Faenando",
+"Farfullando","Fermentando","Filigranando","Flotando","Forjando","Fraguando",
+"Fundiendo","Germinando","Gestando","Girando","Glaseando","Gorjeando",
+"Guisando","Hilando","Hilvanando","Horneando","Hurgando","Husmeando","Ideando",
+"Imaginando","Improvisando","Incubando","Infiriendo","Infusionando",
+"Injertando","Inventando","Levitando","Licuando","Limando","Lustrando",
+"Macerando","Machacando","Malabareando","Maquinando","Marinando","Mascullando",
+"Meditando","Merodeando","Mezclando","Moldeando","Moliendo","Mullendo",
+"Musitando","Navegando","Nucleando","Ondeando","Orbitando","Orquestando",
+"Oxidando","Paladeando","Pensando","Percolando","Perfilando","Pertrechando",
+"Pescando","Pincelando","Pipeteando","Plegando","Ponderando","Puliendo",
+"Pululando","Rebobinando","Rebullendo","Rebuscando","Recalibrando",
+"Recociendo","Reduciendo","Refinando","Remachando","Remando","Remendando",
+"Removiendo","Repujando","Retocando","Retozando","Revolviendo","Rodando",
+"Rondando","Ronroneando","Rumiando","Runruneando","Salpimentando","Sazonando",
+"Serpenteando","Silbando","Simulando","Sintetizando","Soldando","Sonando",
+"So\u00f1ando","Sopesando","Sublimando","Tallando","Tamizando","Tanteando",
+"Tarareando","Tejiendo","Templando","Tramando","Trajinando","Transmutando",
+"Traqueteando","Trasteando","Trazando","Trenzando","Tricotando","Trillando",
+"Triturando","Urdiendo","Vadeando","Ventilando","Vibrando","Zanjando",
+"Zascandileando","Zigzagueando","Zurciendo"],
+};
+/* notes come from the bridge as a key plus values, so they can be said
+   in either language. an unknown key falls back to its english text. */
+const NOTES = {
+  en:{pi_stdin:"pi is not accepting input: {err}",
+      pi_exited:"pi exited. reopen the project.",
+      not_folder:"not a folder: {path}",
+      start_failed:"could not start pi: {err}",
+      project:"project: {path}",
+      no_project:"no project open. pick a folder first.",
+      cmd_failed:"{cmd} failed: {err}",
+      compacted:"context compacted: {before} to {after} tokens",
+      retrying:"retrying {n}/{max}",
+      extension:"extension: {err}",
+      exported:"exported to {path}",
+      del_ok:"session moved to _trash",
+      del_in_use:"that session is open right now",
+      del_missing:"that session is not there any more",
+      del_outside:"that file is not one of pi's sessions",
+      del_bad_path:"bad session path",
+      del_failed:"could not move the session"},
+  es:{pi_stdin:"pi no acepta entrada: {err}",
+      pi_exited:"pi ha salido. vuelve a abrir el proyecto.",
+      not_folder:"no es una carpeta: {path}",
+      start_failed:"no se pudo arrancar pi: {err}",
+      project:"proyecto: {path}",
+      no_project:"sin proyecto. elige una carpeta primero.",
+      cmd_failed:"{cmd} ha fallado: {err}",
+      compacted:"contexto comprimido: de {before} a {after} tokens",
+      retrying:"reintentando {n}/{max}",
+      extension:"extensi\u00f3n: {err}",
+      exported:"exportado a {path}",
+      del_ok:"sesi\u00f3n movida a _trash",
+      del_in_use:"esa sesi\u00f3n est\u00e1 abierta ahora mismo",
+      del_missing:"esa sesi\u00f3n ya no est\u00e1",
+      del_outside:"ese fichero no es una sesi\u00f3n de pi",
+      del_bad_path:"ruta de sesi\u00f3n no v\u00e1lida",
+      del_failed:"no se pudo mover la sesi\u00f3n"},
+};
+function noteText(it){
+  const tpl = it.key && (NOTES[lang()] || NOTES.en)[it.key];
+  if(!tpl) return it.text || "";
+  const a = it.args || {};
+  return tpl.replace(/\{(\w+)\}/g, (_, k) => a[k] != null ? a[k] : "");
+}
+
+const WORD_ROTATE = 8000;
+let curWord = "", wordTimer = null;
+
+function pickWord(){
+  const list = WORDS[lang()] || WORDS.en;
+  let w = curWord;
+  while(w === curWord && list.length > 1) w = list[Math.random() * list.length | 0];
+  curWord = w;
+}
+function showWord(fade){
+  const el = $("#word"), txt = state.tool || curWord;
+  if(el.textContent === txt) return;
+  if(!fade){ el.textContent = txt; return; }
+  el.classList.add("out");
+  setTimeout(()=>{ el.textContent = txt; el.classList.remove("out"); }, 200);
+}
+
+/* ---------- theme ---------- */
+const THEMES = ["auto", "light", "dark"];
+const SYS = matchMedia("(prefers-color-scheme: light)");
+
+function themePref(){
+  try { return localStorage.getItem("pi.theme") || "auto"; }
+  catch(e){ return "auto"; }
+}
+function applyTheme(pref){
+  const t = pref !== "auto" ? pref : (SYS.matches ? "light" : "dark");
+  document.documentElement.dataset.theme = t;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if(meta){                       // the phone browser chrome follows along
+    const v = getComputedStyle(document.documentElement)
+                .getPropertyValue("--plate-b").trim();
+    if(v) meta.content = v;
+  }
+}
+function setTheme(pref){
+  try { localStorage.setItem("pi.theme", pref); } catch(e){}
+  applyTheme(pref);
+}
+applyTheme(themePref());
+SYS.addEventListener("change", () => {
+  if(themePref() === "auto") applyTheme("auto");
+});
+
+/* ---------- menu ---------- */
+function menuSheet(){
+  $("#sheetTitle").textContent = T("menu");
+  const body = $("#sheetBody"); body.innerHTML = "";
+  const head = t => {
+    const h = document.createElement("div");
+    h.className = "shead"; h.textContent = T(t); body.appendChild(h);
+  };
+  const segment = (opts, current, pick, label) => {
+    const seg = document.createElement("div");
+    seg.className = "seg";
+    opts.forEach(o=>{
+      const b = document.createElement("button");
+      b.className = "segb" + (o === current ? " on" : "");
+      b.textContent = label(o);
+      b.onclick = () => { pick(o); menuSheet(); };
+      seg.appendChild(b);
+    });
+    body.appendChild(seg);
+  };
+
+  head("appearance");
+  segment(THEMES, themePref(), setTheme, t => T(t));
+  head("language");
+  segment(LANGS, lang(), setLang, l => l === "es" ? "Espa\u00f1ol" : "English");
+
+  const act = (key, icon, run) => body.appendChild(pickBtn({
+    icon: icon, label: T(key),
+    run: () => { $("#sheet").classList.remove("open"); run(); }}));
+  const h = document.createElement("div");
+  h.className = "shead"; h.textContent = "\u00a0"; body.appendChild(h);
+  act("help", "help", helpModal);
+  act("about", "info", aboutModal);
+  act("donate", "donate", () => PAYPAL ? open(PAYPAL, "_blank", "noopener")
+                          : modal(T("donate"), "<p>Coming soon.</p>"));
+  $("#sheet").classList.add("open");
+}
+$("#menuBtn").onclick = menuSheet;
+
+/* ---------- sheet ---------- */
+/* slide the overflow instead of cutting it. measured, not guessed:
+   only what actually sticks out gets a marquee. */
+const STILL = matchMedia("(prefers-reduced-motion: reduce)");
+function marquee(el){
+  const inner = el.firstElementChild;
+  if(!inner) return;
+  const over = inner.scrollWidth - el.clientWidth;
+  if(over > 3 && !STILL.matches){
+    el.style.setProperty("--mq-shift", -(over + 4) + "px");
+    el.style.setProperty("--mq-dur", (over / 26 + 6).toFixed(1) + "s");
+    el.classList.add("run");
+  } else {
+    el.classList.remove("run");
+  }
+}
+function marqueeAll(root){
+  requestAnimationFrame(()=>                    // tras el reflow, con ancho ya
+    (root || document).querySelectorAll(".mq").forEach(marquee));
+}
+if(document.fonts) document.fonts.ready.then(()=> marqueeAll());
+addEventListener("resize", ()=> marqueeAll());
+STILL.addEventListener("change", ()=> marqueeAll());
+
+const mqSpan = (cls, text) =>
+  `<${cls} class="mq"><span>${esc(text)}</span></${cls}>`;
+
+function pickBtn(o){
+  const b = document.createElement("button");
+  b.className = o.cls || "pick";
+  b.innerHTML = (o.icon ? ico(o.icon) : "")
+    + `<span class="txt">` + mqSpan("span", o.label)
+    + (o.hint ? mqSpan("small", o.hint) : "") + "</span>"
+    + (o.chevron ? ico("chevron", "ch") : "");
+  b.onclick = o.run;
+  return b;
+}
+function sheet(title, rows){
+  $("#sheetTitle").textContent = title;
+  const body = $("#sheetBody"); body.innerHTML = "";
+  rows.forEach(r=>{
+    r.run = (run => () => { $("#sheet").classList.remove("open"); run(); })(r.run);
+    body.appendChild(pickBtn(r));
+  });
+  $("#sheet").classList.add("open");
+  marqueeAll(body);
+}
+$("#sheet").onclick = e => { if(e.target.id === "sheet") e.target.classList.remove("open"); };
+addEventListener("keydown", e => {
+  if(e.key !== "Escape") return;
+  if($("#modal").classList.contains("open")) return closeModal();
+  if($("#rail").classList.contains("on")) return closeRail();
+  $("#sheet").classList.remove("open");
+});
+
+async function loadSessions(){
+  const r = await fetch("/api/sessions?token=" + encodeURIComponent(TOKEN));
+  const d = await r.json();
+  if(!d.sessions || !d.sessions.length)
+    return sheet(T("sessions"),
+      [{label:T("noSessions"), hint:d.dir, run(){}}]);
+  sheet(T("sessions"), d.sessions.map(s=>({
+    label: s.label,
+    hint: new Date(s.mtime*1000).toLocaleString(),
+    run: () => send({type:"switch_session", sessionPath:s.path})
+  })));
+}
+
+/* ---------- folder picker: one tap walks in, button picks ---------- */
+async function browse(path){
+  const u = "/api/browse?token=" + encodeURIComponent(TOKEN) +
+            (path ? "&path=" + encodeURIComponent(path) : "");
+  let d;
+  try { d = await (await fetch(u)).json(); }
+  catch(e){ return note("cannot reach the bridge"); }
+  if(d.error) return note(d.error);
+
+  $("#sheetTitle").textContent = T("project");
+  const body = $("#sheetBody"); body.innerHTML = "";
+
+  const nav = document.createElement("div");
+  nav.className = "nav";
+  const up = document.createElement("button");
+  up.className = "iconbtn ico"; up.innerHTML = ico("up");
+  up.title = up.ariaLabel = T("up"); up.disabled = !d.parent;
+  up.onclick = () => browse(d.parent);
+  const where = document.createElement("span");
+  where.className = "path"; where.textContent = d.path;
+  nav.append(up, where); body.appendChild(nav);
+
+  const use = document.createElement("button");
+  use.className = "usebtn";
+  use.textContent = T("useFolder") + (d.mark ? "  (" + d.mark + ")" : "");
+  use.onclick = () => {
+    $("#sheet").classList.remove("open");
+    send({type:"open_project", path:d.path});
+  };
+  body.appendChild(use);
+
+  (d.dirs||[]).forEach(x=>{
+    const b = pickBtn({icon:"folder", label:x.name, chevron:true,
+                       run:()=>browse(x.path)});
+    if(x.mark) b.querySelector(".txt").insertAdjacentHTML("beforeend",
+      `<small class="mk">${esc(x.mark)}</small>`);
+    body.appendChild(b);
+  });
+  if(!(d.dirs||[]).length){
+    const p = document.createElement("div");
+    p.className = "nosub"; p.textContent = T("noSub");
+    body.appendChild(p);
+  }
+  $("#sheet").classList.add("open");
+}
+
+function onRpc(m){
+  const d = m.data || {};
+  if(m.command === "get_available_models")
+    return sheet("model", (d.models||[]).map(x=>({
+      label:x.name, hint:`${x.provider}  ·  ${x.contextWindow||"?"} ctx`,
+      run:()=>send({type:"set_model", provider:x.provider, modelId:x.id})})));
+  if(m.command === "get_available_thinking_levels")
+    return sheet("thinking", (d.levels||[]).map(l=>({
+      label:l, run:()=>send({type:"set_thinking_level", level:l})})));
+  if(m.command === "get_fork_messages")
+    return sheet("fork from", (d.messages||[]).slice(-12).reverse().map(x=>({
+      label:(x.text||"(empty)").slice(0,90),
+      run:()=>send({type:"fork", entryId:x.entryId})})));
+  if(m.command === "get_last_assistant_text")
+    return alert(d.text || "nothing yet");
+}
+
+applyLang();
+connect();
+</script>
+</body>
+</html>

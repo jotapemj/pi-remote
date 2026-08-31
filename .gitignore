@@ -1,0 +1,11 @@
+# lo que el puente escribe mientras corre
+state.json
+bridge.log
+
+# python
+__pycache__/
+*.py[cod]
+
+# windows
+Thumbs.db
+desktop.ini
