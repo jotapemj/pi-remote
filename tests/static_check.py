@@ -24,6 +24,11 @@ checks = [
     ("licencias de terceros",
      all(x in h for x in ("FastAPI", "BSD-3-Clause", "SIL Open Font License"))),
     ("paypal preparado", 'const PAYPAL = ""' in h),
+    ("los rotulos van en la sans, no en la mono",
+     all(("%s{" % sel) not in css.replace(" ", "") or
+         "var(--mono)" not in css.split(sel + "{")[1].split("}")[0]
+         for sel in (".shead", ".sizecard .lbl", ".ask .cap"))
+     and "var(--sans)" in css.split(".sheet h2{")[1].split("}")[0]),
     ("el menu navega por paginas",
      "function paintSheet(" in h and "function turnTo(" in h
      and 'id="sheetBack"' in body),
