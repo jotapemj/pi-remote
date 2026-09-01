@@ -36,10 +36,21 @@ def turn(text):
          "isError": False})
     if "compact" in text:
         global TOKENS
+        out({"type": "compaction_start"})
+        time.sleep(0.3)
+        before = TOKENS
         out({"type": "compaction_end",
-             "result": {"tokensBefore": TOKENS,
+             "result": {"tokensBefore": before,
                         "estimatedTokensAfter": 5200}})
         TOKENS = 5200
+        # el prefill rehace el contexto y sube en un par de pasos, como el
+        # de verdad: la barra tiene que ir subiendo con la rafaga de sondeos
+        def refill():
+            global TOKENS
+            for v in (11000, 16000):
+                time.sleep(1.8)
+                TOKENS = v
+        threading.Thread(target=refill, daemon=True).start()
         finish()
         return
     if "danger" in text:

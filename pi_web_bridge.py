@@ -422,6 +422,7 @@ class Bridge:
             "readOnly": READ_ONLY, "version": VERSION,
         }
         self.pending = OrderedDict()         # dialog id -> item id
+        self.compacting = None               # la nota "compactando" en curso
         self.cur = None                      # assistant item being streamed
 
         self.proc = None                     # no project, no agent
@@ -529,6 +530,19 @@ class Bridge:
             except (OSError, ValueError) as exc:
                 self.note("error", "pi_stdin",
                           f"pi is not accepting input: {exc}", err=str(exc))
+
+    def poll_stats(self, times=8, every=1.6):
+        """Una rafaga corta de get_session_stats, para ver subir la barra."""
+        gen = self.gen
+
+        def run():
+            for _ in range(times):
+                time.sleep(every)
+                if gen != self.gen or not self.proc:
+                    return
+                self.send_pi({"type": "get_session_stats"})
+
+        threading.Thread(target=run, daemon=True).start()
 
     def settle_tools(self):
         """Cierra las herramientas que nunca recibieron su final.
@@ -679,18 +693,29 @@ class Bridge:
                                    "followUp": ev.get("followUp", [])}
             self.push_state()
 
+        elif t == "compaction_start":
+            # el navegador no se enteraba de que pi estaba compactando
+            self.compacting = self.note("info", "compacting",
+                                        "compacting the context...")
+
         elif t == "compaction_end":
             r = ev.get("result") or {}
             before, after = r.get("tokensBefore"), r.get("estimatedTokensAfter")
-            self.note("info", "compacted",
-                      f"context compacted: {before} to {after} tokens",
-                      before=before, after=after)
+            if self.compacting:               # la misma nota, ahora resuelta
+                self.patch(self.compacting, key="compacted",
+                           args={"before": before, "after": after},
+                           text=f"context compacted: {before} to {after} tokens")
+                self.compacting = None
+            else:
+                self.note("info", "compacted",
+                          f"context compacted: {before} to {after} tokens",
+                          before=before, after=after)
             window = (self.state.get("context") or {}).get("window")
             self.state["context"] = {
                 "tokens": after, "window": window,
                 "percent": pct(after, window), "cost": None}
             self.push_state()
-            self.send_pi({"type": "get_session_stats"})
+            self.poll_stats()                 # y a ver subir el prefill
 
         elif t == "auto_retry_start":
             self.note("warn", "retrying",

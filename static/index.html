@@ -299,6 +299,9 @@ body.waiting .cursor{display:none}   /* pi no escribe: te espera */
 .note .i{width:16px;height:16px;flex:none}
 .note.warn{border-color:var(--amber);color:var(--amber)}
 .note.error{border-color:var(--coral);color:var(--coral)}
+.note{transition:opacity .2s ease}
+.note.fade{opacity:0}
+.note.busy .i{animation:pulse 1.4s ease-in-out infinite}
 
 /* ---------- approval card ---------- */
 .ask{
@@ -1484,7 +1487,7 @@ function html(it){
   if(it.kind === "assistant")
     return `<div class="said" data-body>${md(it.text)}${tail(it)}</div>`;
   if(it.kind === "note")
-    return `<div class="note ${it.level||""}">`
+    return `<div class="note ${it.level||""}${it.key==="compacting"?" busy":""}">`
          + ico(NOTE_ICON[it.level] || "info")
          + `<span>${esc(noteText(it))}</span></div>`;
   if(it.kind === "tool"){
@@ -2099,8 +2102,16 @@ function connect(){
       const it = m.fields, el = nodes.get(m.id);
       if(!el) return;
       const cur = Object.assign(el.__item || {}, it);
-      el.__item = cur; el.innerHTML = html(cur);
-      if(cur.kind === "ask") wireAsk(el, cur);
+      el.__item = cur;
+      if(cur.kind === "note"){          // funde el texto, no lo cambia de golpe
+        el.classList.add("fade");
+        setTimeout(()=>{ el.innerHTML = html(cur);
+                         requestAnimationFrame(()=>el.classList.remove("fade")); },
+                   200);
+      } else {
+        el.innerHTML = html(cur);
+        if(cur.kind === "ask") wireAsk(el, cur);
+      }
     }
     else if(m.type === "delta"){
       const el = nodes.get(m.id); if(!el) return;
@@ -2456,6 +2467,7 @@ const NOTES = {
       project:"project: {path}",
       no_project:"no project open. pick a folder first.",
       cmd_failed:"{cmd} failed: {err}",
+      compacting:"compacting the context\u2026",
       compacted:"context compacted: {before} to {after} tokens",
       retrying:"retrying {n}/{max}",
       extension:"extension: {err}",
@@ -2475,6 +2487,7 @@ const NOTES = {
       project:"proyecto: {path}",
       no_project:"sin proyecto. elige una carpeta primero.",
       cmd_failed:"{cmd} ha fallado: {err}",
+      compacting:"comprimiendo el contexto\u2026",
       compacted:"contexto comprimido: de {before} a {after} tokens",
       retrying:"reintentando {n}/{max}",
       extension:"extensi\u00f3n: {err}",
