@@ -64,11 +64,21 @@ async def main():
                         "dd if=/dev/zero of=/dev/sda",
                         "quijotesco --wat"):
                 cases[cmd] = await js(
-                    "explain('bash', %r).map(e => e.t)" % cmd)
+                    "explain('bash', %r)"
+                    ".map(e => e.t.replace(/\u0001/g, ''))" % cmd)
             for cmd, got in cases.items():
                 print("  %-38s %s" % (cmd, got))
             print("  en espanol: %s" % says)
             print("  en ingles : %r" % saysEn)
+
+            # las rutas salen en mono, como el resto de los datos
+            mono = await js("(() => {"
+                            " const c = document.querySelector"
+                            "('.ask .says code');"
+                            " return c ? [c.textContent,"
+                            " getComputedStyle(c).fontFamily"
+                            ".includes('Plex Mono')] : null;})()")
+            print("  en mono: %s" % mono)
 
             # ni tuteo ni registro coloquial
             loose = await js(
@@ -87,6 +97,7 @@ async def main():
                 ("la explicacion sigue al idioma",
                  saysEn == "Deletes /tmp/sv_src and all its contents"),
                 ("nada de tratar de tu al usuario", loose == []),
+                ("la ruta sale en mono", mono == ["/tmp/sv_src", True]),
                 ("un push forzado lo dice en la frase",
                  cases["git push --force origin main"]
                  == ["Sube los commits al repositorio remoto,"

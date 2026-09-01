@@ -304,6 +304,11 @@ body.waiting .cursor{display:none}   /* pi no escribe: te espera */
 .ask .what .says{padding:9px 10px; font:400 12.5px/1.5 var(--sans)}
 .ask .what .says p{margin:0; color:var(--ink)}
 .ask .what .says p + p{margin-top:4px}
+.ask .what .says code{
+  font:500 12px/1.4 var(--mono); background:var(--raise);
+  padding:1px 5px; border-radius:3px; color:var(--lit);
+  word-break:break-all;
+}
 .ask .what .says + pre{border-top:1px solid var(--rule)}
 .ask .what pre{
   margin:0; padding:9px 10px; font:400 12px/1.5 var(--mono);
@@ -1114,6 +1119,7 @@ const XW = {
 const X = k => (XS[lang()] || XS.en)[k] || XS.en[k] || "";
 const XT = k => (XW[lang()] || XW.en)[k] || XW.en[k] || k;
 
+const MARK = "\u0001";              // lo que va en mono al pintarlo
 const unq = s => s.replace(/^(["'])([\s\S]*)\1$/, "$2");
 const shortArg = a => a.length > 46 ? "\u2026" + a.slice(-45) : a;
 
@@ -1203,7 +1209,8 @@ function readCmd(piece){
     : "";
   let tpl = key ? X(key) : "";
   if(!tpl || (!a && tpl.indexOf("{a}") >= 0)) tpl = X("run");
-  const t = tpl.replace("{a}", a).replace("{n}", shown).trim();
+  const t = tpl.replace("{a}", MARK + a + MARK)
+               .replace("{n}", MARK + shown + MARK).trim();
   warn.sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b));
   return {name: name, t: warn.reduce(
     (acc, k) => acc + (GLUE.indexOf(k) < 0 ? ", " : " ") + XT(k), t)};
@@ -1215,7 +1222,8 @@ function explain(tool, detail){
   const cat = toolIcon(tool);
   if(cat !== "terminal"){
     const k = {read:"xRead", edit:"xEdit", search:"xFind"}[cat];
-    return k ? [{t: X(k).replace("{a}", shortArg(detail))}] : [];
+    return k ? [{t: X(k).replace("{a}",
+                 MARK + shortArg(detail) + MARK)}] : [];
   }
   const out = cmdPieces(detail).map(readCmd).filter(Boolean);
   for(let i = 0; i < out.length - 1; i++)     // curl ... | sh
@@ -1355,7 +1363,8 @@ function html(it){
       opts = `<button class="opt" data-c="__text__">${esc(T("typeAnswer"))}`
            + `</button>` + cancel;
     const said = explain(it.tool, it.detail).slice(0, 4)
-      .map(e => `<p>${esc(e.t)}</p>`).join("");
+      .map(e => `<p>${esc(e.t)
+        .replace(/\u0001(.*?)\u0001/g, "<code>$1</code>")}</p>`).join("");
     const what = it.detail
       ? `<div class="what"><div class="who">${ico(toolIcon(it.tool))}`
         + `${esc(it.tool || T("tools"))}</div>`
