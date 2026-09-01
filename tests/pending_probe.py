@@ -9,9 +9,9 @@ Todo contra `fake_pi`; el agente de verdad no entra.
 import asyncio
 import json
 
-from harness import Bridge, FakeProject, PORT, Page, report
+from harness import Bridge, FakeProject, Page, WS_URL, report
 
-WS = "ws://127.0.0.1:%d/ws" % PORT
+WS = WS_URL
 
 
 async def take(ws, want, seconds=6.0):

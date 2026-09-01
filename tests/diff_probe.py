@@ -4,9 +4,9 @@ import json
 
 import websockets
 
-from harness import Bridge, FakeProject, Page, PORT, report
+from harness import Bridge, FakeProject, Page, PORT, report, WS_URL
 
-WS = "ws://127.0.0.1:%d/ws" % PORT
+WS = WS_URL
 
 # una edicion y una llamada normal, pintadas en el cliente
 SEED = r"""
@@ -86,12 +86,86 @@ async def from_the_bridge():
 
 
 async def with_token():
-    """Con token, el aviso no debe salir."""
+    """Con token se ejecuta; sin el, el puente pasa a solo lectura."""
+    out = []
     with Bridge(extra={"PI_WEB_TOKEN": "secreto"}):
-        async with websockets.connect(WS + "?token=secreto") as ws:
+        bare = WS.split("?")[0]
+        async with websockets.connect(bare + "?token=secreto") as ws:
             snap = json.loads(await ws.recv())
-        print("  con token: open=%r" % snap["state"].get("open"))
-        return [("con token no se avisa", snap["state"].get("open") is False)]
+        print("  con token: readOnly=%r" % snap["state"].get("readOnly"))
+        out.append(("con token no se avisa",
+                    snap["state"].get("readOnly") is False))
+        for bad in ("", "?token=otro"):
+            try:
+                async with websockets.connect(bare + bad):
+                    ok = False
+            except Exception:
+                ok = True
+            print("  token %-14r rechazado: %s" % (bad or "(ninguno)", ok))
+            out.append(("sin el token bueno no se entra (%s)"
+                        % (bad or "vacio"), ok))
+    return out
+
+
+async def read_only():
+    """Sin token el puente mira, pero no toca. Y la pagina lo dice."""
+    with Bridge(extra={"PI_WEB_TOKEN": "off"}):
+        async with websockets.connect(WS.split("?")[0]) as ws:
+            snap = json.loads(await ws.recv())
+            await ws.send(json.dumps({"type": "prompt", "message": "hola"}))
+            await ws.send(json.dumps({"type": "bash", "command": "whoami"}))
+            await asyncio.sleep(1.0)
+            await ws.send(json.dumps({"type": "get_state"}))
+            saw, notes = [], []
+            end = asyncio.get_event_loop().time() + 4
+            while asyncio.get_event_loop().time() < end:
+                try:
+                    m = json.loads(await asyncio.wait_for(ws.recv(),
+                                                          timeout=1.5))
+                except asyncio.TimeoutError:
+                    break
+                saw.append(m.get("type"))
+                it = m.get("item") or {}
+                if it.get("kind") == "note":
+                    notes.append(it.get("key"))
+                if it.get("kind") == "user":
+                    notes.append("USER")
+        print("  sin token: readOnly=%r" % snap["state"].get("readOnly"))
+        print("  lo que contesto: %s" % notes)
+        out = [
+            ("sin token el estado lo dice",
+             snap["state"].get("readOnly") is True),
+            ("el prompt no llega al agente", "USER" not in notes),
+            ("y se rechaza diciendo por que",
+             notes.count("read_only") == 2),
+        ]
+
+        async with Page(port=9312) as p:
+            await p.go()
+            await asyncio.sleep(0.5)
+            ui = await p.js("(() => {"
+                            " box.value = '/'; box.dispatchEvent("
+                            "new Event('input'));"
+                            " const all = [...document.querySelectorAll("
+                            "'.cmd')];"
+                            " const bash = all.find(b =>"
+                            " b.textContent.includes('/bash'));"
+                            " const stats = all.find(b =>"
+                            " b.textContent.includes('/stats'));"
+                            " return [$('#warnbar').hidden,"
+                            "  bash ? bash.disabled : null,"
+                            "  stats ? stats.disabled : null,"
+                            "  box.disabled, $('#send').disabled];})()")
+            print("  la pagina: aviso oculto=%s /bash=%s /stats=%s"
+                  " caja=%s enviar=%s" % tuple(ui))
+            out += [
+                ("la pagina avisa", ui[0] is False),
+                ("los comandos que actuan salen apagados", ui[1] is True),
+                ("los de mirar siguen vivos", ui[2] is False),
+                ("y no se puede ni escribir",
+                 ui[3] is True and ui[4] is True),
+            ]
+    return out
 
 
 async def main():
@@ -109,15 +183,6 @@ async def main():
             col = await p.js(COLOURS)
             print("  colores: anadido=%s fondo=%s | quitado=%s fondo=%s"
                   % tuple(col))
-            warn = await p.js("[$('#warnbar').hidden,"
-                              " $('#warnbar').textContent.trim().slice(0,30),"
-                              " !!document.querySelector('#warnbar svg')]")
-            print("  aviso sin token: oculto=%s %r" % (warn[0], warn[1]))
-            await p.go()                       # segunda visita
-            again = await p.js("[$('#warnbar').hidden,"
-                               " localStorage.getItem('pi.warned')]")
-            print("  al volver: oculto=%s marca=%r" % tuple(again))
-
             await p.js(SEED)        # la recarga de antes vacio el feed
 
             # el spinner mientras llega el historial
@@ -173,13 +238,10 @@ async def main():
                  "app/main.py" in (r[6] or "")),
                 ("verde y rojo con su fondo",
                  col[1] is True and col[3] is True and col[0] != col[2]),
-                ("sin token se avisa en pantalla",
-                 warn[0] is False and warn[2] is True and warn[1] != ""),
-                ("y solo la primera vez",
-                 again[0] is True and again[1] == "1"),
             ]
 
     checks += await with_token()
+    checks += await read_only()
     return report(checks)
 
 

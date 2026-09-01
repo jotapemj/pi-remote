@@ -4,9 +4,9 @@ import urllib.request
 
 import websockets
 
-from harness import Bridge, Page, PORT, URL, report
+from harness import Bridge, Page, PORT, URL, WS_URL, report
 
-WS = "ws://127.0.0.1:%d/ws" % PORT
+WS = WS_URL
 
 # una opcion de guardrails y una url, ambas con comillas dentro
 XSS = r"""

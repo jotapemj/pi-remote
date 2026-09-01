@@ -11,10 +11,11 @@ no third party: your browser talks to your own machine.
      fila de herramienta y, abajo, la tarjeta ámbar de permiso.
      Ancho ~400px. -->
 
-> **Whoever reaches this port can run commands on your machine.** There is no
-> sandbox: the bridge starts a real agent in a real folder. Set `PI_WEB_TOKEN`,
-> and only expose it inside your tailnet. Read [Security](#security) before
-> leaving it running.
+> **Whoever holds the token can run commands on your machine.** There is no
+> sandbox: the bridge starts a real agent in a real folder. A token is always
+> required — one is generated at startup if you do not set `PI_WEB_TOKEN` —
+> and the URL to open is printed with it. Only expose the port inside your
+> tailnet. Read [Security](#security) before leaving it running.
 
 ## Why this exists
 
@@ -51,7 +52,7 @@ the fonts, all served locally so the page never calls out to anyone.
 | `PI_SESSION` | `web` | session name for a fresh session |
 | `PI_WEB_HOST` | `0.0.0.0` | bind address |
 | `PI_WEB_PORT` | `8770` | port |
-| `PI_WEB_TOKEN` | none | shared secret, appended as `?token=` |
+| `PI_WEB_TOKEN` | generated | shared secret, appended as `?token=`. `off` drops the bridge to read only |
 | `PI_WEB_ORIGINS` | none | extra allowed `Origin`s, comma separated |
 | `PI_WEB_CWD` | none | project to open at startup |
 | `PI_WEB_STATE` | `state.json` | where recent projects are kept |
@@ -238,8 +239,14 @@ bridge, so the page works on a tailnet with no route to the internet.
 
 ## Security
 
-- Without `PI_WEB_TOKEN` anyone who can reach the port can drive the agent.
-  On a tailnet that is usually the point; on a LAN it usually is not.
+- **A bridge that runs things always has a token.** If you do not set
+  `PI_WEB_TOKEN`, one is generated for that run and the full URL is printed
+  at startup. There is no configuration in which reaching the port is enough
+  to execute something.
+- `PI_WEB_TOKEN=off` is the way to say you mean it: the bridge then answers
+  only the read-only commands and refuses everything that acts — prompts,
+  shell, opening projects. The page greys those out, but the refusal is in
+  the server: a disabled button stops nobody who opens a WebSocket by hand.
 - The WebSocket checks `Origin`, because WebSockets ignore the same-origin
   policy: any page you visit could otherwise open one against your tailnet.
   Behind a proxy such as `tailscale serve` the origin no longer matches the

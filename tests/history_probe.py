@@ -4,9 +4,9 @@ import json
 
 import websockets
 
-from harness import Bridge, FakeProject, PORT, report
+from harness import Bridge, FakeProject, PORT, report, WS_URL
 
-WS = "ws://127.0.0.1:%d/ws" % PORT
+WS = WS_URL
 
 
 async def main():

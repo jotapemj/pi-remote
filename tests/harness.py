@@ -18,7 +18,10 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent                       # el proyecto
 PORT = int(os.environ.get("PI_TEST_PORT", "8779"))
-URL = "http://127.0.0.1:%d/" % PORT
+# el puente ya no ejecuta nada sin token: las pruebas usan uno fijo
+TOKEN = "probe-token"
+URL = "http://127.0.0.1:%d/?token=%s" % (PORT, TOKEN)
+WS_URL = "ws://127.0.0.1:%d/ws?token=%s" % (PORT, TOKEN)
 
 sys.path.insert(0, str(ROOT))
 
@@ -61,7 +64,7 @@ def fake_pi_cmd():
 def bridge_env(state=None, extra=None):
     env = dict(os.environ)
     env.update(PI_CMD=fake_pi_cmd(), PI_WEB_PORT=str(PORT),
-               PI_WEB_HOST="127.0.0.1",
+               PI_WEB_HOST="127.0.0.1", PI_WEB_TOKEN=TOKEN,
                PI_WEB_LOG=str(HERE / "_bridge.log"),
                PI_WEB_STATE=str(state or HERE / "_state.json"))
     if extra:

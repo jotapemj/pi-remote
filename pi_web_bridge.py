@@ -17,7 +17,8 @@ Env:
     PI_SESSION    session name         (default: web)
     PI_WEB_HOST   bind address         (default: 0.0.0.0)
     PI_WEB_PORT   port                 (default: 8770)
-    PI_WEB_TOKEN  shared secret        (default: none, open on the tailnet)
+    PI_WEB_TOKEN  shared secret        (default: one is generated;
+                                       "off" drops to read only)
 """
 
 import asyncio
@@ -26,6 +27,8 @@ import os
 import re
 import difflib
 import hmac
+import secrets
+import socket
 import shutil
 import subprocess
 import sys
@@ -44,7 +47,17 @@ RESUME = os.environ.get("PI_RESUME", "new")
 SESSION_NAME = os.environ.get("PI_SESSION", "web")
 HOST = os.environ.get("PI_WEB_HOST", "0.0.0.0")
 PORT = int(os.environ.get("PI_WEB_PORT", "8770"))
-TOKEN = os.environ.get("PI_WEB_TOKEN", "")
+# Un puente sin secreto deja ejecutar a cualquiera que alcance el puerto,
+# asi que no se permite esa combinacion: o hay token, o no se ejecuta nada.
+_given = os.environ.get("PI_WEB_TOKEN", "").strip()
+READ_ONLY = _given.lower() in ("off", "no", "none")
+TOKEN = "" if READ_ONLY else (_given or secrets.token_urlsafe(18))
+TOKEN_MADE = bool(not READ_ONLY and not _given)
+
+# Lo unico que se atiende cuando no hay token: mirar, nunca tocar.
+READ_CMDS = {"get_state", "get_messages", "get_session_stats",
+             "get_available_models", "get_available_thinking_levels",
+             "get_commands"}
 ALLOW_ORIGINS = [o.strip() for o in
                  os.environ.get("PI_WEB_ORIGINS", "").split(",")
                  if o.strip()]
@@ -104,7 +117,9 @@ PASSTHROUGH = {
 
 def good_token(given):
     """Constant time, so the token cannot be guessed a byte at a time."""
-    return not TOKEN or hmac.compare_digest(given or "", TOKEN)
+    if not TOKEN:                     # solo lectura: no hay nada que abrir
+        return True
+    return hmac.compare_digest(given or "", TOKEN)
 
 
 def same_origin(request):
@@ -404,7 +419,7 @@ class Bridge:
             "alive": True, "cwd": "", "waiting": False, "recent": [],
             "sessionFile": None,
             # como servicio nadie lee la consola: el aviso va a la pantalla
-            "open": not TOKEN, "version": VERSION,
+            "readOnly": READ_ONLY, "version": VERSION,
         }
         self.pending = OrderedDict()         # dialog id -> item id
         self.cur = None                      # assistant item being streamed
@@ -874,6 +889,13 @@ class Bridge:
     def command(self, msg):
         t = msg.get("type")
 
+        # El cliente los pinta apagados, pero eso es cosmetica: quien no
+        # use la pagina manda lo que quiera por el websocket.
+        if READ_ONLY and t not in READ_CMDS:
+            self.note("warn", "read_only",
+                      "read only: set PI_WEB_TOKEN to run anything")
+            return
+
         if t == "answer":
             rid, choice = msg.get("rid"), msg.get("choice")
             if choice == "__cancel__":
@@ -948,10 +970,14 @@ bridge: "Bridge | None" = None
 async def lifespan(app: FastAPI):
     global bridge
     bridge = Bridge(asyncio.get_running_loop())
-    print(f"pi-remote {VERSION} on http://localhost:{PORT}  "
-          f"(project: {bridge.cwd or 'none yet'})")
-    if not TOKEN:
-        print("no PI_WEB_TOKEN set: anyone on this network can drive pi")
+    print(f"pi-remote {VERSION}  (project: {bridge.cwd or 'none yet'})")
+    if READ_ONLY:
+        print("PI_WEB_TOKEN is off: read only, nothing can be run")
+    else:
+        if TOKEN_MADE:
+            print("no PI_WEB_TOKEN set: one was made for this run")
+        host = socket.gethostname()
+        print(f"\n  http://{host}:{PORT}/?token={TOKEN}\n")
     yield
     bridge.shutdown()
 
