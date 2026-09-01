@@ -44,6 +44,23 @@ async def main():
             print("  agarre visible:", grab)
             checks.append(("la hoja muestra su agarre", grab is True))
 
+            # touch-action deja el scroll al navegador
+            ta = await js("[getComputedStyle($('#sheet .card')).touchAction,"
+                          " getComputedStyle($('#rail')).touchAction,"
+                          " getComputedStyle($('#sheet .grab')).touchAction]")
+            print("  touch-action card/rail/grab:", ta)
+            checks.append(("el scroll se lo queda el navegador (pan-y)",
+                           ta[0] == "pan-y" and ta[1] == "pan-y"
+                           and ta[2] == "none"))
+
+            # arrastrar el CUERPO (no la barrita) no cierra: eso es scroll
+            await js("__drag('#sheet .card', 200, 300, 0, 220)")
+            await asyncio.sleep(0.4)
+            body = await js("$('#sheet').classList.contains('open')")
+            print("  tras arrastrar el cuerpo 220px, abierta:", body)
+            checks.append(("arrastrar el cuerpo no cierra: es scroll",
+                           body is True))
+
             # arrastrar poco -> vuelve (sigue abierta)
             await js("__drag('#sheet .grab', 200, 200, 0, 30)")
             await asyncio.sleep(0.4)
