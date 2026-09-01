@@ -6,6 +6,11 @@
 <meta name="theme-color" content="#12151a">
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%3E%3Crect%20width%3D%2724%27%20height%3D%2724%27%20rx%3D%275%27%20fill%3D%27%2312151a%27%2F%3E%3Cg%20transform%3D%27translate%282.4%202.4%29%20scale%28.8%29%27%3E%3Cpath%20d%3D%27M20%2C4H4C2.89%2C4%2C2%2C4.9%2C2%2C6v12c0%2C1.1%2C0.89%2C2%2C2%2C2h16c1.1%2C0%2C2-0.9%2C2-2V6C22%2C4.9%2C21.11%2C4%2C20%2C4z%20M20%2C18H4V8h16V18z%20M18%2C17h-6v-2%20h6V17z%20M7.5%2C17l-1.41-1.41L8.67%2C13l-2.59-2.59L7.5%2C9l4%2C4L7.5%2C17z%27%20fill%3D%27%23f2a63b%27%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E">
 <title>pi remote</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="pi-remote">
 <script id="boot">
 /* pick the theme before first paint, or the wrong one flashes on load */
 try{
@@ -1025,7 +1030,13 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
 </div></div>
 
 <script>
-const TOKEN = new URLSearchParams(location.search).get("token") || "";
+const TOKEN = (() => {
+  const q = new URLSearchParams(location.search).get("token");
+  try {
+    if(q){ localStorage.setItem("pi.token", q); return q; }
+    return localStorage.getItem("pi.token") || "";
+  } catch(e){ return q || ""; }
+})();
 const $ = s => document.querySelector(s);
 const feed = $("#feed"), main = $("#main");
 let ws, state = {}, nodes = new Map(), tick = null, CWD = "";
@@ -2212,6 +2223,14 @@ function boot(){
 }
 setTimeout(boot, 4000);
 
+
+/* ---------- PWA ---------- */
+if("serviceWorker" in navigator
+   && (location.protocol === "https:" || location.hostname === "localhost"
+       || location.hostname === "127.0.0.1")){
+  addEventListener("load", () =>
+    navigator.serviceWorker.register("/sw.js").catch(()=>{}));
+}
 
 /* ---------- socket ---------- */
 let backoff = 500;

@@ -58,6 +58,33 @@ the fonts, all served locally so the page never calls out to anyone.
 | `PI_WEB_STATE` | `state.json` | where recent projects are kept |
 | `PI_WEB_LOG` | `bridge.log` | log file when there is no console |
 
+## Install it as an app
+
+The client is a PWA: over HTTPS it installs to the home screen, opens
+full-screen with its own icon, and starts instantly from a cached shell.
+It is still the same single page.
+
+- **You need HTTPS.** A PWA will not install over plain HTTP, and on the
+  phone the bridge is reached by its Tailscale name, not `localhost`, so it
+  is not a secure context on its own. The clean route is `tailscale serve`,
+  which puts an HTTPS reverse proxy in front of the bridge using your
+  tailnet's own certificate — no open ports, no public exposure:
+
+  ```
+  tailscale serve --bg 8770
+  ```
+
+  Then open `https://<machine>.<tailnet>.ts.net/` and install from the
+  browser menu. Set `PI_WEB_ORIGINS` to that origin (see [Security](#security)).
+
+- **The installed app remembers the token.** It launches without the
+  `?token=` query, so the first visit with a token stores it; later launches
+  read it back. Clear it by clearing the site's data.
+
+- The service worker caches only the shell (page, fonts, icons) so it opens
+  offline as a shell; it never caches your data. Its cache name carries the
+  version, so a bump refreshes everything on next load.
+
 ## Leave it running
 
 The bridge is a server, not a terminal app, so it does not need a console at
@@ -273,6 +300,8 @@ bridge, so the page works on a tailnet with no route to the internet.
 - The page ships a strict CSP, `nosniff` and `no-referrer`, and the token is
   compared in constant time.
 - pi ships no permission prompts of its own. Install a guardrails extension.
+- The manifest, the service worker and the icons are the shell, not data, so
+  they are served without a token; everything that acts still needs one.
 
 ## How it works
 

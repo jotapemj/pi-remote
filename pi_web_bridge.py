@@ -40,7 +40,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 
 PI_CMD = os.environ.get("PI_CMD") or shutil.which("pi") or "pi"
 RESUME = os.environ.get("PI_RESUME", "new")
@@ -140,6 +140,7 @@ def same_origin(request):
 CSP = ("default-src 'none'; script-src 'self' 'unsafe-inline'; "
        "style-src 'self' 'unsafe-inline'; font-src 'self'; "
        "img-src 'self' data:; connect-src 'self'; "
+       "manifest-src 'self'; worker-src 'self'; "
        "base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
 
 SAFE_HEADERS = {
@@ -1076,6 +1077,52 @@ async def index():
         return JSONResponse({"error": f"missing {INDEX}"}, status_code=500)
     # no-store: the phone must not keep a stale build while the ui moves
     return FileResponse(INDEX, headers=SAFE_HEADERS)
+
+
+ICON_DIR = INDEX.parent
+MANIFEST = {
+    "name": "pi-remote", "short_name": "pi-remote",
+    "start_url": "/", "scope": "/", "display": "standalone",
+    "background_color": "#12151a", "theme_color": "#12151a",
+    "icons": [
+        {"src": "/icons/icon-192.png", "sizes": "192x192",
+         "type": "image/png"},
+        {"src": "/icons/icon-512.png", "sizes": "512x512",
+         "type": "image/png"},
+        {"src": "/icons/icon-maskable.png", "sizes": "512x512",
+         "type": "image/png", "purpose": "maskable"},
+    ],
+}
+
+
+@app.get("/manifest.webmanifest")
+async def manifest():
+    return JSONResponse(MANIFEST,
+                        media_type="application/manifest+json",
+                        headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/icons/{name}")
+async def icon(name: str):
+    """Sin token: son el cascaron, no datos."""
+    f = ICON_DIR / name
+    if (name != Path(name).name or not name.startswith("icon")
+            or f.suffix != ".png" or not f.is_file()):
+        return JSONResponse({"error": "no such icon"}, status_code=404)
+    return FileResponse(f, media_type="image/png", headers={
+        "Cache-Control": "public, max-age=86400"})
+
+
+@app.get("/sw.js")
+async def service_worker():
+    """El worker lleva la VERSION dentro: al subir version, cambia el
+    nombre de la cache y el cascaron viejo se purga solo."""
+    f = ICON_DIR / "sw.js"
+    if not f.is_file():
+        return JSONResponse({"error": "no sw"}, status_code=404)
+    body = f.read_text(encoding="utf-8").replace("__VERSION__", VERSION)
+    return Response(body, media_type="application/javascript", headers={
+        "Cache-Control": "no-cache", "Service-Worker-Allowed": "/"})
 
 
 @app.get("/fonts/{name}")
