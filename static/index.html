@@ -16,6 +16,8 @@ try{
 </script>
 <style>
 /* fonts served by the bridge itself: no google, no internet needed */
+@font-face{font-family:'Source Serif 4';font-style:normal;font-weight:400 600;font-display:swap;src:url('/fonts/source-serif-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
+@font-face{font-family:'Source Serif 4';font-style:normal;font-weight:400 600;font-display:swap;src:url('/fonts/source-serif-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
 @font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/plex-mono-400-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
 @font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/plex-mono-400-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
 @font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:500;font-display:swap;src:url('/fonts/plex-mono-500-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
@@ -193,7 +195,9 @@ main{flex:1; overflow-y:auto; padding:16px var(--gut) 8px; position:relative;
   color:var(--amber); text-transform:uppercase; margin-bottom:5px;
 }
 
-.said{word-break:break-word;font-size:var(--chat-size,15px)}
+.said{word-break:break-word; font-size:var(--chat-size,15px);
+  font-family:var(--chat-font,var(--sans))}
+.blk-you{font-family:var(--chat-font,var(--sans))}
 .blk-you{font-size:var(--chat-size,15px)}
 .said p{margin:0 0 .7em}
 .said p:last-child{margin-bottom:0}
@@ -608,7 +612,19 @@ textarea:focus{outline:none;border-color:var(--faint)}
   will-change:transform;
 }
 .rail.on{transform:none}
-.railtop{font:600 15px/1.2 var(--mono);color:var(--ink);padding:4px 8px 15px}
+.railtop{
+  display:flex; align-items:center; gap:8px;
+  font:600 15px/1.2 var(--mono); color:var(--ink); padding:4px 8px 15px;
+}
+.railtop span{flex:1; min-width:0}
+.foldb{
+  display:none; background:none; border:none; color:var(--dim);
+  cursor:pointer; padding:3px; border-radius:5px; flex:none;
+}
+.foldb:hover{color:var(--ink); background:var(--raise)}
+.foldb .i{width:19px;height:19px}
+.stack{display:flex; flex-direction:column; flex:1; min-height:0; min-width:0}
+.grip{display:none}
 .addp{
   display:flex; align-items:center; gap:9px; width:100%;
   background:var(--amber); color:var(--on-amber); border:none;
@@ -771,6 +787,80 @@ textarea:focus{outline:none;border-color:var(--faint)}
 }
 .shead:first-child{margin-top:0}
 .shead[hidden]{display:none}
+.fonts{display:flex; gap:8px; margin-top:10px}
+.fontb{
+  flex:1; min-width:0; background:var(--raise); color:var(--ink);
+  border:1px solid var(--rule); border-radius:9px; padding:10px 6px;
+  cursor:pointer; display:flex; flex-direction:column; align-items:center;
+  gap:4px; transition:border-color .15s ease, background-color .15s ease;
+}
+.fontb b{font-size:19px; font-weight:500; line-height:1}
+.fontb span{
+  font:500 9.5px/1.25 var(--mono); color:var(--faint);
+  text-align:center; overflow:hidden; text-overflow:ellipsis;
+  white-space:nowrap; max-width:100%;
+}
+.fontb.on{border-color:var(--amber); background:var(--surface)}
+.fontb.on b{color:var(--amber)}
+
+/* ---------- pantalla ancha ----------
+   No se mira la orientacion: un movil girado tambien es apaisado, y ahi
+   este reparto seria peor. Lo que decide es cuanto ancho hay. */
+@media (min-width:1000px){
+  body{
+    display:grid; grid-template-columns:var(--rail-w,292px) 1fr;
+    height:100%; overflow:hidden;
+  }
+  body.folded{grid-template-columns:0 1fr}
+  .rail{
+    position:static; transform:none; width:auto; min-width:0;
+    grid-area:1/1; z-index:1;
+    transition:none;                 /* la columna la mueve el tirador */
+  }
+  body.folded .rail{display:none}
+  .scrim{display:none!important}
+  body:not(.folded) #railBtn{display:none}
+  .foldb{display:flex}
+  .stack{grid-area:1/2; height:100%}
+
+  /* el tirador vive sobre la linea divisoria */
+  .grip{
+    display:block; position:fixed; top:0; bottom:0; z-index:30;
+    left:calc(var(--rail-w,292px) - 3px); width:7px; cursor:col-resize;
+  }
+  .grip::after{
+    content:""; position:absolute; inset:0 3px; background:transparent;
+    transition:background-color .15s ease;
+  }
+  .grip:hover::after,.grip.drag::after{background:var(--amber)}
+  body.folded .grip{display:none}
+  body.dragging{user-select:none; cursor:col-resize}
+
+  /* el compositor se alinea con el texto, no con la columna entera */
+  footer .entry,.readout,.palette{
+    max-width:760px; margin-left:auto; margin-right:auto;
+  }
+  .palette{left:0; right:0; width:min(760px,100%)}
+
+  /* los ajustes dejan de subir desde abajo: con raton eso no pega */
+  .sheet{
+    align-items:center;
+    -webkit-backdrop-filter:blur(7px); backdrop-filter:blur(7px);
+  }
+  .sheet .card{
+    max-width:470px; border-radius:16px; max-height:76vh;
+    padding:18px 20px 20px;
+    box-shadow:0 24px 60px #0009;
+    transform:translateY(12px) scale(.985);
+    transition:transform .24s cubic-bezier(.32,.72,0,1), opacity .18s ease;
+    opacity:0;
+  }
+  .sheet.open .card{transform:none; opacity:1}
+
+  /* con raton no hace falta tamano de dedo */
+  .send{width:46px;height:46px}
+  .iconbtn{padding:6px 8px}
+}
 
 /* only the theme swap animates; everything else stays instrument-quick */
 body,.plate,.readout,footer,.tool,.ask,.pick{
@@ -785,6 +875,7 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
 
 <div class="curtain" id="curtain"><span>pi-remote</span></div>
 
+<div class="stack" id="stack">
 <header class="plate">
   <button class="iconbtn ico" id="railBtn" aria-label="projects"></button>
   <div class="txt">
@@ -814,14 +905,18 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
     <button class="send" id="send" aria-label="send"><span class="ic go"></span><span class="ic halt"></span></button>
   </div>
 </footer>
+</div><!-- stack -->
 
 <div class="scrim" id="scrim" hidden></div>
 <aside class="rail" id="rail">
-  <div class="railtop">pi remote</div>
+  <div class="railtop"><span>pi remote</span>
+    <button class="foldb" id="foldBtn" aria-label="fold"></button>
+  </div>
   <button class="addp" id="addBtn"><span data-t="addProject"></span></button>
   <div class="shead" id="recentHead" data-t="recent"></div>
   <div id="recents"></div>
 </aside>
+<div class="grip" id="grip"></div>
 
 <div class="sheet" id="sheet"><div class="card">
   <div class="sbar">
@@ -865,6 +960,7 @@ const ICONS = {
   help:"M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z",
   info:"M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z",
   donate:"M16,3.25C16.65,2.49,17.66,2,18.7,2C20.55,2,22,3.45,22,5.3c0,2.27-2.91,4.9-6,7.7c-3.09-2.81-6-5.44-6-7.7 C10,3.45,11.45,2,13.3,2C14.34,2,15.35,2.49,16,3.25z M20,17h-7l-2.09-0.73l0.33-0.94L13,16h2.82c0.65,0,1.18-0.53,1.18-1.18v0c0-0.49-0.31-0.93-0.77-1.11L8.97,11H7v9.02 L14,22l8.01-3v0C22,17.9,21.11,17,20,17z",
+  panel:"M19,3H5C3.9,3,3,3.9,3,5v14c0,1.1,0.9,2,2,2h14c1.1,0,2-0.9,2-2V5C21,3.9,20.1,3,19,3z M5,5h4v14H5V5z M19,19h-8V5h8V19z",
   stop:"M12,2C6.48,2,2,6.48,2,12c0,5.52,4.48,10,10,10s10-4.48,10-10C22,6.48,17.52,2,12,2z M16,16H8V8h8V16z",
   halt:"M7,7h10c0.55,0,1,0.45,1,1v8c0,0.55-0.45,1-1,1H7c-0.55,0-1-0.45-1-1V8C6,7.45,6.45,7,7,7z",
   terminal:"M20,4H4C2.89,4,2,4.9,2,6v12c0,1.1,0.89,2,2,2h16c1.1,0,2-0.9,2-2V6C22,4.9,21.11,4,20,4z M20,18H4V8h16V18z M18,17h-6v-2 h6V17z M7.5,17l-1.41-1.41L8.67,13l-2.59-2.59L7.5,9l4,4L7.5,17z",
@@ -1785,7 +1881,71 @@ $("#addBtn").insertAdjacentHTML("afterbegin", ico("add"));
 $("#send").querySelector(".go").innerHTML = ico("up");
 $("#send").querySelector(".halt").innerHTML = ico("halt");
 $("#godown").innerHTML = ico("up");
-$("#railBtn").onclick = openRail;
+/* ---------- la columna de proyectos, en pantalla ancha ----------
+   En estrecho la barra sigue siendo un cajon: aqui es una columna del
+   grid, y lo que se ajusta es su ancho. */
+const WIDE = matchMedia("(min-width:1000px)");
+const RAIL_MIN = 190, RAIL_MAX = 480;
+
+function railWidth(){
+  try {
+    const v = parseInt(localStorage.getItem("pi.rail"), 10);
+    if(v >= RAIL_MIN && v <= RAIL_MAX) return v;
+  } catch(e){}
+  return 292;
+}
+function setRailWidth(px, save){
+  const v = Math.max(RAIL_MIN, Math.min(RAIL_MAX, Math.round(px)));
+  document.documentElement.style.setProperty("--rail-w", v + "px");
+  if(save){ try { localStorage.setItem("pi.rail", v); } catch(e){} }
+  return v;
+}
+function folded(){
+  try { return localStorage.getItem("pi.fold") === "1"; } catch(e){}
+  return false;
+}
+function setFolded(on){
+  document.body.classList.toggle("folded", !!on);
+  try { localStorage.setItem("pi.fold", on ? "1" : "0"); } catch(e){}
+  marqueeAll($("#rail"));
+}
+setRailWidth(railWidth(), false);
+if(folded()) document.body.classList.add("folded");
+
+$("#foldBtn").innerHTML = ico("panel");
+$("#foldBtn").onclick = () => setFolded(true);
+
+(() => {                                  // arrastrar la linea divisoria
+  const grip = $("#grip");
+  let from = 0, base = 0;
+  grip.addEventListener("pointerdown", e => {
+    from = e.clientX; base = railWidth();
+    grip.setPointerCapture(e.pointerId);
+    grip.classList.add("drag");
+    document.body.classList.add("dragging");
+    e.preventDefault();
+  });
+  grip.addEventListener("pointermove", e => {
+    if(!grip.classList.contains("drag")) return;
+    setRailWidth(base + (e.clientX - from), false);
+  });
+  const done = e => {
+    if(!grip.classList.contains("drag")) return;
+    grip.classList.remove("drag");
+    document.body.classList.remove("dragging");
+    setRailWidth(railWidthNow(), true);
+    marqueeAll($("#rail"));
+    try { grip.releasePointerCapture(e.pointerId); } catch(err){}
+  };
+  grip.addEventListener("pointerup", done);
+  grip.addEventListener("pointercancel", done);
+  grip.addEventListener("dblclick", () => setRailWidth(292, true));
+})();
+const railWidthNow = () => parseInt(
+  getComputedStyle(document.documentElement)
+    .getPropertyValue("--rail-w"), 10) || 292;
+
+$("#railBtn").onclick = () => WIDE.matches ? setFolded(false) : openRail();
 $("#scrim").onclick = closeRail;
 $("#addBtn").onclick = () => { closeRail(); browse(""); };
 
@@ -2121,7 +2281,7 @@ const STR = {
       noToken:"read only: set PI_WEB_TOKEN to run anything",
       withToken:"a token is required", access:"Access",
       readOnlyCmd:"needs a token",
-      close:"close", theme:"Theme", fontSize:"Text size",
+      close:"close", theme:"Theme", fontSize:"Text size", font:"Font",
       openSession:"open", deleteSession:"remove session",
       deleteQ:"Remove this session?",
       deleteB:"It is moved to a _trash folder next to it, not erased.",
@@ -2154,6 +2314,7 @@ const STR = {
       withToken:"hace falta token", access:"Acceso",
       readOnlyCmd:"necesita token",
       close:"cerrar", theme:"Tema", fontSize:"Tama\u00f1o del texto",
+      font:"Fuente",
       openSession:"abrir", deleteSession:"quitar sesi\u00f3n",
       deleteQ:"\u00bfQuitar esta sesi\u00f3n?",
       deleteB:"Se mueve a una carpeta _trash al lado, no se borra.",
@@ -2387,6 +2548,53 @@ SYS.addEventListener("change", () => {
 });
 
 /* ---------- menu ---------- */
+/* Las que se sirven desde el propio puente. Una de pago no puede vivir
+   en el repo, pero si el usuario la tiene instalada se usa. */
+const FONTS = [
+  {id:"sans",  name:"Plus Jakarta Sans",
+   css:'"Plus Jakarta Sans",system-ui,-apple-system,Segoe UI,sans-serif'},
+  {id:"serif", name:"Source Serif 4",
+   css:'"Source Serif 4",Georgia,"Times New Roman",serif'},
+  {id:"mono",  name:"IBM Plex Mono",
+   css:'"IBM Plex Mono",ui-monospace,Consolas,monospace'},
+];
+function fontPref(){
+  try {
+    const v = localStorage.getItem("pi.font");
+    if(FONTS.some(f => f.id === v)) return v;
+  } catch(e){}
+  return "sans";
+}
+function setFont(id){
+  const f = FONTS.find(x => x.id === id) || FONTS[0];
+  document.documentElement.style.setProperty("--chat-font", f.css);
+  try { localStorage.setItem("pi.font", f.id); } catch(e){}
+}
+setFont(fontPref());
+
+function fontCard(body){
+  const card = document.createElement("div");
+  card.className = "sizecard";
+  card.innerHTML = `<div class="lbl">${esc(T("font"))}</div>`;
+  const row = document.createElement("div");
+  row.className = "fonts";
+  FONTS.forEach(f => {
+    const b = document.createElement("button");
+    b.className = "fontb" + (f.id === fontPref() ? " on" : "");
+    b.dataset.f = f.id;
+    b.style.fontFamily = f.css;
+    b.innerHTML = `<b>Aa</b><span>${esc(f.name)}</span>`;
+    b.onclick = () => {
+      setFont(f.id);
+      row.querySelectorAll(".fontb").forEach(x =>
+        x.classList.toggle("on", x.dataset.f === f.id));
+    };
+    row.appendChild(b);
+  });
+  card.appendChild(row);
+  body.appendChild(card);
+}
+
 function sizeCard(body){
   const card = document.createElement("div");
   card.className = "sizecard";
@@ -2421,6 +2629,7 @@ function paintSheet(page){
     $("#sheetTitle").textContent = T("appearance");
     body.appendChild(pickBtn({icon:"palette", label:T("theme"),
                               chevron:true, run:themeModal}));
+    fontCard(body);
     sizeCard(body);
     return;
   }
@@ -2538,7 +2747,8 @@ $("#sheet").onclick = e => {
 addEventListener("keydown", e => {
   if(e.key !== "Escape") return;
   if($("#modal").classList.contains("open")) return closeModal();
-  if($("#rail").classList.contains("on")) return closeRail();
+  if(!WIDE.matches && $("#rail").classList.contains("on"))
+    return closeRail();
   if($("#sheet").classList.contains("open") && sheetPage !== "root")
     return turnTo("root", -1);       // Escape sube un nivel antes de cerrar
   $("#sheet").classList.remove("open");

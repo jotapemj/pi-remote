@@ -215,6 +215,25 @@ answered from the browser.
      a la derecha con "56.79% | 56k/131k", y el botón de enviar
      convertido en el cuadrado de parar. -->
 
+## On a wide screen
+
+The phone layout is the default, but from 1000px the projects rail stops
+being a drawer and becomes a column: drag the divider to resize it, double
+click to reset, and fold it away with the panel button. The width and the
+folded state are remembered.
+
+The transcript stays at 760px whatever the window size — a line of text
+that crosses a 27" monitor is unreadable — and the composer lines up with
+it. Settings become a centred window instead of a sheet rising from the
+bottom.
+
+It keys on width, not orientation: a phone held sideways is landscape too,
+and this layout would be worse there.
+
+<!-- CAPTURA 8 — la ventana ancha: barra de proyectos a la izquierda con
+     un proyecto desplegado, el chat centrado a 760px, y el compositor
+     alineado con el texto. -->
+
 ## Commands
 
 Type `/` or tap the button inside the composer. Twenty-two commands, filtered
