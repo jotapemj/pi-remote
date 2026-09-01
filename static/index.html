@@ -2193,7 +2193,8 @@ const NOTES = {
       del_missing:"that session is not there any more",
       del_outside:"that file is not one of pi's sessions",
       del_bad_path:"bad session path",
-      del_failed:"could not move the session"},
+      del_failed:"could not move the session",
+      dropped_ask:"{n} approval request was dropped: that pi is gone"},
   es:{pi_stdin:"pi no acepta entrada: {err}",
       pi_exited:"pi ha salido. vuelve a abrir el proyecto.",
       not_folder:"no es una carpeta: {path}",
@@ -2210,7 +2211,8 @@ const NOTES = {
       del_missing:"esa sesi\u00f3n ya no est\u00e1",
       del_outside:"ese fichero no es una sesi\u00f3n de pi",
       del_bad_path:"ruta de sesi\u00f3n no v\u00e1lida",
-      del_failed:"no se pudo mover la sesi\u00f3n"},
+      del_failed:"no se pudo mover la sesi\u00f3n",
+      dropped_ask:"{n} petici\u00f3n de permiso descartada: ese pi ya no existe"},
 };
 function noteText(it){
   const tpl = it.key && (NOTES[lang()] || NOTES.en)[it.key];

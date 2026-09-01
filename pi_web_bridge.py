@@ -262,6 +262,17 @@ def edit_diff(args):
     return {"lines": lines, "added": added, "removed": removed}
 
 
+def same_path(a, b):
+    """Dos rutas que apuntan al mismo sitio, con las manias de Windows."""
+    if not a or not b:
+        return False
+    try:
+        return os.path.normcase(os.path.realpath(a)) == \
+               os.path.normcase(os.path.realpath(b))
+    except OSError:
+        return False
+
+
 def tool_gist(args):
     """Lo que de verdad va a ejecutarse, sacado de los argumentos."""
     for key in ("command", "code", "path", "filePath", "file_path",
@@ -410,11 +421,26 @@ class Bridge:
             self.note("error", "not_folder", f"not a folder: {cwd}",
                       path=cwd)
             return
+
+        # Volver a lo que ya esta abierto es volver, no reiniciar. Y si hay
+        # un dialogo esperando respuesta, reiniciar mata al pi que espera:
+        # la tarjeta se va, pero nadie puede ya contestarla.
+        if (self.proc and same_path(cwd, self.cwd)
+                and (not session
+                     or same_path(session, self.state.get("sessionFile")))):
+            self.emit(self.snapshot())
+            return
+
+        dropped = len(self.pending)   # pi se va, y con el quien esperaba
         self.stop_pi()
         self.log.clear()
         self.cur = None
         self.pending.clear()
         self.emit({"type": "cleared"})
+        if dropped:
+            self.note("warn", "dropped_ask",
+                      "%d approval request was dropped: that pi is gone"
+                      % dropped, n=dropped)
 
         args = [PI_CMD, "--mode", "rpc"]
         if session:
@@ -704,6 +730,8 @@ class Bridge:
         if messages is None:        # command unsupported: keep what we have
             return
         notes = [i for i in self.log if i.get("kind") == "note"][-4:]
+        waiting = [i for i in self.log
+                   if i.get("kind") == "ask" and not i.get("answered")]
         self.log.clear()
         self.cur = None
         calls = {}
@@ -755,6 +783,8 @@ class Bridge:
 
         for note in notes:                  # recent warnings survive the redraw
             self.log.append(note)
+        for item in waiting:                # y pi sigue bloqueado en estos
+            self.log.append(item)
         self.emit(self.snapshot())
 
     # ---- guardrails dialogs
