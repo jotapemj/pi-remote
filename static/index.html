@@ -525,7 +525,7 @@ footer > *{position:relative; z-index:1}
 }
 .palette .phead{
   font:700 10px/1 var(--sans); letter-spacing:.11em; text-transform:uppercase;
-  color:var(--faint); padding:11px var(--gut) 8px;
+  color:var(--faint); padding:11px var(--gut) 8px; touch-action:none;
   position:sticky; top:0; background:var(--surface);
 }
 .cmd{
@@ -604,8 +604,12 @@ textarea:focus{outline:none;border-color:var(--faint)}
   transition:opacity .22s ease, visibility 0s;
 }
 .grab{
-  width:36px; height:4px; border-radius:2px; background:var(--rule);
-  margin:-4px auto 10px; flex:none; touch-action:none;
+  height:22px; display:flex; align-items:center; justify-content:center;
+  margin:-8px 0 2px; touch-action:none; cursor:grab;
+}
+.grab::before{
+  content:""; width:36px; height:4px; border-radius:2px;
+  background:var(--rule);
 }
 .sheet .card{
   background:var(--surface); border:1px solid var(--rule);
@@ -616,7 +620,8 @@ textarea:focus{outline:none;border-color:var(--faint)}
   transition:transform .3s cubic-bezier(.32,.72,0,1);
 }
 .sheet.open .card{transform:none}
-.sbar{display:flex; align-items:center; gap:9px; margin:2px 0 12px}
+.sbar{display:flex; align-items:center; gap:9px; margin:2px 0 12px;
+  touch-action:none}
 .sheet h2{
   font:700 11px/1 var(--sans); letter-spacing:.1em; color:var(--faint);
   text-transform:uppercase; margin:0; flex:1;
@@ -2923,22 +2928,26 @@ $("#statsheet").onclick = e => {
    vertical nativo, y el JS solo captura lo que no choca. Asi el contenido
    se desplaza libre. Cerrar una hoja se hace desde su barrita de agarre;
    la barra lateral, deslizando de lado. */
-function dragToDismiss(handle, panel, close, fade){
-  let y0 = 0, dy = 0, t0 = 0, live = false, h = 0;
+function dragToDismiss(panel, zone, close, fade){
+  let y0 = 0, dy = 0, t0 = 0, live = false, drag = false, h = 0;
   const reset = () => {
     panel.style.transition = ""; panel.style.transform = "";
     if(fade) fade.style.opacity = "";
   };
-  handle.addEventListener("pointerdown", e => {
+  panel.addEventListener("pointerdown", e => {
     if(WIDE.matches || e.pointerType === "mouse") return;
-    y0 = e.clientY; t0 = performance.now(); dy = 0; live = true;
+    if(!e.target.closest(zone)) return;     // solo desde la cabecera
+    y0 = e.clientY; t0 = performance.now(); dy = 0; live = true; drag = false;
     h = panel.getBoundingClientRect().height;
-    panel.style.transition = "none";
-    try { handle.setPointerCapture(e.pointerId); } catch(_){}
   });
-  handle.addEventListener("pointermove", e => {
+  panel.addEventListener("pointermove", e => {
     if(!live) return;
     dy = e.clientY - y0;
+    if(!drag){
+      if(dy > 6){ drag = true; panel.style.transition = "none";
+        try { panel.setPointerCapture(e.pointerId); } catch(_){} }
+      else return;                          // aun no: deja pasar el toque
+    }
     if(dy < 0) dy = 0;                       // hacia arriba no cierra
     e.preventDefault();
     panel.style.transform = `translateY(${dy}px)`;
@@ -2949,23 +2958,24 @@ function dragToDismiss(handle, panel, close, fade){
     const dt = performance.now() - t0;
     const v = dt > 40 ? dy / dt : 0;        // sin tiempo no hay velocidad
     panel.style.transition = "";
-    if(dy > 80 || v > 0.5){
+    if(drag && (dy > 80 || v > 0.5)){
       panel.style.transform = "translateY(110%)";
       if(fade) fade.style.opacity = "0";
       setTimeout(() => { close(); reset(); }, 260);
     } else {
       reset();
     }
+    drag = false;
   };
-  handle.addEventListener("pointerup", end);
-  handle.addEventListener("pointercancel", end);
+  panel.addEventListener("pointerup", end);
+  panel.addEventListener("pointercancel", end);
 }
 
-dragToDismiss($("#sheet .grab"), $("#sheet .card"),
+dragToDismiss($("#sheet .card"), ".grab, .sbar",
   () => $("#sheet").classList.remove("open"), $("#sheet"));
-dragToDismiss($("#statsheet .grab"), $("#statsheet .card"),
+dragToDismiss($("#statsheet .card"), ".grab, .sbar",
   () => $("#statsheet").classList.remove("open"), $("#statsheet"));
-dragToDismiss($("#palette .grab"), palette, closePalette, null);
+dragToDismiss(palette, ".grab, .phead", closePalette, null);
 
 (() => {                                   // la barra: deslizar para cerrar
   const rail = $("#rail"), scrim = $("#scrim");

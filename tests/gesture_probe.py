@@ -68,13 +68,23 @@ async def main():
             print("  tras arrastrar 30px, abierta:", still)
             checks.append(("un tiron corto rebota y no cierra", still is True))
 
-            # arrastrar fuerte -> cierra
+            # arrastrar fuerte desde la barrita -> cierra
             await js("__drag('#sheet .grab', 200, 200, 0, 220)")
             await asyncio.sleep(0.5)
             closed = await js("$('#sheet').classList.contains('open')")
             print("  tras arrastrar 220px, abierta:", closed)
             checks.append(("un arrastre largo cierra la hoja",
                            closed is False))
+
+            # la zona incluye la cabecera con el titulo, no solo la barrita
+            await js("menuSheet()")
+            await asyncio.sleep(0.35)
+            await js("__drag('#sheet .sbar', 200, 220, 0, 220)")
+            await asyncio.sleep(0.5)
+            byBar = await js("$('#sheet').classList.contains('open')")
+            print("  arrastrando el titulo, abierta:", byBar)
+            checks.append(("arrastrar desde el titulo tambien cierra",
+                           byBar is False))
 
             # la hoja de estadisticas, igual
             await js("statsSheet({output:10,input:100,total:110,cacheRead:0,"
