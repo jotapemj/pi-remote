@@ -506,6 +506,7 @@ footer > *{position:relative; z-index:1}
 .mrow .i{color:var(--faint)}
 
 /* ---------- slash palette ---------- */
+.palette .grab{margin:6px 0 2px}
 .palette{
   position:absolute; left:0; right:0; bottom:100%;
   background:var(--surface); border:1px solid var(--rule);
@@ -2278,7 +2279,10 @@ function connect(){
         boot();                      // y con el la cabecera ya tiene alto
       });
     }
-    else if(m.type === "item") render(m.item);
+    else if(m.type === "item"){
+      render(m.item);
+      if(m.item.kind === "user") jumpTo(main.scrollHeight);  // mi mensaje, al fin
+    }
     else if(m.type === "patch"){
       const it = m.fields, el = nodes.get(m.id);
       if(!el) return;
@@ -2959,9 +2963,17 @@ function dragToDismiss(panel, zone, close, fade){
     const v = dt > 40 ? dy / dt : 0;        // sin tiempo no hay velocidad
     panel.style.transition = "";
     if(drag && (dy > 80 || v > 0.5)){
-      panel.style.transform = "translateY(110%)";
-      if(fade) fade.style.opacity = "0";
-      setTimeout(() => { close(); reset(); }, 260);
+      if(fade){                             // hoja: se desliza fuera
+        panel.style.transform = "translateY(110%)";
+        fade.style.opacity = "0";
+        setTimeout(() => { close(); reset(); }, 260);
+      } else {                              // paleta: se desvanece en su sitio
+        panel.style.transition = "opacity .18s ease";
+        panel.style.opacity = "0";
+        setTimeout(() => { close();
+          panel.style.transition = ""; panel.style.transform = "";
+          panel.style.opacity = ""; }, 190);
+      }
     } else {
       reset();
     }

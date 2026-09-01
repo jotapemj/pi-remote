@@ -79,6 +79,21 @@ async def main():
             checks.append(("si estabas abajo, te quedas abajo",
                            abs(fin[0] - fin[1]) < 40))
 
+            # al llegar MI mensaje, el chat baja hasta el final aunque
+            # estuviera arriba (para verlo entero, no a medias)
+            await js("main.scrollTo({top:0,behavior:'instant'});"
+                     " main.dispatchEvent(new Event('scroll'))")
+            await asyncio.sleep(0.3)
+            await js("ws.onmessage({data: JSON.stringify({type:'item',"
+                     " item:{id:99, kind:'user', text:'nuevo mio'}})})")
+            await asyncio.sleep(0.35)
+            mine = await js("[Math.round(main.scrollHeight - main.scrollTop"
+                            " - main.clientHeight),"
+                            " !!nodes.get(99)]")
+            print("  tras enviar yo: faltan %s px, pintado=%s" % tuple(mine))
+            checks.append(("mi mensaje me lleva al final",
+                           mine[0] < 40 and mine[1] is True))
+
             # el boton baja
             await js("main.scrollTo({top:0,behavior:'instant'}); $('#godown').click()")
             await asyncio.sleep(1.0)
