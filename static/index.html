@@ -386,12 +386,26 @@ body.waiting .cursor{display:none}   /* pi no escribe: te espera */
 
 /* ---------- composer ---------- */
 footer{
-  border-top:1px solid var(--rule); background:var(--surface);
+  /* el fondo va en ::before para poder difuminarlo por los lados sin
+     tocar la caja ni los botones, que quedan por encima */
+  background:transparent;
   /* --kb es el alto que ocupa el teclado del movil */
   padding:9px var(--gut) calc(9px + env(safe-area-inset-bottom) + var(--kb,0px));
   position:relative;
   transition:padding-bottom .18s ease;
 }
+footer::before{
+  content:""; position:absolute; inset:0; z-index:0; pointer-events:none;
+  background:var(--surface); border-top:1px solid var(--rule);
+  /* solido en el centro, y en los ultimos ~110px de cada lado se disuelve
+     en el fondo del chat con un fundido largo */
+  --edge:110px;
+  -webkit-mask-image:linear-gradient(to right, transparent 0,
+    #000 var(--edge), #000 calc(100% - var(--edge)), transparent 100%);
+  mask-image:linear-gradient(to right, transparent 0,
+    #000 var(--edge), #000 calc(100% - var(--edge)), transparent 100%);
+}
+footer > *{position:relative; z-index:1}
 
 .godown{
   position:absolute; left:50%; bottom:calc(100% + 12px); z-index:14;
