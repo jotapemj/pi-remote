@@ -505,6 +505,17 @@ class Bridge:
                 self.note("error", "pi_stdin",
                           f"pi is not accepting input: {exc}", err=str(exc))
 
+    def settle_tools(self):
+        """Cierra las herramientas que nunca recibieron su final.
+
+        Pasa cuando pi muere a medias, o cuando el turno acaba sin que
+        llegue el `tool_execution_end`. Dejarlas en marcha es mentir: el
+        punto sigue parpadeando y nadie va a apagarlo.
+        """
+        for item in self.log:
+            if item.get("kind") == "tool" and item.get("status") == "running":
+                self.patch(item, status="stale")
+
     def emit(self, payload):
         """Thread-safe broadcast."""
         asyncio.run_coroutine_threadsafe(self.broadcast(payload), self.loop)
@@ -564,6 +575,7 @@ class Bridge:
             return                       # replaced by another project, hush
         self.state["alive"] = False
         self.state["running"] = False
+        self.settle_tools()
         self.note("error", "pi_exited", "pi exited. reopen the project.")
         self.push_state()
 
@@ -633,6 +645,7 @@ class Bridge:
 
         elif t == "agent_settled":
             self.state.update(running=False, tool=None)
+            self.settle_tools()      # el turno acabo: nada sigue en marcha
             self.push_state()
             self.send_pi({"type": "get_session_stats"})
 

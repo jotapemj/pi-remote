@@ -243,6 +243,8 @@ body.waiting .cursor{display:none}   /* pi no escribe: te espera */
 .tool[data-s="done"] .dot{background:var(--mint)}
 .tool[data-s="error"] .dot{background:var(--coral)}
 .tool[data-s="running"] .dot{animation:blink 1.1s steps(2) infinite}
+/* se quedo a medias: pi se fue sin decir como acabo */
+.tool[data-s="stale"] .dot{background:var(--faint);opacity:.55}
 .tool > pre, .tool > .diff{
   transition:height .18s cubic-bezier(.32,.72,0,1);
 }
@@ -1119,6 +1121,17 @@ const XW = {
 const X = k => (XS[lang()] || XS.en)[k] || XS.en[k] || "";
 const XT = k => (XW[lang()] || XW.en)[k] || XW.en[k] || k;
 
+/* Lo que de verdad va a ejecutarse, sacado de los argumentos. */
+function gist(args){
+  if(!args) return "";
+  for(const k of ["command", "code", "path", "filePath", "file_path",
+                  "pattern", "url", "query"]){
+    const v = args[k];
+    if(typeof v === "string" && v.trim()) return v.trim();
+  }
+  return JSON.stringify(args);
+}
+
 const MARK = "\u0001";              // lo que va en mono al pintarlo
 const unq = s => s.replace(/^(["'])([\s\S]*)\1$/, "$2");
 const shortArg = a => a.length > 46 ? "\u2026" + a.slice(-45) : a;
@@ -1337,9 +1350,10 @@ function html(it){
     const body = it.lines ? diffHtml(it.lines)
                : it.output ? `<pre>${esc(it.output)}</pre>` : "";
     const out = body;
-    const arg = it.lines
-      ? " " + esc((it.args && (it.args.path || it.args.filePath)) || "")
-      : it.args ? " " + esc(JSON.stringify(it.args)).slice(0,90) : "";
+    const g = it.lines ? (it.args && (it.args.path || it.args.filePath))
+                       : gist(it.args);
+    const arg = g ? " " + esc(g.length > 88 ? g.slice(0, 87) + "\u2026" : g)
+                  : "";
     const tally = it.added != null
       ? `<span class="tally"><span class="plus">+${it.added}</span>`
         + `<span class="minus">-${it.removed}</span></span>` : "";

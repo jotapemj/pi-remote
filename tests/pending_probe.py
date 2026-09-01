@@ -97,7 +97,15 @@ async def main():
                         " return a ? [a.querySelector('h3').textContent,"
                         " a.querySelectorAll('.opt').length,"
                         " !!a.querySelector('.what pre')] : null; })()")
+                    row = await pg.js(
+                        "[...document.querySelectorAll('.tool .nm')]"
+                        ".map(s => s.textContent)")
                     print("  la pagina la pinta:", card)
+                    print("  la fila dice: %r" % row)
+                    checks.append(
+                        ("la fila ensena el comando, no el json",
+                         "bash rm -rf ./build 2>/dev/null" in row
+                         and not any("{" in r for r in row)))
                     checks += [
                         ("al abrir la pagina la tarjeta esta ahi",
                          card is not None),
@@ -118,6 +126,15 @@ async def main():
                     print("  contestada: answered=%r esperando=%s"
                           % ((done or [{}])[0].get("answered"),
                              snap3.get("state", {}).get("waiting")))
+                    tools = [i for i in snap3.get("items", [])
+                             if i.get("kind") == "tool"]
+                    print("  herramientas: %s"
+                          % [(t.get("name"), t.get("status"))
+                             for t in tools])
+                    checks.append(
+                        ("nada se queda en marcha al acabar el turno",
+                         bool(tools) and all(t.get("status") != "running"
+                                             for t in tools)))
                     checks += [
                         ("contestarla la marca como respondida",
                          bool(done) and done[0].get("answered")
