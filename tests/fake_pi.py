@@ -10,7 +10,52 @@ def out(o):
     sys.stdout.write(json.dumps(o) + "\n")
     sys.stdout.flush()
 
+USAGE = {"input": 12000, "output": 240, "cacheRead": 0, "cacheWrite": 0,
+         "reasoning": 30, "totalTokens": 12270, "cost": {"total": 0}}
+
+def say(chunks, final):
+    out({"type": "message_start",
+         "message": {"role": "assistant", "content": []}})
+    time.sleep(0.3)
+    for c in chunks:
+        time.sleep(0.1)
+        out({"type": "message_update", "usage": {},
+             "assistantMessageEvent": {"type": "text_delta",
+                                       "contentIndex": 0, "delta": c}})
+    out({"type": "message_end", "message": {
+        "role": "assistant",
+        "content": [{"type": "text", "text": final}], "usage": USAGE}})
+
+def tool_only(call, name, args):
+    """Un paso que solo lanza una herramienta: mensaje de asistente sin
+    texto, envolviendo la llamada. Es el que dejaba burbuja vacia."""
+    out({"type": "message_start",
+         "message": {"role": "assistant", "content": []}})
+    out({"type": "tool_execution_start", "toolCallId": call,
+         "toolName": name, "args": args})
+    time.sleep(0.15)
+    out({"type": "tool_execution_end", "toolCallId": call, "toolName": name,
+         "result": {"content": [{"type": "text", "text": "ok"}]},
+         "isError": False})
+    out({"type": "message_end", "message": {
+        "role": "assistant",
+        "content": [{"type": "toolCall", "id": call, "name": name}],
+        "usage": USAGE}})
+
+def multi_turn():
+    out({"type": "agent_start"})
+    say(["Verifico ", "cuando cambio."], "Verifico cuando cambio.")
+    for i in range(3):
+        tool_only("m%d" % i, "ctx_execute",
+                  {"code": "import subprocess, os  # paso %d" % i})
+    say(["Listo, ", "era static."], "Listo, era static.")
+    out({"type": "agent_end", "messages": [], "willRetry": False})
+    out({"type": "agent_settled"})
+
 def turn(text):
+    if "multi" in text:
+        multi_turn()
+        return
     out({"type": "agent_start"})
     out({"type": "message_start", "message": {"role": "assistant", "content": []}})
     time.sleep(0.4)                      # prefill: tiempo hasta el primer token

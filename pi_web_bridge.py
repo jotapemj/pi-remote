@@ -435,6 +435,7 @@ class Bridge:
         self.gen_first = None                # instante del primer token
         self.gen_prompt_ms = None            # prefill de la respuesta actual
         self.cur_usage = {}                  # usage acumulado de la respuesta
+        self.assistant_open = False          # hay una respuesta en curso
         self.cur = None                      # assistant item being streamed
 
         self.proc = None                     # no project, no agent
@@ -666,23 +667,29 @@ class Bridge:
         elif t == "message_start":
             m = ev.get("message") or {}
             if m.get("role") == "assistant":
-                self.cur = self.push({"kind": "assistant", "text": "",
-                                      "streaming": True})
+                # la burbuja nace con el primer token: un mensaje que solo
+                # trae una herramienta no deja burbuja vacia
+                self.cur = None
+                self.assistant_open = True
                 self.gen_first = None
                 self.gen_prompt_ms = None
                 self.cur_usage = {}
 
         elif t == "message_update":
             d = ev.get("assistantMessageEvent") or {}
-            if d.get("type") == "text_delta" and self.cur:
-                if self.gen_first is None:
+            if d.get("type") == "text_delta" and self.assistant_open:
+                delta = d.get("delta", "")
+                if self.cur is None:
                     self.gen_first = time.time()
                     base = self.prefill_t0 or self.gen_first
                     self.gen_prompt_ms = int(max(0.0,
                         (self.gen_first - base)) * 1000)
-                self.cur["text"] += d.get("delta", "")
-                self.emit({"type": "delta", "id": self.cur["id"],
-                           "delta": d.get("delta", "")})
+                    self.cur = self.push({"kind": "assistant",
+                                          "text": delta, "streaming": True})
+                else:
+                    self.cur["text"] += delta
+                    self.emit({"type": "delta", "id": self.cur["id"],
+                               "delta": delta})
             u = grab_usage(ev)
             if u:
                 self.cur_usage = u
@@ -700,12 +707,14 @@ class Bridge:
                                  if b.get("type") == "text")
             u = grab_usage(ev) or self.cur_usage
             stats = self.build_stats(u)
+            self.assistant_open = False
             if self.cur:
                 self.patch(self.cur, text=text, streaming=False, stats=stats)
                 self.cur = None
-            elif text.strip():
+            elif text.strip():                # texto sin deltas previos
                 self.push({"kind": "assistant", "text": text,
                            "streaming": False, "stats": stats})
+            # sin texto y sin burbuja: era un paso de solo herramienta
 
         elif t == "tool_execution_start":
             self.state["tool"] = ev.get("toolName")
