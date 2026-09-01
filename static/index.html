@@ -301,24 +301,10 @@ body.waiting .cursor{display:none}   /* pi no escribe: te espera */
   font:500 11.5px/1.4 var(--mono);
 }
 .ask .what .who .i{width:15px;height:15px}
-.ask .what .says{padding:9px 10px 0; font:400 12.5px/1.5 var(--sans)}
-.ask .what .says p{margin:0 0 7px; color:var(--ink)}
-.ask .what .says p:last-child{margin-bottom:9px}
-.ask .what .says em{
-  display:inline-block; font-style:normal; vertical-align:1px;
-  font:500 10.5px/1 var(--mono); color:var(--amber);
-  background:#f2a63b24; border-radius:5px; padding:4px 6px; margin:0 0 0 6px;
-  /* el acento puro se queda corto a 10px: se acerca a la tinta, que en
-     el tema claro lo oscurece y en los oscuros lo aclara */
-  color:color-mix(in srgb, var(--amber) 80%, var(--ink));
-  background:color-mix(in srgb, var(--amber) 14%, transparent);
-}
-.ask .what .says em.hot{
-  color:var(--coral); background:#e2574c24;
-  color:color-mix(in srgb, var(--coral) 78%, var(--ink));
-  background:color-mix(in srgb, var(--coral) 14%, transparent);
-}
-.ask .what .says + pre{border-top:1px solid var(--rule); padding-top:9px}
+.ask .what .says{padding:9px 10px; font:400 12.5px/1.5 var(--sans)}
+.ask .what .says p{margin:0; color:var(--ink)}
+.ask .what .says p + p{margin-top:4px}
+.ask .what .says + pre{border-top:1px solid var(--rule)}
 .ask .what pre{
   margin:0; padding:9px 10px; font:400 12px/1.5 var(--mono);
   color:var(--box-ink); white-space:pre-wrap; word-break:break-word;
@@ -936,181 +922,194 @@ const SUB = {
 };
 /* banderas que cambian lo que de verdad pasa */
 const FL = {
-  rm:{r:"deep", R:"deep", recursive:"deep", f:"noask", force:"noask"},
+  rm:{r:"deep", R:"deep", recursive:"deep"},
   rmdir:{s:"deep", recurse:"deep"},
-  cp:{r:"deep", R:"deep", recursive:"deep", f:"noask"},
-  mv:{f:"noask"},
+  cp:{r:"deep", R:"deep", recursive:"deep"},
   chmod:{R:"deep", recursive:"deep"},
   chown:{R:"deep", recursive:"deep"},
   scp:{delete:"deep"},
-  gitPush:{f:"rewrite", force:"rewrite", "force-with-lease":"rewrite",
-           d:"delRemote", delete:"delRemote"},
+  gitPush:{f:"rewrite", force:"rewrite", "force-with-lease":"rewrite"},
   gitReset:{hard:"lose"},
-  gitClean:{f:"noask", force:"noask", d:"deep", x:"deep", X:"deep"},
+  gitClean:{d:"dirs"}, gitCleanX:{d:"dirs"},
   gitSwitch:{f:"lose", force:"lose"},
-  pkgAdd:{g:"admin", global:"admin"},
+  pkgAdd:{g:"global"},
 };
-const FIX = {dd:"disk", mkfs:"disk", shutdown:"power", publish:"public",
-             gitRebase:"rewrite", gitRestore:"lose"};
-const HOT = ["web", "disk", "world", "rewrite", "lose", "power", "admin",
-             "public", "delRemote"];
+const FIX = {publish:"public", gitRebase:"rewrite"};
+const ORDER = ["deep", "dirs", "global", "public", "world", "rewrite",
+               "lose", "admin"];
+/* complementos: se pegan a la frase. Los gerundios llevan coma. */
+const GLUE = ["deep", "dirs", "global", "public"];
 const MANY = ["rm", "rmdir", "gitAdd", "pkgAdd", "pkgDel", "kill", "zip"];
 
 
 const XS = {
   en:{run:"Runs {n}",
-      rm:"Deletes {a}", rmdir:"Deletes the folder {a}",
+      rm:"Deletes {a}", rmdir:"Deletes the directory {a}",
       mv:"Moves or renames {a}", cp:"Copies {a}",
-      mkdir:"Creates the folder {a}", touch:"Creates the file {a}",
-      cat:"Shows what is inside {a}", head:"Shows the start of {a}",
-      tail:"Shows the end of {a}", ls:"Lists what is in the folder",
-      find:"Looks for files", which:"Finds where {a} is installed",
-      grep:"Searches for {a} inside the files",
-      sed:"Rewrites text with a pattern", awk:"Processes text line by line",
-      echo:"Prints {a} on screen", cd:"Moves into {a}",
-      pwd:"Says which folder it is in",
-      chmod:"Changes who is allowed to use {a}",
-      chown:"Changes who owns {a}", ln:"Creates a shortcut to {a}",
-      tar:"Packs or unpacks {a}", zip:"Compresses {a}", unzip:"Unpacks {a}",
-      dd:"Writes raw data onto a disk",
-      mkfs:"Formats a disk and leaves it empty",
-      kill:"Stops a running program", ps:"Lists the running programs",
+      mkdir:"Creates the directory {a}", touch:"Creates the file {a}",
+      cat:"Shows the contents of {a}",
+      head:"Shows the first lines of {a}",
+      tail:"Shows the last lines of {a}",
+      ls:"Lists the contents of the directory",
+      find:"Searches for files by name", which:"Locates the {a} executable",
+      grep:"Searches for {a} in the files",
+      sed:"Transforms text with a pattern", awk:"Processes text by fields",
+      echo:"Writes {a} to standard output",
+      writeFile:"Writes to the file {a}",
+      cd:"Changes to the directory {a}",
+      pwd:"Shows the current directory",
+      chmod:"Modifies the permissions of {a}",
+      chown:"Modifies the owner of {a}", ln:"Creates a link to {a}",
+      tar:"Packs or extracts {a}", zip:"Compresses {a}",
+      unzip:"Extracts {a}",
+      dd:"Writes raw data to a disk", mkfs:"Formats a file system",
+      kill:"Terminates a process", ps:"Lists the running processes",
       shutdown:"Shuts down or restarts the machine",
-      curl:"Downloads {a} from the internet",
-      ssh:"Opens a session on {a}",
-      scp:"Copies files to another machine",
-      ping:"Checks whether {a} answers",
-      netstat:"Looks at the network settings",
+      curl:"Downloads {a}",
+      webRun:"Runs code downloaded from the internet",
+      ssh:"Opens a remote session on {a}",
+      scp:"Transfers files to another machine",
+      ping:"Checks connectivity with {a}",
+      netstat:"Queries the network configuration",
       python:"Runs {a} with Python", node:"Runs {a} with Node",
       java:"Runs {a} with Java", dotnet:"Runs {a} with .NET",
       compile:"Builds the project", test:"Runs the tests",
       sh:"Runs {a} as a script", start:"Opens {a}",
       editor:"Opens {a} in an editor",
-      netsh:"Changes the network configuration",
-      sleep:"Waits for a moment", clear:"Clears the screen",
-      schtasks:"Changes a scheduled task",
-      docker:"Works with containers", dkRun:"Starts a container",
-      dkLogs:"Reads what a container printed",
-      gitStatus:"Checks what changed in the repository",
-      gitLog:"Reads the commit history",
-      gitDiff:"Shows the changes line by line",
-      gitAdd:"Marks {a} for the next commit",
-      gitCommit:"Saves a commit with the current changes",
-      gitPush:"Uploads your commits to the remote repository",
-      gitPull:"Brings in the changes from the remote",
-      gitFetch:"Checks the remote without changing anything",
-      gitClone:"Downloads the repository {a}",
-      gitSwitch:"Switches to {a}", gitBranch:"Manages the branches",
+      netsh:"Modifies the network configuration",
+      sleep:"Waits for an interval", clear:"Clears the screen",
+      schtasks:"Modifies a scheduled task",
+      docker:"Operates on containers", dkRun:"Starts a container",
+      dkLogs:"Queries a container log",
+      gitStatus:"Queries the repository status",
+      gitLog:"Queries the commit history",
+      gitDiff:"Shows the differences",
+      gitAdd:"Adds {a} to the staging area",
+      gitCommit:"Records a commit",
+      gitPush:"Uploads the commits to the remote repository",
+      gitPushDel:"Deletes a branch from the remote repository",
+      gitPull:"Integrates the changes from the remote repository",
+      gitFetch:"Queries the remote repository without modifying anything",
+      gitClone:"Clones the repository {a}",
+      gitSwitch:"Switches to the {a} branch",
+      gitBranch:"Manages the branches",
       gitMerge:"Merges {a} into the current branch",
-      gitRebase:"Replays your commits on top of another branch",
-      gitReset:"Moves the branch to another commit",
-      gitClean:"Deletes files the repository does not track",
-      gitStash:"Puts the current changes aside",
-      gitTag:"Tags this point of the history",
-      gitInit:"Starts a new repository here",
-      gitRemote:"Manages where the repository is uploaded",
-      gitRevert:"Undoes a commit with another commit",
-      gitRestore:"Throws away the changes in {a}",
-      pkgAdd:"Installs {a}", pkgAll:"Installs the project dependencies",
+      gitRebase:"Relocates the commits onto another branch",
+      gitReset:"Relocates the branch to another commit",
+      gitClean:"Deletes the untracked files",
+      gitCleanX:"Deletes the untracked files, including the ignored ones",
+      gitStash:"Sets the changes aside temporarily",
+      gitTag:"Tags the current commit",
+      gitInit:"Initialises a repository",
+      gitRemote:"Manages the remote repositories",
+      gitRevert:"Reverts a commit with another commit",
+      gitRestore:"Discards the changes in {a}",
+      pkgAdd:"Installs {a}",
+      pkgAll:"Installs the project dependencies",
       pkgDel:"Uninstalls {a}", pkgUp:"Updates the dependencies",
-      npmRun:"Runs the project script {a}",
-      npmAudit:"Checks the dependencies for known holes",
-      publish:"Publishes the package, off your machine",
+      npmRun:"Runs the {a} script", npmAudit:"Audits the dependencies",
+      publish:"Publishes the package",
       pipFreeze:"Lists the installed packages",
-      aptUpdate:"Refreshes the list of available packages",
-      aptUpgrade:"Updates the installed system packages",
+      aptUpdate:"Updates the package index",
+      aptUpgrade:"Updates the system packages",
       aptSearch:"Searches for a package",
-      writeFile:"Writes that text into {a}",
-      xRead:"Reads {a}", xEdit:"Changes {a}",
-      xFind:"Searches inside the files"},
+      xRead:"Reads {a}", xEdit:"Modifies {a}",
+      xFind:"Searches in the files"},
   es:{run:"Ejecuta {n}",
-      rm:"Borra {a}", rmdir:"Borra la carpeta {a}",
+      rm:"Elimina {a}", rmdir:"Elimina el directorio {a}",
       mv:"Mueve o renombra {a}", cp:"Copia {a}",
-      mkdir:"Crea la carpeta {a}", touch:"Crea el fichero {a}",
-      cat:"Muestra lo que hay dentro de {a}",
-      head:"Muestra el principio de {a}", tail:"Muestra el final de {a}",
-      ls:"Lista lo que hay en la carpeta", find:"Busca ficheros",
-      which:"Mira d\u00f3nde est\u00e1 instalado {a}",
-      grep:"Busca {a} dentro de los ficheros",
-      sed:"Reescribe texto con un patr\u00f3n",
-      awk:"Procesa el texto l\u00ednea a l\u00ednea",
-      echo:"Escribe {a} por pantalla", cd:"Entra en {a}",
-      pwd:"Dice en qu\u00e9 carpeta est\u00e1",
-      chmod:"Cambia qui\u00e9n puede usar {a}",
-      chown:"Cambia de qui\u00e9n es {a}",
-      ln:"Crea un acceso directo a {a}",
-      tar:"Empaqueta o desempaqueta {a}", zip:"Comprime {a}",
-      unzip:"Descomprime {a}",
-      dd:"Escribe datos en crudo en un disco",
-      mkfs:"Formatea un disco y lo deja vac\u00edo",
-      kill:"Para un programa en marcha",
-      ps:"Lista los programas en marcha",
+      mkdir:"Crea el directorio {a}", touch:"Crea el fichero {a}",
+      cat:"Muestra el contenido de {a}",
+      head:"Muestra las primeras l\u00edneas de {a}",
+      tail:"Muestra las \u00faltimas l\u00edneas de {a}",
+      ls:"Lista el contenido del directorio",
+      find:"Busca ficheros por nombre",
+      which:"Localiza el ejecutable {a}",
+      grep:"Busca {a} en los ficheros",
+      sed:"Transforma texto seg\u00fan un patr\u00f3n",
+      awk:"Procesa texto por campos",
+      echo:"Escribe {a} en la salida est\u00e1ndar",
+      writeFile:"Escribe en el fichero {a}",
+      cd:"Cambia al directorio {a}",
+      pwd:"Muestra el directorio actual",
+      chmod:"Modifica los permisos de {a}",
+      chown:"Modifica el propietario de {a}",
+      ln:"Crea un enlace a {a}",
+      tar:"Empaqueta o extrae {a}", zip:"Comprime {a}",
+      unzip:"Extrae {a}",
+      dd:"Escribe datos en bruto sobre un disco",
+      mkfs:"Formatea un sistema de ficheros",
+      kill:"Termina un proceso", ps:"Lista los procesos en ejecuci\u00f3n",
       shutdown:"Apaga o reinicia el equipo",
-      curl:"Descarga {a} de internet", ssh:"Abre una sesi\u00f3n en {a}",
-      scp:"Copia ficheros a otra m\u00e1quina",
-      ping:"Comprueba si {a} responde",
-      netstat:"Mira la configuraci\u00f3n de red",
+      curl:"Descarga {a}",
+      webRun:"Ejecuta c\u00f3digo descargado de internet",
+      ssh:"Abre una sesi\u00f3n remota en {a}",
+      scp:"Transfiere ficheros a otra m\u00e1quina",
+      ping:"Comprueba la conectividad con {a}",
+      netstat:"Consulta la configuraci\u00f3n de red",
       python:"Ejecuta {a} con Python", node:"Ejecuta {a} con Node",
       java:"Ejecuta {a} con Java", dotnet:"Ejecuta {a} con .NET",
-      compile:"Compila el proyecto", test:"Pasa las pruebas",
-      sh:"Ejecuta {a} como gui\u00f3n", start:"Abre {a}",
+      compile:"Compila el proyecto", test:"Ejecuta las pruebas",
+      sh:"Ejecuta {a} como script", start:"Abre {a}",
       editor:"Abre {a} en un editor",
-      netsh:"Cambia la configuraci\u00f3n de red",
-      sleep:"Espera un rato", clear:"Limpia la pantalla",
-      schtasks:"Cambia una tarea programada",
-      docker:"Trabaja con contenedores", dkRun:"Arranca un contenedor",
-      dkLogs:"Lee lo que ha escrito un contenedor",
-      gitStatus:"Mira qu\u00e9 ha cambiado en el repositorio",
-      gitLog:"Lee el historial de commits",
-      gitDiff:"Ense\u00f1a los cambios l\u00ednea a l\u00ednea",
-      gitAdd:"Marca {a} para el pr\u00f3ximo commit",
-      gitCommit:"Guarda un commit con los cambios actuales",
-      gitPush:"Sube tus commits al repositorio remoto",
-      gitPull:"Trae los cambios del remoto",
-      gitFetch:"Consulta el remoto sin tocar nada",
-      gitClone:"Descarga el repositorio {a}",
-      gitSwitch:"Se cambia a {a}", gitBranch:"Gestiona las ramas",
-      gitMerge:"Fusiona {a} con la rama actual",
-      gitRebase:"Recoloca tus commits sobre otra rama",
-      gitReset:"Mueve la rama a otro commit",
-      gitClean:"Borra ficheros que el repositorio no sigue",
-      gitStash:"Aparta los cambios actuales",
-      gitTag:"Etiqueta este punto del historial",
-      gitInit:"Empieza un repositorio nuevo aqu\u00ed",
-      gitRemote:"Gestiona a d\u00f3nde se sube el repositorio",
-      gitRevert:"Deshace un commit con otro commit",
-      gitRestore:"Tira los cambios de {a}",
+      netsh:"Modifica la configuraci\u00f3n de red",
+      sleep:"Espera un intervalo", clear:"Limpia la pantalla",
+      schtasks:"Modifica una tarea programada",
+      docker:"Opera sobre contenedores", dkRun:"Arranca un contenedor",
+      dkLogs:"Consulta el registro de un contenedor",
+      gitStatus:"Consulta el estado del repositorio",
+      gitLog:"Consulta el historial de commits",
+      gitDiff:"Muestra las diferencias",
+      gitAdd:"A\u00f1ade {a} al \u00e1rea de preparaci\u00f3n",
+      gitCommit:"Registra un commit",
+      gitPush:"Sube los commits al repositorio remoto",
+      gitPushDel:"Elimina una rama del repositorio remoto",
+      gitPull:"Incorpora los cambios del repositorio remoto",
+      gitFetch:"Consulta el repositorio remoto sin modificar nada",
+      gitClone:"Clona el repositorio {a}",
+      gitSwitch:"Cambia a la rama {a}",
+      gitBranch:"Gestiona las ramas",
+      gitMerge:"Fusiona {a} en la rama actual",
+      gitRebase:"Reubica los commits sobre otra rama",
+      gitReset:"Reubica la rama en otro commit",
+      gitClean:"Elimina los ficheros no versionados",
+      gitCleanX:"Elimina los ficheros no versionados, incluidos los ignorados",
+      gitStash:"Aparta los cambios temporalmente",
+      gitTag:"Etiqueta el commit actual",
+      gitInit:"Inicializa un repositorio",
+      gitRemote:"Gestiona los repositorios remotos",
+      gitRevert:"Revierte un commit mediante otro commit",
+      gitRestore:"Descarta los cambios de {a}",
       pkgAdd:"Instala {a}",
       pkgAll:"Instala las dependencias del proyecto",
       pkgDel:"Desinstala {a}", pkgUp:"Actualiza las dependencias",
-      npmRun:"Ejecuta el gui\u00f3n {a} del proyecto",
-      npmAudit:"Revisa si las dependencias tienen agujeros conocidos",
-      publish:"Publica el paquete, fuera de tu m\u00e1quina",
+      npmRun:"Ejecuta el script {a}",
+      npmAudit:"Audita las dependencias",
+      publish:"Publica el paquete",
       pipFreeze:"Lista los paquetes instalados",
-      aptUpdate:"Refresca la lista de paquetes disponibles",
+      aptUpdate:"Actualiza el \u00edndice de paquetes",
       aptUpgrade:"Actualiza los paquetes del sistema",
       aptSearch:"Busca un paquete",
-      writeFile:"Escribe ese texto en {a}",
-      xRead:"Lee {a}", xEdit:"Cambia {a}",
-      xFind:"Busca dentro de los ficheros"},
+      xRead:"Lee {a}", xEdit:"Modifica {a}",
+      xFind:"Busca en los ficheros"},
 };
+/* Lo que la bandera anade a la accion. No hay coletilla para `-f`: la
+   tarjeta que ensena esto ya es la confirmacion que `-f` se salta. */
 const XW = {
-  en:{deep:"and everything inside", noask:"without asking",
-      admin:"as administrator",
-      rewrite:"rewrites published history",
-      lose:"throws away unsaved changes", world:"opens it to everyone",
-      web:"runs code downloaded from the internet",
-      public:"it leaves your machine", disk:"writes straight to the disk",
-      power:"the machine goes down", delRemote:"deletes it on the remote"},
-  es:{deep:"y todo lo que hay dentro", noask:"sin preguntar",
-      admin:"como administrador",
-      rewrite:"reescribe historia ya publicada",
-      lose:"tira los cambios sin guardar",
-      world:"se lo abre a cualquiera",
-      web:"ejecuta c\u00f3digo bajado de internet",
-      public:"sale de tu m\u00e1quina",
-      disk:"escribe directo en el disco", power:"el equipo se apaga",
-      delRemote:"lo borra tambi\u00e9n en el remoto"},
+  en:{deep:"and all its contents", dirs:"and the directories",
+      global:"system wide",
+      public:"to a public registry",
+      world:"granting access to all users",
+      rewrite:"rewriting the history",
+      lose:"discarding uncommitted changes",
+      admin:"with administrator privileges"},
+  es:{deep:"y todo su contenido", dirs:"y los directorios",
+      global:"en todo el sistema",
+      public:"en un registro p\u00fablico",
+      world:"con acceso para todos los usuarios",
+      rewrite:"reescribiendo el historial",
+      lose:"descartando los cambios sin confirmar",
+      admin:"con privilegios de administrador"},
 };
 const X = k => (XS[lang()] || XS.en)[k] || XS.en[k] || "";
 const XT = k => (XW[lang()] || XW.en)[k] || XW.en[k] || k;
@@ -1139,7 +1138,7 @@ function cmdPieces(s){
 function readCmd(piece){
   let w = piece.match(/"[^"]*"|'[^']*'|\S+/g) || [];
   const keep = [], warn = [];
-  let redir = "";
+  let redir = "", root = false;
   for(let i = 0; i < w.length; i++){          // fuera las redirecciones
     const t = w[i];
     if(/^\d*(>>|>)$/.test(t)){ redir = unq(w[++i] || ""); continue; }
@@ -1153,7 +1152,7 @@ function readCmd(piece){
   while(w.length){                            // fuera lo que solo es prefijo
     const h = unq(w[0]);
     if(/^[A-Za-z_]\w*=/.test(h)){ w.shift(); continue; }
-    if(/^(sudo|doas|runas)$/.test(h)){ warn.push("admin"); w.shift(); continue; }
+    if(/^(sudo|doas|runas)$/.test(h)){ root = true; w.shift(); continue; }
     if(/^(time|nohup|env|exec|command)$/.test(h)){ w.shift(); continue; }
     break;
   }
@@ -1169,13 +1168,19 @@ function readCmd(piece){
     else if(t !== "-" && t !== "--") args.push(t);
   }
   let key = CMD[name] || "", shown = name;
-  const tbl = SUB[key] || SUB[name];
+  // `git push -d rama` no sube nada: borra en el remoto
+  const pushDel = name === "git" && (args[0] || "").toLowerCase() === "push"
+    && flags.some(f => f === "d" || f === "delete");
+  if(pushDel){ args.shift(); key = "gitPushDel"; }
+  const tbl = pushDel ? null : (SUB[key] || SUB[name]);
   if(tbl){
     const s0 = (args[0] || "").toLowerCase();
     if(tbl[s0]){ key = tbl[s0]; args.shift(); }
     else { key = ""; if(s0) shown = name + " " + s0; }
   }
   if(key === "pkgAdd" && !args.length) key = "pkgAll";
+  if(key === "gitClean" && flags.some(f => f === "x" || f === "X"))
+    key = "gitCleanX";
   // en chmod y chown el primer argumento son los permisos, no el fichero:
   // hay que leerlo antes de tirarlo
   if(/^(chmod|chown|icacls|attrib)$/.test(name) && args.length > 1){
@@ -1187,6 +1192,7 @@ function readCmd(piece){
     if(rules[f] && warn.indexOf(rules[f]) < 0) warn.push(rules[f]);
   const fixed = FIX[key] || FIX[name];
   if(fixed && warn.indexOf(fixed) < 0) warn.push(fixed);
+  if(root) warn.push("admin");            // lo ultimo, que es un matiz
   if(redir && /^(echo|printf|cat|type)$/.test(name)){
     key = "writeFile"; args = [redir];
   }
@@ -1197,26 +1203,26 @@ function readCmd(piece){
     : "";
   let tpl = key ? X(key) : "";
   if(!tpl || (!a && tpl.indexOf("{a}") >= 0)) tpl = X("run");
-  return {name: name,
-          t: tpl.replace("{a}", a).replace("{n}", shown).trim(),
-          w: warn};
+  const t = tpl.replace("{a}", a).replace("{n}", shown).trim();
+  warn.sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b));
+  return {name: name, t: warn.reduce(
+    (acc, k) => acc + (GLUE.indexOf(k) < 0 ? ", " : " ") + XT(k), t)};
 }
 
-/* [{t:"Borra ./build", w:["deep","noask"]}, ...] */
+/* [{t:"Elimina ./build y todo su contenido"}, ...] */
 function explain(tool, detail){
   if(!detail) return [];
   const cat = toolIcon(tool);
   if(cat !== "terminal"){
     const k = {read:"xRead", edit:"xEdit", search:"xFind"}[cat];
-    return k ? [{t: X(k).replace("{a}", shortArg(detail)), w: []}] : [];
+    return k ? [{t: X(k).replace("{a}", shortArg(detail))}] : [];
   }
   const out = cmdPieces(detail).map(readCmd).filter(Boolean);
   for(let i = 0; i < out.length - 1; i++)     // curl ... | sh
     if(/^(curl|wget|iwr)$/.test(out[i].name)
        && /^(sh|bash|zsh|python|python3|node|pwsh|powershell)$/
-          .test(out[i + 1].name)
-       && out[i + 1].w.indexOf("web") < 0)
-      out[i + 1].w.unshift("web");
+          .test(out[i + 1].name))
+      out[i + 1].t = X("webRun");
   return out;
 }
 
@@ -1348,10 +1354,8 @@ function html(it){
     else
       opts = `<button class="opt" data-c="__text__">${esc(T("typeAnswer"))}`
            + `</button>` + cancel;
-    const said = explain(it.tool, it.detail).slice(0, 4).map(e =>
-      `<p>${esc(e.t)}${e.w.map(k =>
-        `<em${HOT.indexOf(k) < 0 ? "" : ' class="hot"'}>${esc(XT(k))}</em>`
-      ).join("")}</p>`).join("");
+    const said = explain(it.tool, it.detail).slice(0, 4)
+      .map(e => `<p>${esc(e.t)}</p>`).join("");
     const what = it.detail
       ? `<div class="what"><div class="who">${ico(toolIcon(it.tool))}`
         + `${esc(it.tool || T("tools"))}</div>`

@@ -185,9 +185,9 @@ asks, and that question arrives here as an `extension_ui_request` that
 sets no timeout.
 
 <!-- CAPTURA 4 — la tarjeta de permiso ampliada: cabecera "pi pregunta",
-     el título de la extensión, la caja con la frase en cristiano y sus
-     avisos, el comando en monoespaciada debajo, y los botones con las
-     opciones reales. Y una segunda, ya respondida, con el check verde y
+     el título de la extensión, la caja con la frase en cristiano y el
+     comando en monoespaciada debajo, y los botones con las opciones
+     reales. Y una segunda, ya respondida, con el check verde y
      "respondido: permitir una vez". -->
 
 Four things that are easy to get wrong, and that this bridge handles:
@@ -198,9 +198,9 @@ Four things that are easy to get wrong, and that this bridge handles:
 - **It says what the command will do, in plain words.** A `select` dialog only
   carries a title and the options: never the command. So the bridge pairs it
   with the tool call left running, and the page reads that command and says it
-  out loud — *deletes /tmp/sv_src*, `and everything inside`, `without asking`.
-  It is a lookup table, not a model: it never calls out, never guesses, and
-  what it does not recognise it simply names.
+  in one line — `rm -rf ./build` becomes *deletes ./build and all its
+  contents*. It is a lookup table, not a model: it never calls out, never
+  guesses, and what it does not recognise it simply names.
 - **While pi waits for you it is not working.** The readout bar disappears and
   leaves the screen to the approval card, so a blocked turn never looks like a
   busy one.
