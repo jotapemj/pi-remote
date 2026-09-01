@@ -209,9 +209,10 @@ Four things that are easy to get wrong, and that this bridge handles:
 The four dialog kinds — `select`, `confirm`, `input`, `editor` — are all
 answered from the browser.
 
-<!-- CAPTURA 5 — la barra de lectura mientras genera: la palabra rotatoria
-     junto al cursor dentro del mensaje, y abajo el medidor de contexto con
-     "56.79% | 56k/131k" y el botón de parar. -->
+<!-- CAPTURA 5 — mientras genera: la palabra rotatoria junto al cursor
+     dentro del mensaje con los segundos al lado, el medidor de contexto
+     a la derecha con "56.79% | 56k/131k", y el botón de enviar
+     convertido en el cuadrado de parar. -->
 
 ## Commands
 

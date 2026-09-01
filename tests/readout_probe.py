@@ -33,11 +33,19 @@ async def main():
                          " !!feed.querySelector('.cursor'),"
                          " !!document.querySelector('#readout .wordi'),"
                          " getComputedStyle(feed.querySelector('.cursor'))"
-                         ".animationName]")
+                         ".animationName,"
+                         " (feed.querySelector('.elapsed')||{}).textContent,"
+                         " getComputedStyle(feed.querySelector('.elapsed'))"
+                         ".color]")
             print("  palabra=%r cursor=%s en la barra=%s animacion=%s"
-                  % tuple(w))
+                  % tuple(w[:4]))
+            print("  segundos=%r color=%s" % (w[4], w[5]))
             checks.append(("la palabra va junto al cursor",
-                           w[0] == "Cacharreando" and w[1] and not w[2]))
+                           w[0] == "Cacharreando\u2026" and w[1]
+                           and not w[2]))
+            checks.append(("los segundos van a su lado, apagados",
+                           bool(w[4]) and w[4].endswith("s")
+                           and w[5] != w[3]))
             checks.append(("el cursor late suave", w[3] == "pulse"))
 
             await js("curWord = 'Soldando'; showWord(true)")
@@ -48,7 +56,47 @@ async def main():
             end = await js("(feed.querySelector('.wordi')||{}).textContent")
             print("  al rotar: opacidad a 80ms=%s -> %r" % (mid, end))
             checks.append(("la palabra se funde al cambiar",
-                           0 <= mid < 1 and end == "Soldando"))
+                           0 <= mid < 1 and end == "Soldando\u2026"))
+
+            halt = await js("[$('#send').classList.contains('halting'),"
+                            " !!$('#send .halt svg'),"
+                            " Number(getComputedStyle($('#send .halt'))"
+                            ".opacity),"
+                            " Number(getComputedStyle($('#send .go'))"
+                            ".opacity),"
+                            " !!document.querySelector('#stopBtn'),"
+                            " getComputedStyle($('#readout'))"
+                            ".justifyContent]")
+            print("  parar: %s" % halt)
+            checks += [
+                ("enviar se vuelve parar mientras trabaja",
+                 halt[0] is True and halt[1] is True),
+                ("con fundido entre los dos iconos",
+                 halt[2] == 1 and halt[3] == 0),
+                ("y ya no hay boton de parar suelto", halt[4] is False),
+                ("la barra de contexto va a la derecha",
+                 halt[5] == "flex-end"),
+            ]
+
+            await js("for(let i=0;i<24;i++)"
+                     " render({id:900+i, kind:'tool', name:'bash',"
+                     "  status:'done', args:{command:'ls'}, output:'x'})")
+            await asyncio.sleep(0.3)
+            await js("main.scrollTop = 0")      # el salto necesita su turno
+            await asyncio.sleep(0.3)
+            over = await js("(() => { goDown();"
+                            " const d = $('#godown').getBoundingClientRect();"
+                            " const b = $('#bar').getBoundingClientRect();"
+                            " return [$('#godown').classList.contains('on'),"
+                            " Math.round(d.bottom), Math.round(b.top),"
+                            " Math.round(d.bottom - b.top)];})()")
+            print("  bajar: visible=%s abajo=%s barra=%s solape=%s"
+                  % tuple(over))
+            checks += [
+                ("el boton de bajar aparece al subir", over[0] is True),
+                ("y no se monta sobre la barra de contexto",
+                 over[1] <= over[2]),
+            ]
 
             ctx = await js("[$('#bar').lastElementChild.textContent,"
                            " $('#bar').firstElementChild.style.width,"

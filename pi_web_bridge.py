@@ -262,6 +262,16 @@ def edit_diff(args):
     return {"lines": lines, "added": added, "removed": removed}
 
 
+def pct(tokens, window):
+    """El porcentaje que pi no siempre manda, pero que se deduce."""
+    try:
+        if tokens is None or not window:
+            return None
+        return round(100.0 * tokens / window, 2)
+    except (TypeError, ZeroDivisionError):
+        return None
+
+
 def same_path(a, b):
     """Dos rutas que apuntan al mismo sitio, con las manias de Windows."""
     if not a or not b:
@@ -660,6 +670,12 @@ class Bridge:
             self.note("info", "compacted",
                       f"context compacted: {before} to {after} tokens",
                       before=before, after=after)
+            window = (self.state.get("context") or {}).get("window")
+            self.state["context"] = {
+                "tokens": after, "window": window,
+                "percent": pct(after, window), "cost": None}
+            self.push_state()
+            self.send_pi({"type": "get_session_stats"})
 
         elif t == "auto_retry_start":
             self.note("warn", "retrying",
@@ -695,9 +711,13 @@ class Bridge:
 
         elif cmd == "get_session_stats":
             u = data.get("contextUsage") or {}
+            tokens, window = u.get("tokens"), u.get("contextWindow")
+            percent = u.get("percent")
+            if percent is None:
+                percent = pct(tokens, window)
             self.state["context"] = {
-                "percent": u.get("percent"), "tokens": u.get("tokens"),
-                "window": u.get("contextWindow"), "cost": data.get("cost")}
+                "percent": percent, "tokens": tokens,
+                "window": window, "cost": data.get("cost")}
             self.push_state()
 
         elif cmd in ("switch_session", "new_session"):

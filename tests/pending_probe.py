@@ -143,6 +143,35 @@ async def main():
                          snap3.get("state", {}).get("waiting") is False),
                     ]
 
+        # --- compactar deja el contexto en otro sitio: la barra lo sabe
+        async with websockets.connect(WS) as z:
+            snap = await take(z, "snapshot")
+            before = (snap.get("state") or {}).get("context") or {}
+            await z.send(json.dumps({"type": "prompt",
+                                     "message": "compact ahora"}))
+            after = before
+            end = asyncio.get_event_loop().time() + 12
+            while asyncio.get_event_loop().time() < end:
+                try:
+                    m = json.loads(await asyncio.wait_for(z.recv(), timeout=3))
+                except asyncio.TimeoutError:
+                    continue
+                if m.get("type") == "state":
+                    c = (m.get("state") or {}).get("context") or {}
+                    if c.get("tokens") == 5200:
+                        after = c
+                        break
+            print("  contexto: %s -> %s"
+                  % (before.get("tokens"), after.get("tokens")))
+            print("  porcentaje: %s -> %s"
+                  % (before.get("percent"), after.get("percent")))
+            checks += [
+                ("compactar mueve la barra", after.get("tokens") == 5200),
+                ("con su porcentaje, no en blanco",
+                 isinstance(after.get("percent"), (int, float))
+                 and after["percent"] < (before.get("percent") or 100)),
+            ]
+
         # --- irse a otro proyecto si mata al pi que esperaba: hay que decirlo
         async with websockets.connect(WS) as e:
             await take(e, "snapshot")

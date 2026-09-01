@@ -34,6 +34,12 @@ def turn(text):
     out({"type": "tool_execution_end", "toolCallId": "c1", "toolName": "bash",
          "result": {"content": [{"type": "text", "text": "total 48\ndrwx 4 x"}]},
          "isError": False})
+    if "compact" in text:
+        out({"type": "compaction_end",
+             "result": {"tokensBefore": 28500,
+                        "estimatedTokensAfter": 5200}})
+        finish()
+        return
     if "danger" in text:
         # la herramienta se queda en marcha mientras se pide permiso:
         # es de ahi de donde el puente saca que comando va a ejecutarse

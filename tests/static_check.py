@@ -60,7 +60,9 @@ checks = [
      and "visibility 0s linear .22s" in css),
     ("animacion de mensajes", "@keyframes rise-in{" in css),
     ("un snapshot no anima 40 filas", ".nofx .turn{animation:none}" in css),
-    ("boton stop en la barra", 'id="stopBtn"' in body and ".stopb{" in css),
+    ("enviar y parar comparten boton",
+     'class="ic go"' in body and 'class="ic halt"' in body
+     and ".send.halting{" in css),
     ("nombre de carpeta, no la ruta entera",
      "CWD.split(/[\\\\/]/)" in h),
     ("version en un solo sitio",
