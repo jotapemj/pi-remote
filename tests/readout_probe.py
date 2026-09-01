@@ -241,8 +241,9 @@ async def main():
             print("  tamano al 6: %s guardado=%r letras=%s" % tuple(size))
 
             checks += [
-                ("cuatro temas, Klaude incluido",
-                 rows == ["auto", "light", "dark", "klaude"]),
+                ("los cinco temas, con las dos variantes Klaude",
+                 rows == ["auto", "light", "dark", "klaude",
+                          "klaude-light"]),
                 ("tocar uno lo previsualiza sin cerrar ni guardar",
                  preview[0] == "klaude" and preview[1] is True
                  and preview[2] == "dark"),

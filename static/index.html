@@ -77,6 +77,27 @@ try{
   --box:#111111;  --box-ink:#878d93;
   --field-ink:#a3a3a1;
 }
+:root[data-theme="klaude-light"]{
+  /* Klaude a plena luz: papel calido, y las cajas de codigo en pizarra
+     oscura, igual que los bloques de codigo del Claude real. */
+  color-scheme:light;
+  --panel:#fcfcfb; --surface:#fbfbf9; --raise:#f0efea; --rule:#d8d8d7;
+  --ink:#0b0b0b; --dim:#6d6d64; --faint:#8b8b80;
+  --amber:#d06d4b; --mint:#2a7d5a; --coral:#c0342a;
+  --on-amber:#ffffff;
+  --plate-a:#ffffff; --plate-b:#f6f6f3;
+  --ask-a:#fdf2ec;   --ask-b:#fbfbf9;
+  --lit:#2f6ab5;
+  --veil:#26262499;
+  --cast:0 -14px 28px #1c1a1714;
+  --lift:0 1px 2px #1c1a1710;
+  --mint-wash:#00f1001a; --coral-wash:#c22f361a;
+  --add:#00d100; --del:#ea6257;      /* sobre la caja oscura, no sobre papel */
+  --head:#232833; --head-ink:#b6bcc6;
+  --box:#2b303b;  --box-ink:#cbd1da;
+  --field-ink:#0b0b0b;
+  --cast-card:14px 17px 40px 4px rgba(40,40,40,.07);
+}
 :root[data-theme="light"]{
   /* same instrument under bench light: paper, not a chat app */
   color-scheme:light;
@@ -330,7 +351,7 @@ body.waiting .cursor{display:none}   /* pi no escribe: te espera */
 }
 .ask .what .who .i{width:15px;height:15px}
 .ask .what .says{padding:9px 10px; font:400 12.5px/1.5 var(--sans)}
-.ask .what .says p{margin:0; color:var(--ink)}
+.ask .what .says p{margin:0; color:var(--box-ink)}
 .ask .what .says p + p{margin-top:4px}
 .ask .what .says code{
   font:500 12px/1.4 var(--mono); background:var(--raise);
@@ -2529,8 +2550,9 @@ function showWord(fade){
 }
 
 /* ---------- theme ---------- */
-const THEMES = ["auto", "light", "dark", "klaude"];
-const THEME_NAME = t => t === "klaude" ? "Klaude" : T(t);
+const THEMES = ["auto", "light", "dark", "klaude", "klaude-light"];
+const THEME_NAME = t => ({klaude:"Klaude",
+  "klaude-light":"Klaude Light"})[t] || T(t);
 const SIZES = [13, 14, 15, 16, 17, 18, 19, 20];
 const SYS = matchMedia("(prefers-color-scheme: light)");
 

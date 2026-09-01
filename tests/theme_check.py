@@ -17,7 +17,8 @@ def tokens(sel):
 
 THEMES = [("oscuro", tokens(":root")),
           ("claro", tokens(':root[data-theme="light"]')),
-          ("klaude", tokens(':root[data-theme="klaude"]'))]
+          ("klaude", tokens(':root[data-theme="klaude"]')),
+          ("klaude-light", tokens(':root[data-theme="klaude-light"]'))]
 
 base = set(THEMES[0][1])
 gaps = [(name, sorted(base ^ set(t))) for name, t in THEMES[1:]
