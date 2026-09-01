@@ -473,8 +473,26 @@ textarea:focus{outline:none;border-color:var(--faint)}
   transition:transform .3s cubic-bezier(.32,.72,0,1);
 }
 .sheet.open .card{transform:none}
-.sheet h2{font:600 11px/1 var(--mono);letter-spacing:.1em;color:var(--faint);
-  text-transform:uppercase;margin:2px 0 12px}
+.sbar{display:flex; align-items:center; gap:9px; margin:2px 0 12px}
+.sheet h2{
+  font:600 11px/1 var(--mono); letter-spacing:.1em; color:var(--faint);
+  text-transform:uppercase; margin:0; flex:1;
+}
+.backb{
+  background:none; border:none; color:var(--dim); cursor:pointer;
+  padding:2px; margin-left:-2px; display:flex; flex:none;
+}
+.backb:hover{color:var(--ink)}
+.backb[hidden]{display:none}
+.backb .i{width:19px;height:19px}
+
+/* al entrar en una seccion el contenido llega desde la derecha,
+   y al volver desde la izquierda */
+#sheetBody{
+  transition:transform .2s cubic-bezier(.32,.72,0,1), opacity .16s ease;
+}
+#sheetBody.to-left{transform:translateX(-26px);opacity:0}
+#sheetBody.to-right{transform:translateX(26px);opacity:0}
 .pick{
   display:flex; align-items:center; gap:11px; width:100%; text-align:left;
   background:var(--raise); border:1px solid var(--rule);
@@ -751,7 +769,11 @@ body,.plate,.readout,footer,.tool,.ask,.pick,@media (prefers-reduced-motion:redu
 </aside>
 
 <div class="sheet" id="sheet"><div class="card">
-  <h2 id="sheetTitle">pick</h2><div id="sheetBody"></div>
+  <div class="sbar">
+    <button class="backb" id="sheetBack" hidden aria-label="back"></button>
+    <h2 id="sheetTitle"></h2>
+  </div>
+  <div id="sheetBody"></div>
 </div></div>
 
 <div class="modal" id="modal"><div class="mcard">
@@ -779,6 +801,7 @@ const ICONS = {
   lang:"M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z",
   close:"M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z",
   palette:"M12,2C6.49,2,2,6.49,2,12s4.49,10,10,10c1.38,0,2.5-1.12,2.5-2.5c0-0.61-0.23-1.2-0.64-1.67c-0.08-0.1-0.13-0.21-0.13-0.33 c0-0.28,0.22-0.5,0.5-0.5H16c3.31,0,6-2.69,6-6C22,6.04,17.51,2,12,2z M17.5,13c-0.83,0-1.5-0.67-1.5-1.5c0-0.83,0.67-1.5,1.5-1.5 s1.5,0.67,1.5,1.5C19,12.33,18.33,13,17.5,13z M14.5,9C13.67,9,13,8.33,13,7.5C13,6.67,13.67,6,14.5,6S16,6.67,16,7.5 C16,8.33,15.33,9,14.5,9z M5,11.5C5,10.67,5.67,10,6.5,10S8,10.67,8,11.5C8,12.33,7.33,13,6.5,13S5,12.33,5,11.5z M11,7.5 C11,8.33,10.33,9,9.5,9S8,8.33,8,7.5C8,6.67,8.67,6,9.5,6S11,6.67,11,7.5z",
+  back:"M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z",
   settings:"M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z",
   menu:"M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z",
   add:"M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z",
@@ -1335,16 +1358,6 @@ function themeModal(){
 }
 
 const LANG_NAME = {en:"English", es:"Espa\u00f1ol"};
-function langModal(){
-  menuModal(T("language"), LANGS.map(l => ({
-    icon: l === lang() ? "check" : null,
-    label: LANG_NAME[l],
-    run: () => {                       // elegir cierra y aplica, sin aceptar
-      setLang(l);
-      if($("#sheet").classList.contains("open")) menuSheet();
-    }})));
-}
-
 function helpModal(){
   const rows = CMDS.map(c =>
     `<dt>/${esc(c.n)}${c.arg ? " &lt;" + esc(argOf(c)) + "&gt;" : ""}</dt>`
@@ -1874,28 +1887,69 @@ function sizeCard(body){
   body.appendChild(card);
 }
 
-function menuSheet(){
-  $("#sheetTitle").textContent = T("menu");
-  const body = $("#sheetBody"); body.innerHTML = "";
+/* el menu es un cuaderno de paginas: raiz, apariencia, idioma */
+let sheetPage = "root";
+function paintSheet(page){
+  sheetPage = page;
+  const body = $("#sheetBody"), back = $("#sheetBack");
+  body.innerHTML = "";
+  back.hidden = page === "root";
+  if(!back.innerHTML) back.innerHTML = ico("back");
+  back.onclick = () => turnTo("root", -1);
+
   const head = t => {
     const h = document.createElement("div");
     h.className = "shead"; h.textContent = T(t); body.appendChild(h);
   };
-
-  head("appearance");
   const act = (key, icon, run) => body.appendChild(pickBtn({
-    icon: icon, label: T(key),
-    run: () => { $("#sheet").classList.remove("open"); run(); }}));
-  const h = document.createElement("div");
-  h.className = "shead"; h.textContent = "\u00a0"; body.appendChild(h);
-  act("theme", "palette", themeModal);
-  sizeCard(body);
-  act("language", "lang", langModal);
-  act("help", "help", helpModal);
-  act("about", "info", aboutModal);
-  act("donate", "donate", () => PAYPAL ? open(PAYPAL, "_blank", "noopener")
-                          : modal(T("donate"), "<p>Coming soon.</p>"));
+    icon: icon, label: T(key), chevron: true, run: run}));
+
+  if(page === "appearance"){
+    $("#sheetTitle").textContent = T("appearance");
+    body.appendChild(pickBtn({icon:"palette", label:T("theme"),
+                              chevron:true, run:themeModal}));
+    sizeCard(body);
+    return;
+  }
+  if(page === "language"){
+    $("#sheetTitle").textContent = T("language");
+    LANGS.forEach(l => body.appendChild(pickBtn({
+      icon: l === lang() ? "check" : null, label: LANG_NAME[l],
+      run: () => { setLang(l); turnTo("root", -1); }})));
+    return;
+  }
+
+  $("#sheetTitle").textContent = T("menu");
+  act("appearance", "palette", () => turnTo("appearance", 1));
+  act("language", "lang", () => turnTo("language", 1));
+  head("\u00a0");
+  body.appendChild(pickBtn({icon:"help", label:T("help"),
+    run: () => { $("#sheet").classList.remove("open"); helpModal(); }}));
+  body.appendChild(pickBtn({icon:"info", label:T("about"),
+    run: () => { $("#sheet").classList.remove("open"); aboutModal(); }}));
+  body.appendChild(pickBtn({icon:"donate", label:T("donate"),
+    run: () => { $("#sheet").classList.remove("open");
+      PAYPAL ? open(PAYPAL, "_blank", "noopener")
+             : modal(T("donate"), "<p>Coming soon.</p>"); }}));
+}
+
+function turnTo(page, dir){
+  const body = $("#sheetBody");
+  if(STILL.matches){ paintSheet(page); return; }
+  body.classList.add(dir > 0 ? "to-left" : "to-right");
+  setTimeout(()=>{
+    paintSheet(page);
+    body.classList.remove("to-left", "to-right");
+    body.classList.add(dir > 0 ? "to-right" : "to-left");
+    requestAnimationFrame(()=> requestAnimationFrame(()=>
+      body.classList.remove("to-left", "to-right")));
+  }, 170);
+}
+
+function menuSheet(){
+  paintSheet("root");
   $("#sheet").classList.add("open");
+  marqueeAll($("#sheetBody"));
 }
 $("#menuBtn").onclick = menuSheet;
 
@@ -1965,11 +2019,15 @@ function sheet(title, rows){
   $("#sheet").classList.add("open");
   marqueeAll(body);
 }
-$("#sheet").onclick = e => { if(e.target.id === "sheet") e.target.classList.remove("open"); };
+$("#sheet").onclick = e => {
+  if(e.target.id === "sheet") e.target.classList.remove("open");
+};
 addEventListener("keydown", e => {
   if(e.key !== "Escape") return;
   if($("#modal").classList.contains("open")) return closeModal();
   if($("#rail").classList.contains("on")) return closeRail();
+  if($("#sheet").classList.contains("open") && sheetPage !== "root")
+    return turnTo("root", -1);       // Escape sube un nivel antes de cerrar
   $("#sheet").classList.remove("open");
 });
 

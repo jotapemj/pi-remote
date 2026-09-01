@@ -98,32 +98,52 @@ async def main():
             checks.append(("el nombre viejo se desvanece", fading[0] < 1))
             checks.append(("y entra el nuevo", "nombre nuevo" in after))
 
-            # idioma en su propio dialogo
+            # el menu navega por paginas
             await js("menuSheet()")
-            await asyncio.sleep(0.3)
-            seg = await js("document.querySelectorAll('#sheetBody .seg').length")
-            await js("langModal()")
             await asyncio.sleep(0.4)
-            lm = await js("[$('#modal').classList.contains('open'),"
-                          " [...document.querySelectorAll('#modalBody .mrow')]"
-                          ".map(b=>b.textContent),"
-                          " !!$('#modalNo') && $('#modalNo').hidden]")
-            print("  idioma: segmentos en el menu=%s dialogo=%s %s"
-                  % (seg, lm[0], lm[1]))
-            checks.append(("ya no quedan segmentos", seg == 0))
-            checks.append(("es un dialogo con los idiomas",
-                           lm[0] and len(lm[1]) == 2))
+            root = await js("[$('#sheetTitle').textContent,"
+                            " $('#sheetBack').hidden,"
+                            " document.querySelectorAll('#sheetBody .pick')"
+                            ".length]")
+            await js("turnTo('appearance', 1)")
+            await asyncio.sleep(0.12)
+            moving = await js("(() => {const b = $('#sheetBody');"
+                              " return [Math.round(new DOMMatrixReadOnly("
+                              "getComputedStyle(b).transform).m41),"
+                              " Number(getComputedStyle(b).opacity)];})()")
+            await asyncio.sleep(0.6)
+            inside = await js("[$('#sheetTitle').textContent,"
+                              " $('#sheetBack').hidden,"
+                              " !!document.querySelector('#sheetBody .sizecard'),"
+                              " !!document.querySelector('#sheetBack svg')]")
+            await js("turnTo('language', 1)")
+            await asyncio.sleep(0.7)
+            langs = await js("[...document.querySelectorAll('#sheetBody .pick')]"
+                             ".map(b=>b.textContent)")
+            await js("[...document.querySelectorAll('#sheetBody .pick')]"
+                     ".find(b=>/English/.test(b.textContent)).click()")
+            await asyncio.sleep(0.7)
+            after = await js("[lang(), $('#sheetTitle').textContent,"
+                             " $('#sheetBack').hidden]")
+            print("  raiz    : %r back oculto=%s tarjetas=%s" % tuple(root))
+            print("  entrando: desplazado %s opacidad %s" % tuple(moving))
+            print("  dentro  : %r back=%s slider=%s flecha=%s" % tuple(inside))
+            print("  idiomas : %s -> tras elegir: %r, vuelve a %r"
+                  % (langs, after[0], after[1]))
 
-            await js("document.querySelectorAll('#modalBody .mrow')[0].click()")
-            await asyncio.sleep(0.4)
-            aft = await js("[$('#modal').classList.contains('open'),"
-                           " lang(), $('#send').ariaLabel,"
-                           " $('#sheetTitle').textContent]")
-            print("  al elegir English: dialogo=%s lang=%r menu=%r"
-                  % (aft[0], aft[1], aft[3]))
-            checks.append(("elegir cierra solo", aft[0] is False))
-            checks.append(("y aplica el idioma",
-                           aft[1] == "en" and aft[3] == "menu"))
+            checks += [
+                ("la raiz no trae flecha de volver", root[1] is True),
+                ("entra deslizandose y con fundido",
+                 moving[0] != 0 and moving[1] < 1),
+                ("apariencia trae el tema y el tamano",
+                 inside[0] == "apariencia" and inside[2] is True),
+                ("y una flecha para volver",
+                 inside[1] is False and inside[3] is True),
+                ("el idioma es otra pagina", len(langs) == 2),
+                ("elegirlo aplica y vuelve al menu",
+                 after[0] == "en" and after[1] == "menu"
+                 and after[2] is True),
+            ]
 
             # el tema se previsualiza al tocarlo, pero pide Aceptar
             await js("closeModal(); setTheme('dark'); menuSheet(); themeModal()")
@@ -160,6 +180,8 @@ async def main():
             # el tamano del texto
             await js("closeModal(); menuSheet()")
             await asyncio.sleep(0.3)
+            await js("turnTo('appearance', 1)")   # el slider vive ahi
+            await asyncio.sleep(0.7)
             size = await js("(() => {"
                             " const i = document.querySelector('.track input');"
                             " i.value = 6; i.dispatchEvent(new Event('input'));"
