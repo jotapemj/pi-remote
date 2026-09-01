@@ -106,6 +106,22 @@ body{
 }
 
 /* ---------- header: instrument nameplate ---------- */
+/* El telon del arranque. Tapa la cabecera mientras decide su alto:
+   sin proyecto no hay subtitulo, y con el crece 16px. */
+.curtain{
+  position:fixed; inset:0; z-index:60; display:grid; place-items:center;
+  background:var(--panel); color:var(--ink);
+  font:600 22px/1 var(--mono); letter-spacing:.02em;
+  transition:opacity .34s ease, visibility 0s linear .34s;
+}
+.curtain span{animation:breathe 2.4s ease-in-out infinite}
+.curtain.gone{opacity:0; visibility:hidden}
+@keyframes breathe{0%,100%{opacity:.45}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){
+  .curtain{transition:none}
+  .curtain span{animation:none}
+}
+
 .plate{
   display:flex; align-items:center; gap:10px;
   padding:9px var(--gut); border-bottom:1px solid var(--rule);
@@ -269,9 +285,9 @@ body.waiting .cursor{display:none}   /* pi no escribe: te espera */
 .note{
   font:500 12px/1.5 var(--mono); color:var(--dim);
   border-left:2px solid var(--faint); padding:3px 0 3px 11px; margin:10px 0;
-  display:flex; align-items:flex-start; gap:8px;
+  display:flex; align-items:center; gap:8px;
 }
-.note .i{width:16px;height:16px;margin-top:1px}
+.note .i{width:16px;height:16px;flex:none}
 .note.warn{border-color:var(--amber);color:var(--amber)}
 .note.error{border-color:var(--coral);color:var(--coral)}
 
@@ -757,10 +773,12 @@ body,.plate,.readout,footer,.tool,.ask,.pick,@media (prefers-reduced-motion:redu
 </head>
 <body>
 
+<div class="curtain" id="curtain"><span>pi-remote</span></div>
+
 <header class="plate">
   <button class="iconbtn ico" id="railBtn" aria-label="projects"></button>
   <div class="txt">
-    <h1 class="mq" id="title"><span>connecting</span></h1>
+    <h1 class="mq" id="title"><span></span></h1>
     <div class="sub mq" id="sub"><span></span></div>
   </div>
   <button class="iconbtn ico" id="menuBtn"></button>
@@ -1837,6 +1855,18 @@ function secs(){
   }
 }
 
+/* El telon se va cuando ya hay algo que ensenar, o a los cuatro
+   segundos aunque no lo haya: mejor la interfaz con su aviso de
+   reconexion que una pantalla que parece colgada. */
+let booted = false;
+function boot(){
+  if(booted) return;
+  booted = true;
+  requestAnimationFrame(()=> $("#curtain").classList.add("gone"));
+}
+setTimeout(boot, 4000);
+
+
 /* ---------- socket ---------- */
 let backoff = 500;
 function connect(){
@@ -1863,6 +1893,7 @@ function connect(){
         feed.classList.remove("nofx");
         goDown();
         spinner(false);              // ya hay contenido que ensenar
+        boot();                      // y con el la cabecera ya tiene alto
       });
     }
     else if(m.type === "item") render(m.item);

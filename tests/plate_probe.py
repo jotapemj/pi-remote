@@ -1,4 +1,4 @@
-"""Comprueba el centrado del titulo y el fade del subtitulo."""
+"""El telon del arranque, el centrado del titulo y el fade del subtitulo."""
 import asyncio
 import json
 
@@ -58,7 +58,64 @@ async def main():
                   % (estable, a["plate"]))
             print("  subtitulo aparece            : %s -> %s"
                   % (a["subOpacidad"], b["subOpacidad"]))
+            # el telon: se va solo, y mientras esta tapa la cabecera
+            telon = await js("(() => {"
+                             " const b = $('#curtain');"
+                             " if(!b) return null;"
+                             " const fue = b.classList.contains('gone');"
+                             " const r = b.getBoundingClientRect();"
+                             " const cs = getComputedStyle(b);"
+                             " const plate ="
+                             " document.querySelector('.plate')"
+                             ".getBoundingClientRect();"
+                             " const out = [fue, Math.round(r.width),"
+                             "  Math.round(r.height), Number(cs.opacity),"
+                             "  Number(cs.zIndex), b.textContent.trim(),"
+                             "  r.top <= plate.top && r.bottom >= plate.bottom];"
+                             " return out; })()")
+            print("\n  telon: se fue=%s %sx%s opacidad=%s z=%s %r tapa=%s"
+                  % tuple(telon))
+            # el telon retirado sigue midiendo la pantalla entera, pero
+            # ya no se ve: eso es lo que hay que comprobar de los dos
+            await js("$('#curtain').classList.remove('gone')")
+            await asyncio.sleep(0.45)
+            vuelto = await js("Number(getComputedStyle($('#curtain'))"
+                              ".opacity)")
+            await js("$('#curtain').classList.add('gone')")
+            await asyncio.sleep(0.45)
+            ido = await js("[Number(getComputedStyle($('#curtain'))"
+                           ".opacity),"
+                           " getComputedStyle($('#curtain')).visibility]")
+            print("  telon: puesto opacidad=%s, quitado %s" % (vuelto, ido))
+            cubre = (telon[0] is True and vuelto == 1 and ido[0] == 0
+                     and ido[1] == "hidden" and telon[5] == "pi-remote"
+                     and telon[6] is True and telon[4] == 60
+                     and telon[1] >= 300 and telon[2] >= 600)
+
+            # la "i" de la nota, al medio aunque el texto ocupe dos lineas
+            await js("""
+              feed.innerHTML = ""; nodes.clear();
+              render({id:1, kind:"note", level:"info", key:"project",
+                      args:{path:"C:\\\\Users\\\\user\\\\Desktop"
+                                 + "\\\\Android Studio Projects"
+                                 + "\\\\my-app"},
+                      text:"project"});
+            """)
+            await asyncio.sleep(0.25)
+            nota = await js("(() => {"
+                            " const n = document.querySelector('.note');"
+                            " const i = n.querySelector('svg');"
+                            " const nr = n.getBoundingClientRect();"
+                            " const ir = i.getBoundingClientRect();"
+                            " return [Math.round(nr.height),"
+                            "  Math.round(ir.top + ir.height/2 - nr.top),"
+                            "  Math.round(nr.height/2)]; })()")
+            print("  nota: alto=%s icono a %s (medio %s)" % tuple(nota))
+            iconoOk = nota[0] > 30 and abs(nota[1] - nota[2]) <= 1
+
+            print("  el telon cubre y se retira   : %s" % cubre)
+            print("  la i de la nota, centrada    : %s" % iconoOk)
             print("\n" + ("TODO OK" if centrado and sube and estable
-                          else "FALLA"))
+                          and cubre and iconoOk else "FALLA"))
 
 raise SystemExit(asyncio.run(main()))
