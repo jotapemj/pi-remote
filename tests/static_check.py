@@ -110,6 +110,8 @@ fused = [l.strip()[:60] for l in css.splitlines()
 
 raise SystemExit(report(checks + [
     ("ningun selector se traga una arroba", not fused),
+    ("sin el flash azul del navegador al tocar",
+     "-webkit-tap-highlight-color:transparent" in css),
     ("la barra del compositor se difumina por los lados",
      "footer::before{" in css and "mask-image:linear-gradient(to right"
      in css and "footer > *{position:relative" in css),

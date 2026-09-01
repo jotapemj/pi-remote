@@ -124,6 +124,9 @@ try{
   --cast-card:14px 17px 40px 4px rgba(112,144,176,.08);
 }
 *{box-sizing:border-box}
+/* sin el flash azul del navegador al tocar; el foco de teclado se mantiene aparte */
+html{-webkit-tap-highlight-color:transparent}
+button,.pick,.mrow,summary,.ghead,.mact,.opt{-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
 body{
   margin:0; background:var(--panel); color:var(--ink);
