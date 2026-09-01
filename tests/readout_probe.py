@@ -222,6 +222,12 @@ async def main():
             print("  al tocar Klaude: %s abierto=%s guardado=%r"
                   % (preview[0], preview[1], preview[2]))
             print("  al cancelar    : %s" % cancelled[0])
+            tc = await js("[document.querySelector("
+                          "'meta[name=\"theme-color\"]').content.trim()"
+                          ".toLowerCase(),"
+                          " getComputedStyle(document.documentElement)"
+                          ".getPropertyValue('--plate-a').trim().toLowerCase()]")
+            print("  barra de estado: %r vs plate-a %r" % (tc[0], tc[1]))
             print("  al aceptar     : %s guardado=%r fondo=%s"
                   % (accepted[0], accepted[1], accepted[2]))
 
@@ -244,6 +250,8 @@ async def main():
                 ("los cinco temas, con las dos variantes Klaude",
                  rows == ["auto", "light", "dark", "klaude",
                           "klaude-light"]),
+                ("la barra de estado sigue al color de la toolbar",
+                 tc[0] == tc[1] and tc[0] != ""),
                 ("tocar uno lo previsualiza sin cerrar ni guardar",
                  preview[0] == "klaude" and preview[1] is True
                  and preview[2] == "dark"),

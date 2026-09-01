@@ -66,6 +66,21 @@ async def main():
                  singles == 0),
             ]
 
+            # las tareas van con sangria, para no mezclarse con la cabecera
+            indent = await js("(() => {"
+                              " const g = document.querySelector('.toolgroup');"
+                              " const head = g.querySelector('.ghead')"
+                              ".getBoundingClientRect();"
+                              " const tool = g.querySelector('.gbody .tool')"
+                              ".getBoundingClientRect();"
+                              " return [Math.round(tool.left - head.left),"
+                              " getComputedStyle(g.querySelector('.gbody'))"
+                              ".paddingLeft];})()")
+            print("  sangria: tarea a %s px, padding %s"
+                  % (indent[0], indent[1]))
+            checks.append(("las tareas quedan sangradas bajo la cabecera",
+                           indent[0] >= 10))
+
             # desplegar por el encabezado
             await js("document.querySelector('.ghead').click()")
             await asyncio.sleep(0.35)

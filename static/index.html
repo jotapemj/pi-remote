@@ -155,7 +155,7 @@ body{
 
 .plate{
   display:flex; align-items:center; gap:10px;
-  padding:9px var(--gut);
+  padding:13px var(--gut);
   background:linear-gradient(var(--plate-a),var(--plate-b));
 }
 .plate .txt{
@@ -312,6 +312,7 @@ body.waiting .cursor{display:none}   /* pi no escribe: te espera */
 .toolgroup:not(.collapsed) .ghead > .i:last-child{transform:rotate(90deg)}
 .gbody{overflow:hidden; transition:height .2s cubic-bezier(.32,.72,0,1)}
 .toolgroup.collapsed .gbody{height:0}
+.gbody{padding-left:14px}
 .gbody > .turn{margin:8px 0 0}
 
 /* ---------- tool rows ---------- */
@@ -2757,10 +2758,10 @@ function applyTheme(pref){
   const t = pref !== "auto" ? pref : (SYS.matches ? "light" : "dark");
   document.documentElement.dataset.theme = t;
   const meta = document.querySelector('meta[name="theme-color"]');
-  if(meta){                       // the phone browser chrome follows along
+  if(meta){                       // barra de estado = borde alto de la toolbar
     const v = getComputedStyle(document.documentElement)
-                .getPropertyValue("--plate-b").trim();
-    if(v) meta.content = v;
+                .getPropertyValue("--plate-a").trim();
+    if(v) meta.content = v;       // Android saca el contraste de iconos solo
   }
 }
 function setTheme(pref){
