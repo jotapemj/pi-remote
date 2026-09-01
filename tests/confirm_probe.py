@@ -25,7 +25,30 @@ async def main():
             await js("setLang('es')")
             await js(SPY)
 
-            checks = []
+            # la tarjeta de permiso dice que va a ejecutarse
+            await js("""
+              feed.innerHTML = ""; nodes.clear();
+              render({id:9, kind:"ask", rid:"x", method:"select",
+                      title:"Dangerous command", body:"",
+                      tool:"bash", detail:"rm -rf /tmp/sv_src 2>/dev/null",
+                      options:["Allow once","Deny"]});
+            """)
+            await asyncio.sleep(0.3)
+            what = await js("[!!document.querySelector('.ask .what'),"
+                            " document.querySelector('.ask .what .who')"
+                            ".textContent.trim(),"
+                            " document.querySelector('.ask .what pre')"
+                            ".textContent,"
+                            " !!document.querySelector('.ask .what .who svg')]")
+            print("  la tarjeta dice: %r %r icono=%s"
+                  % (what[1], what[2], what[3]))
+
+            checks = [
+                ("la tarjeta muestra el comando",
+                 what[0] is True and what[1] == "bash"
+                 and what[2] == "rm -rf /tmp/sv_src 2>/dev/null"),
+                ("con el icono de la herramienta", what[3] is True),
+            ]
             for name, expect in (("compact", "compact"),
                                  ("clearq", "clear_queue"),
                                  ("new", "new_session")):

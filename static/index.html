@@ -290,6 +290,22 @@ body.waiting .cursor{display:none}   /* pi no escribe: te espera */
   font:400 12.5px/1.5 var(--mono); color:var(--dim);
   margin:6px 13px 0; white-space:pre-wrap; word-break:break-word;
 }
+/* que va a ejecutarse exactamente */
+.ask .what{
+  margin:9px 13px 0; border:1px solid var(--rule); border-radius:var(--r-tool);
+  background:var(--box); overflow:hidden;
+}
+.ask .what .who{
+  display:flex; align-items:center; gap:7px; padding:6px 10px;
+  background:var(--head); color:var(--head-ink);
+  font:500 11.5px/1.4 var(--mono);
+}
+.ask .what .who .i{width:15px;height:15px}
+.ask .what pre{
+  margin:0; padding:9px 10px; font:400 12px/1.5 var(--mono);
+  color:var(--box-ink); white-space:pre-wrap; word-break:break-word;
+  max-height:190px; overflow:auto;
+}
 .ask .opts{display:flex;flex-wrap:wrap;gap:7px;padding:11px 13px 13px}
 .opt{
   font:500 12.5px/1 var(--mono); padding:9px 13px; border-radius:5px;
@@ -964,10 +980,16 @@ function html(it){
     else
       opts = `<button class="opt" data-c="__text__">${esc(T("typeAnswer"))}`
            + `</button>` + cancel;
+    const what = it.detail
+      ? `<div class="what"><div class="who">${ico(toolIcon(it.tool))}`
+        + `${esc(it.tool || T("tools"))}</div>`
+        + `<pre>${esc(it.detail)}</pre></div>`
+      : "";
     return `<div class="ask${done}" data-rid="${esc(it.rid)}">
       <div class="cap">${esc(T("asking"))}</div>
       <h3>${esc(it.title)}</h3>
       ${it.body?`<div class="body">${esc(it.body)}</div>`:""}
+      ${what}
       <div class="opts">${opts}</div>
       ${it.answered?`<div class="verdict">${ico("done")}`
         + `<span>${esc(T("answered"))}: ${esc(it.answered)}</span></div>`:""}

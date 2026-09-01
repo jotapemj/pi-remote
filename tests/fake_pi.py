@@ -35,6 +35,11 @@ def turn(text):
          "result": {"content": [{"type": "text", "text": "total 48\ndrwx 4 x"}]},
          "isError": False})
     if "danger" in text:
+        # la herramienta se queda en marcha mientras se pide permiso:
+        # es de ahi de donde el puente saca que comando va a ejecutarse
+        out({"type": "tool_execution_start", "toolCallId": "c2",
+             "toolName": "bash",
+             "args": {"command": "rm -rf ./build 2>/dev/null"}})
         out({"type": "extension_ui_request", "id": "uuid-1", "method": "select",
              "title": "Allow dangerous command?",
              "message": "rm -rf ./build",

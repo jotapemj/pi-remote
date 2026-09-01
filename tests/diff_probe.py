@@ -39,6 +39,22 @@ COLOURS = """(() => {
 })()"""
 
 
+def gist_checks():
+    """El puente saca el comando de los argumentos de la herramienta."""
+    import pi_web_bridge as B
+    cases = [
+        ({"command": "rm -rf ./build"}, "rm -rf ./build"),
+        ({"language": "shell", "code": "cd /x && ls"}, "cd /x && ls"),
+        ({"path": "app/main.py", "edits": []}, "app/main.py"),
+        (None, ""),
+    ]
+    got = [B.tool_gist(a) for a, _ in cases]
+    for (a, want), g in zip(cases, got):
+        print("  %-42r -> %r" % (a, g))
+    return [("saca el comando de los argumentos",
+             got == [w for _, w in cases])]
+
+
 async def from_the_bridge():
     """El puente calcula el diff solo, a partir de los argumentos."""
     with FakeProject("diff") as proj, Bridge():
@@ -79,7 +95,8 @@ async def with_token():
 
 
 async def main():
-    checks = await from_the_bridge()
+    checks = gist_checks()
+    checks += await from_the_bridge()
 
     with Bridge():
         async with Page(port=9311) as p:

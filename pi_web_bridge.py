@@ -262,6 +262,18 @@ def edit_diff(args):
     return {"lines": lines, "added": added, "removed": removed}
 
 
+def tool_gist(args):
+    """Lo que de verdad va a ejecutarse, sacado de los argumentos."""
+    for key in ("command", "code", "path", "filePath", "file_path",
+                "pattern", "url", "query"):
+        v = (args or {}).get(key)
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+    if args:
+        return json.dumps(args, ensure_ascii=False)
+    return ""
+
+
 def text_of(content):
     """A message body is either a string or a list of typed blocks."""
     if isinstance(content, str):
@@ -758,12 +770,23 @@ class Bridge:
         if method not in ("select", "confirm", "input", "editor"):
             return
 
+        # un dialogo `select` solo trae titulo y opciones: nunca dice que
+        # comando se va a ejecutar. El dato esta en la herramienta que quedo
+        # en marcha justo antes, asi que se cuelga de la tarjeta.
+        waiting = None
+        for it in reversed(self.log):
+            if it.get("kind") == "tool" and it.get("status") == "running":
+                waiting = it
+                break
+
         item = self.push({
             "kind": "ask", "rid": rid, "method": method,
             "title": ev.get("title") or "Approval needed",
             "body": ev.get("message") or "",
             "options": ev.get("options", []),
             "prefill": ev.get("prefill", ""),
+            "tool": waiting.get("name") if waiting else None,
+            "detail": tool_gist(waiting.get("args")) if waiting else "",
             "answered": None,
         })
         self.pending[rid] = item["id"]
