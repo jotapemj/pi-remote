@@ -16,7 +16,7 @@ ORDER = ["static_check", "theme_check", "notes_check", "trash_test",
          "plate_probe", "slash_probe", "confirm_probe", "rail_probe",
          "marquee_probe", "compose_probe", "readout_probe",
          "diff_probe", "restart_probe", "pending_probe", "wide_probe",
-         "compact_probe"]
+         "compact_probe", "group_probe", "stats_probe"]
 
 
 def main():

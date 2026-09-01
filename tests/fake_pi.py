@@ -13,6 +13,7 @@ def out(o):
 def turn(text):
     out({"type": "agent_start"})
     out({"type": "message_start", "message": {"role": "assistant", "content": []}})
+    time.sleep(0.4)                      # prefill: tiempo hasta el primer token
     for chunk in ["Looking at ", "**that** now.\n\n", "Here is `code`:\n",
                   "```py\nx = 5 < 6\n```\n"]:
         time.sleep(0.15)
@@ -71,7 +72,10 @@ def finish():
         "role": "assistant",
         "content": [{"type": "text",
                      "text": "Looking at **that** now.\n\nHere is `code`:\n"
-                             "```py\nx = 5 < 6\n```\n"}]}})
+                             "```py\nx = 5 < 6\n```\n"}],
+        "usage": {"input": 12000, "output": 240, "cacheRead": 0,
+                  "cacheWrite": 0, "reasoning": 30, "totalTokens": 12270,
+                  "cost": {"total": 0}}}})
     out({"type": "agent_end", "messages": [], "willRetry": False})
     out({"type": "agent_settled"})
 

@@ -298,6 +298,14 @@ def same_path(a, b):
         return False
 
 
+def grab_usage(ev):
+    """El usage puede venir suelto o dentro del mensaje."""
+    u = ev.get("usage")
+    if not u:
+        u = (ev.get("message") or {}).get("usage")
+    return u if isinstance(u, dict) and u else None
+
+
 def tool_gist(args):
     """Lo que de verdad va a ejecutarse, sacado de los argumentos."""
     for key in ("command", "code", "path", "filePath", "file_path",
@@ -423,6 +431,10 @@ class Bridge:
         }
         self.pending = OrderedDict()         # dialog id -> item id
         self.compacting = None               # la nota "compactando" en curso
+        self.prefill_t0 = None               # cuando arranco el prefill actual
+        self.gen_first = None                # instante del primer token
+        self.gen_prompt_ms = None            # prefill de la respuesta actual
+        self.cur_usage = {}                  # usage acumulado de la respuesta
         self.cur = None                      # assistant item being streamed
 
         self.proc = None                     # no project, no agent
@@ -544,6 +556,30 @@ class Bridge:
 
         threading.Thread(target=run, daemon=True).start()
 
+    def build_stats(self, usage):
+        """Conteos que da pi, y velocidades que mide el puente."""
+        now = time.time()
+        first = self.gen_first or now
+        prompt_ms = self.gen_prompt_ms or 0
+        gen_ms = int(max(0.0, (now - first)) * 1000)
+        u = usage or {}
+        out = u.get("output")
+        inp = u.get("input")
+        st = {
+            "input": inp, "output": out,
+            "cacheRead": u.get("cacheRead"),
+            "reasoning": u.get("reasoning"),
+            "total": u.get("totalTokens"),
+            "cost": (u.get("cost") or {}).get("total"),
+            "promptMs": prompt_ms, "genMs": gen_ms,
+            # velocidades medidas por reloj, no dadas por pi
+            "genTps": round(out / (gen_ms / 1000.0), 1)
+                      if out and gen_ms > 0 else None,
+            "promptTps": round(inp / (prompt_ms / 1000.0), 1)
+                         if inp and prompt_ms > 0 else None,
+        }
+        return st
+
     def settle_tools(self):
         """Cierra las herramientas que nunca recibieron su final.
 
@@ -624,6 +660,7 @@ class Bridge:
         if t == "agent_start":
             self.state.update(running=True, startedAt=time.time(), tool=None)
             self.cur = None
+            self.prefill_t0 = time.time()
             self.push_state()
 
         elif t == "message_start":
@@ -631,13 +668,24 @@ class Bridge:
             if m.get("role") == "assistant":
                 self.cur = self.push({"kind": "assistant", "text": "",
                                       "streaming": True})
+                self.gen_first = None
+                self.gen_prompt_ms = None
+                self.cur_usage = {}
 
         elif t == "message_update":
             d = ev.get("assistantMessageEvent") or {}
             if d.get("type") == "text_delta" and self.cur:
+                if self.gen_first is None:
+                    self.gen_first = time.time()
+                    base = self.prefill_t0 or self.gen_first
+                    self.gen_prompt_ms = int(max(0.0,
+                        (self.gen_first - base)) * 1000)
                 self.cur["text"] += d.get("delta", "")
                 self.emit({"type": "delta", "id": self.cur["id"],
                            "delta": d.get("delta", "")})
+            u = grab_usage(ev)
+            if u:
+                self.cur_usage = u
 
         elif t == "message_end":
             m = ev.get("message") or {}
@@ -650,12 +698,14 @@ class Bridge:
             else:
                 text = "\n".join(b["text"] for b in c or []
                                  if b.get("type") == "text")
+            u = grab_usage(ev) or self.cur_usage
+            stats = self.build_stats(u)
             if self.cur:
-                self.patch(self.cur, text=text, streaming=False)
+                self.patch(self.cur, text=text, streaming=False, stats=stats)
                 self.cur = None
             elif text.strip():
                 self.push({"kind": "assistant", "text": text,
-                           "streaming": False})
+                           "streaming": False, "stats": stats})
 
         elif t == "tool_execution_start":
             self.state["tool"] = ev.get("toolName")
@@ -680,6 +730,7 @@ class Bridge:
                                output=out[:8000])
                     break
             self.state["tool"] = None
+            self.prefill_t0 = time.time()
             self.push_state()
 
         elif t == "agent_settled":

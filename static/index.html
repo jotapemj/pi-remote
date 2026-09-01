@@ -238,6 +238,31 @@ main{flex:1; overflow-y:auto; padding:16px var(--gut) 8px; position:relative;
 .said pre code{background:none;padding:0;color:var(--box-ink);font-size:12.5px}
 .cwrap{position:relative}
 .cwrap pre{padding-right:48px}
+/* los dos iconos bajo cada respuesta del asistente */
+.msgacts{display:flex; gap:4px; margin:2px 0 0 -2px}
+.mact{
+  background:none; border:none; color:var(--faint); cursor:pointer;
+  padding:5px; border-radius:6px; display:flex; line-height:0;
+  transition:color .15s ease, background-color .15s ease;
+}
+.mact:hover{color:var(--ink); background:var(--raise)}
+.mact.done{color:var(--mint)}
+.mact .i{width:16px;height:16px}
+
+/* filas de la hoja de estadisticas */
+#statsBody{display:flex; flex-direction:column}
+.strow{
+  display:flex; align-items:baseline; justify-content:space-between;
+  gap:12px; padding:9px 2px; border-bottom:1px solid var(--rule);
+}
+.strow:last-child{border-bottom:none}
+.sbar .shi{display:flex; color:var(--amber); flex:none}
+.sbar .shi .i{width:18px;height:18px}
+.stk{font:600 12px/1.3 var(--sans); color:var(--dim)}
+.stv{font:600 15px/1.2 var(--mono); color:var(--ink);
+  font-variant-numeric:tabular-nums}
+.stv em{font:500 11px/1 var(--mono); color:var(--faint); font-style:normal}
+
 .copyb{
   position:absolute; top:8px; right:8px; width:30px; height:30px;
   border-radius:8px; border:1px solid var(--rule); background:var(--head);
@@ -262,6 +287,22 @@ main{flex:1; overflow-y:auto; padding:16px var(--gut) 8px; position:relative;
 .elapsed{font:500 13px/1 var(--mono); color:var(--dim); margin-left:7px}
 .wordi.out{opacity:0}
 body.waiting .cursor{display:none}   /* pi no escribe: te espera */
+
+/* ---------- grupo de herramientas ---------- */
+.toolgroup{margin:9px 0}
+.ghead{
+  width:100%; display:flex; align-items:center; gap:8px; cursor:pointer;
+  background:var(--head); color:var(--head-ink);
+  border:1px solid var(--rule); border-radius:var(--r-tool);
+  padding:8px 11px; font:500 12px/1.4 var(--mono);
+}
+.ghead .gn{flex:1; text-align:left}
+.ghead .i{width:15px;height:15px;flex:none}
+.ghead > .i:last-child{transition:transform .2s ease}
+.toolgroup:not(.collapsed) .ghead > .i:last-child{transform:rotate(90deg)}
+.gbody{overflow:hidden; transition:height .2s cubic-bezier(.32,.72,0,1)}
+.toolgroup.collapsed .gbody{height:0}
+.gbody > .turn{margin:8px 0 0}
 
 /* ---------- tool rows ---------- */
 .tool{
@@ -421,13 +462,6 @@ footer{
 footer::before{
   content:""; position:absolute; inset:0; z-index:0; pointer-events:none;
   background:var(--surface); border-top:1px solid var(--rule);
-  /* solido en el centro, y en los ultimos ~110px de cada lado se disuelve
-     en el fondo del chat con un fundido largo */
-  --edge:110px;
-  -webkit-mask-image:linear-gradient(to right, transparent 0,
-    #000 var(--edge), #000 calc(100% - var(--edge)), transparent 100%);
-  mask-image:linear-gradient(to right, transparent 0,
-    #000 var(--edge), #000 calc(100% - var(--edge)), transparent 100%);
 }
 footer > *{position:relative; z-index:1}
 
@@ -895,6 +929,16 @@ textarea:focus{outline:none;border-color:var(--faint)}
   }
   .sheet.open .card{transform:none; opacity:1}
 
+  /* el fondo de la barra se disuelve por los lados en el color del chat,
+     con un fundido largo; solo en ancho */
+  footer::before{
+    --edge:110px;
+    -webkit-mask-image:linear-gradient(to right, transparent 0,
+      #000 var(--edge), #000 calc(100% - var(--edge)), transparent 100%);
+    mask-image:linear-gradient(to right, transparent 0,
+      #000 var(--edge), #000 calc(100% - var(--edge)), transparent 100%);
+  }
+
   /* con raton no hace falta tamano de dedo */
   .send{width:46px;height:46px}
   .iconbtn{padding:6px 8px}
@@ -964,6 +1008,11 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
   <div id="sheetBody"></div>
 </div></div>
 
+<div class="sheet" id="statsheet"><div class="card">
+  <div class="sbar"><span class="shi" id="statsIcon"></span><h2 id="statsTitle"></h2></div>
+  <div id="statsBody"></div>
+</div></div>
+
 <div class="modal" id="modal"><div class="mcard">
   <h3 id="modalTitle"></h3>
   <div class="mbody" id="modalBody"></div>
@@ -985,6 +1034,7 @@ const ICONS = {
   remove:"M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z",
   session:"M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z",
   copy:"M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z",
+  stats:"M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z",
   check:"M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z",
   lang:"M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z",
   close:"M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z",
@@ -1485,14 +1535,38 @@ function keepDown(was){
 function render(item){
   const was = atBottom();
   let el = nodes.get(item.id);
-  if(!el){ el = document.createElement("div"); el.className="turn";
-           nodes.set(item.id, el); feed.appendChild(el); }
+  if(!el){
+    if(item.kind !== "tool") groupToolRun();   // el agente vuelve a escribir
+    el = document.createElement("div"); el.className="turn";
+    nodes.set(item.id, el); feed.appendChild(el);
+  }
   el.__item = item;
   el.innerHTML = html(item);
   if(item.kind === "ask") wireAsk(el, item);
   keepDown(was);
   return el;
 }
+
+/* Un tramo de herramientas seguidas se pliega en un solo desplegable en
+   cuanto el agente vuelve a escribir o el turno acaba. Mientras corren se
+   ven sueltas; solo se agrupan al cerrarse el tramo. */
+function groupToolRun(){
+  const run = [];
+  let el = feed.lastElementChild;
+  while(el && el.__item && el.__item.kind === "tool"){
+    run.unshift(el); el = el.previousElementSibling;
+  }
+  if(run.length < 2) return;               // una sola no se agrupa
+  const group = document.createElement("div");
+  group.className = "turn toolgroup collapsed";
+  group.innerHTML = `<button class="ghead">${ico("terminal")}`
+    + `<span class="gn">${esc(runLabel(run.length))}</span>`
+    + `${ico("chevron")}</button><div class="gbody"></div>`;
+  const body = group.querySelector(".gbody");
+  feed.insertBefore(group, run[0]);
+  run.forEach(t => body.appendChild(t));   // los nodos siguen en el mapa
+}
+const runLabel = n => T("ranN").replace("{n}", n);
 
 const tail = it => it.streaming
   ? `<span class="cursor"></span>`
@@ -1505,8 +1579,17 @@ function html(it){
     return `<div class="msg mine"><div class="blk blk-you">`
          + (it.steer ? `<span class="tag">steer</span>` : "")
          + `${esc(it.text)}</div></div>`;
-  if(it.kind === "assistant")
-    return `<div class="said" data-body>${md(it.text)}${tail(it)}</div>`;
+  if(it.kind === "assistant"){
+    const acts = it.streaming ? "" :
+      `<div class="msgacts">`
+      + `<button class="mact copy" aria-label="${esc(T("copy"))}">`
+      + `${ico("copy")}</button>`
+      + (it.stats ? `<button class="mact stats"`
+          + ` aria-label="${esc(T("statsTitle"))}">${ico("stats")}</button>`
+          : "")
+      + `</div>`;
+    return `<div class="said" data-body>${md(it.text)}${tail(it)}</div>${acts}`;
+  }
   if(it.kind === "note")
     return `<div class="note ${it.level||""}${it.key==="compacting"?" busy":""}">`
          + ico(NOTE_ICON[it.level] || "info")
@@ -1577,6 +1660,23 @@ function legacyCopy(text){
 }
 /* los <details> nativos abren de golpe: se anima la altura a mano */
 feed.addEventListener("click", e=>{
+  const gh = e.target.closest(".ghead");
+  if(gh){
+    const g = gh.parentNode, body = g.querySelector(".gbody");
+    if(STILL.matches){ g.classList.toggle("collapsed"); return; }
+    if(g.classList.contains("collapsed")){
+      g.classList.remove("collapsed");
+      const h = body.scrollHeight; body.style.height = "0px";
+      requestAnimationFrame(()=>{ body.style.height = h + "px"; });
+      setTimeout(()=>{ body.style.height = ""; }, 200);
+    } else {
+      body.style.height = body.scrollHeight + "px";
+      requestAnimationFrame(()=>{ body.style.height = "0px"; });
+      setTimeout(()=>{ g.classList.add("collapsed");
+                       body.style.height = ""; }, 200);
+    }
+    return;
+  }
   const sum = e.target.closest(".tool > summary");
   if(!sum) return;
   const det = sum.parentNode;
@@ -1600,6 +1700,27 @@ feed.addEventListener("click", e=>{
     setTimeout(done, 190);
   }
 });
+
+feed.addEventListener("click", e=>{
+  const b = e.target.closest(".mact");
+  if(!b) return;
+  const turn = b.closest(".turn"), it = turn && turn.__item;
+  if(b.classList.contains("stats")){ if(it && it.stats) statsSheet(it.stats);
+    return; }
+  const text = it ? it.text : "";
+  copyText(text).then(ok=>{
+    b.innerHTML = ico(ok ? "check" : "copy");
+    b.classList.toggle("done", ok);
+    if(!ok) note(T("copyFailed"));
+    setTimeout(()=>{ b.innerHTML = ico("copy");
+                     b.classList.remove("done"); }, 1500);
+  });
+});
+
+async function copyText(text){
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch(err){ return legacyCopy(text); }
+}
 
 feed.addEventListener("click", async e=>{
   const b = e.target.closest(".copyb");
@@ -1951,6 +2072,7 @@ setRailWidth(railWidth(), false);
 if(folded()) document.body.classList.add("folded");
 
 $("#foldBtn").innerHTML = ico("panel");
+$("#statsIcon").innerHTML = ico("stats");
 $("#foldBtn").onclick = () => setFolded(true);
 
 (() => {                                  // arrastrar la linea divisoria
@@ -2108,6 +2230,7 @@ function connect(){
       feed.classList.add("nofx");
       feed.innerHTML = ""; nodes.clear(); CWD = m.cwd || "";
       m.items.forEach(render); state = m.state; paint();
+      if(!state.running) groupToolRun();
       const goEnd = firstSnap || wasDown;
       firstSnap = false;
       requestAnimationFrame(()=>{
@@ -2144,7 +2267,11 @@ function connect(){
       else el.innerHTML = html(el.__item);
       keepDown(was);
     }
-    else if(m.type === "state"){ state = m.state; paint(); }
+    else if(m.type === "state"){
+      const wasRunning = state.running;
+      state = m.state; paint();
+      if(wasRunning && !state.running) groupToolRun();
+    }
     else if(m.type === "cleared"){
       feed.innerHTML=""; nodes.clear();
       if(state.cwd) delete sessCache[state.cwd];   // pudo nacer una sesion
@@ -2334,7 +2461,11 @@ const STR = {
       compactQ:"Compress the context now?",
       compactB:"The conversation gets summarised. It cannot be undone.",
       clearqQ:"Drop the queued messages?",
-      typeAnswer:"type an answer", answered:"answered", tools:"tool"},
+      typeAnswer:"type an answer", answered:"answered", tools:"tool",
+      ranN:"Ran {n} commands", ranNShown:"{n} commands",
+      statsTitle:"Response stats", stGen:"Generation", stPrompt:"Prompt",
+      stCache:"Cached", stReason:"Reasoning", stTotal:"Total", stCost:"Cost",
+      tps:"tok/s", tks:"tokens"},
   es:{menu:"men\u00fa", send:"enviar", stop:"parar",
       addProject:"A\u00f1adir proyecto",
       recent:"recientes", appearance:"Apariencia", language:"Idioma",
@@ -2368,7 +2499,11 @@ const STR = {
       compactB:"La conversaci\u00f3n se resume. No se puede deshacer.",
       clearqQ:"\u00bfDescartar los mensajes en cola?",
       typeAnswer:"escribir respuesta", answered:"respondido",
-      tools:"herramienta"},
+      tools:"herramienta",
+      ranN:"Ejecutados {n} comandos", ranNShown:"{n} comandos",
+      statsTitle:"Estad\u00edsticas de respuesta", stGen:"Generaci\u00f3n",
+      stPrompt:"Prompt", stCache:"En cach\u00e9", stReason:"Razonamiento",
+      stTotal:"Total", stCost:"Coste", tps:"tok/s", tks:"tokens"},
 };
 function lang(){
   try { const v = localStorage.getItem("pi.lang");
@@ -2717,6 +2852,35 @@ function turnTo(page, dir){
   }, 170);
 }
 
+/* la hoja con las estadisticas de una respuesta */
+const nfmt = v => v == null ? "\u2014" : v.toLocaleString(lang());
+function statsRow(label, val, unit){
+  return `<div class="strow"><span class="stk">${esc(label)}</span>`
+    + `<span class="stv">${esc(val)}`
+    + (unit ? ` <em>${esc(unit)}</em>` : "") + `</span></div>`;
+}
+function statsSheet(st){
+  $("#statsTitle").textContent = T("statsTitle");
+  const rows = [];
+  rows.push(statsRow(T("stGen"),
+    st.genTps == null ? "\u2014" : nfmt(st.genTps), T("tps")));
+  rows.push(statsRow("", nfmt(st.output), T("tks")));
+  rows.push(statsRow(T("stPrompt"),
+    st.promptTps == null ? "\u2014" : nfmt(st.promptTps), T("tps")));
+  rows.push(statsRow("", nfmt(st.input), T("tks")));
+  if(st.cacheRead) rows.push(statsRow(T("stCache"), nfmt(st.cacheRead),
+                                       T("tks")));
+  if(st.reasoning) rows.push(statsRow(T("stReason"), nfmt(st.reasoning),
+                                       T("tks")));
+  rows.push(statsRow(T("stTotal"), nfmt(st.total), T("tks")));
+  if(st.cost) rows.push(statsRow(T("stCost"), "$" + st.cost.toFixed(4), ""));
+  $("#statsBody").innerHTML = rows.join("");
+  $("#statsheet").classList.add("open");
+}
+$("#statsheet").onclick = e => {
+  if(e.target.id === "statsheet") e.target.classList.remove("open");
+};
+
 function menuSheet(){
   paintSheet("root");
   $("#sheet").classList.add("open");
@@ -2796,6 +2960,8 @@ $("#sheet").onclick = e => {
 addEventListener("keydown", e => {
   if(e.key !== "Escape") return;
   if($("#modal").classList.contains("open")) return closeModal();
+  if($("#statsheet").classList.contains("open"))
+    return $("#statsheet").classList.remove("open");
   if(!WIDE.matches && $("#rail").classList.contains("on"))
     return closeRail();
   if($("#sheet").classList.contains("open") && sheetPage !== "root")
