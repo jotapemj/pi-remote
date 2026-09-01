@@ -103,6 +103,14 @@ dead = [t for t in re.findall(r"(--[\w-]+)\s*:", root)
 classes = set(re.findall(r"^\.([a-z][\w-]*)", css, re.M))
 dead_cls = sorted(c for c in classes if c not in body)
 
+# una regla que se traga el @media de al lado se descarta entera y en
+# silencio: el bloque de accesibilidad llevaba cinco versiones muerto
+fused = [l.strip()[:60] for l in css.splitlines()
+         if re.match(r"^[^@/*\s].*@(media|supports|keyframes)", l)]
+
 raise SystemExit(report(checks + [
+    ("ningun selector se traga una arroba", not fused),
+    ("el bloque de movimiento reducido sigue vivo",
+     "@media (prefers-reduced-motion:reduce){\n  *{animation:none" in css),
     ("sin tokens huerfanos", not dead),
     ("sin clases sin uso", not dead_cls)]))

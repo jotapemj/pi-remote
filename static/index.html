@@ -773,7 +773,10 @@ textarea:focus{outline:none;border-color:var(--faint)}
 .shead[hidden]{display:none}
 
 /* only the theme swap animates; everything else stays instrument-quick */
-body,.plate,.readout,footer,.tool,.ask,.pick,@media (prefers-reduced-motion:reduce){
+body,.plate,.readout,footer,.tool,.ask,.pick{
+  transition:background-color .18s, border-color .18s, color .18s;
+}
+@media (prefers-reduced-motion:reduce){
   *{animation:none!important;transition:none!important;scroll-behavior:auto}
 }
 </style>
