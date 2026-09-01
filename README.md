@@ -185,15 +185,22 @@ asks, and that question arrives here as an `extension_ui_request` that
 sets no timeout.
 
 <!-- CAPTURA 4 — la tarjeta de permiso ampliada: cabecera "pi pregunta",
-     el título de la extensión, el comando en monoespaciada, y los botones
-     con las opciones reales. Y una segunda, ya respondida, con el check
-     verde y "respondido: permitir una vez". -->
+     el título de la extensión, la caja con la frase en cristiano y sus
+     avisos, el comando en monoespaciada debajo, y los botones con las
+     opciones reales. Y una segunda, ya respondida, con el check verde y
+     "respondido: permitir una vez". -->
 
-Three things that are easy to get wrong, and that this bridge handles:
+Four things that are easy to get wrong, and that this bridge handles:
 
 - **A permission is not yes or no.** A `select` dialog carries the extension's
   real options — allow once, allow for the session, deny — and they are shown
   as they come, never invented.
+- **It says what the command will do, in plain words.** A `select` dialog only
+  carries a title and the options: never the command. So the bridge pairs it
+  with the tool call left running, and the page reads that command and says it
+  out loud — *deletes /tmp/sv_src*, `and everything inside`, `without asking`.
+  It is a lookup table, not a model: it never calls out, never guesses, and
+  what it does not recognise it simply names.
 - **While pi waits for you it is not working.** The readout bar disappears and
   leaves the screen to the approval card, so a blocked turn never looks like a
   busy one.
