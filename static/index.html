@@ -127,7 +127,7 @@ try{
 /* sin el flash azul del navegador al tocar; el foco de teclado se mantiene aparte */
 html{-webkit-tap-highlight-color:transparent}
 button,.pick,.mrow,summary,.ghead,.mact,.opt{-webkit-tap-highlight-color:transparent}
-html,body{height:100%}
+html,body{height:100%; overscroll-behavior:none}
 body{
   margin:0; background:var(--panel); color:var(--ink);
   font:15px/1.55 var(--sans);
@@ -603,6 +603,10 @@ textarea:focus{outline:none;border-color:var(--faint)}
   opacity:1; visibility:visible;
   transition:opacity .22s ease, visibility 0s;
 }
+.grab{
+  width:36px; height:4px; border-radius:2px; background:var(--rule);
+  margin:-4px auto 10px; flex:none;
+}
 .sheet .card{
   background:var(--surface); border:1px solid var(--rule);
   border-radius:12px 12px 0 0; width:100%; max-width:760px;
@@ -938,6 +942,7 @@ textarea:focus{outline:none;border-color:var(--faint)}
     opacity:0;
   }
   .sheet.open .card{transform:none; opacity:1}
+  .grab{display:none}
 
   /* el fondo de la barra se disuelve por los lados en el color del chat,
      con un fundido largo; solo en ancho */
@@ -1011,6 +1016,7 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
 <div class="grip" id="grip"></div>
 
 <div class="sheet" id="sheet"><div class="card">
+  <div class="grab"></div>
   <div class="sbar">
     <button class="backb" id="sheetBack" hidden aria-label="back"></button>
     <h2 id="sheetTitle"></h2>
@@ -1019,6 +1025,7 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
 </div></div>
 
 <div class="sheet" id="statsheet"><div class="card">
+  <div class="grab"></div>
   <div class="sbar"><span class="shi" id="statsIcon"></span><h2 id="statsTitle"></h2></div>
   <div id="statsBody"></div>
 </div></div>
@@ -2909,6 +2916,100 @@ function statsSheet(st){
 $("#statsheet").onclick = e => {
   if(e.target.id === "statsheet") e.target.classList.remove("open");
 };
+
+/* ---------- gestos tactiles (solo movil) ----------
+   Arrastrar hacia abajo cierra una hoja; deslizar a la izquierda cierra la
+   barra. Todo con transform, para que vaya fino. */
+function dragToDismiss(el, opts){
+  const card = opts.card ? el.querySelector(opts.card) : el;
+  let y0 = 0, dy = 0, t0 = 0, live = false, drag = false, h = 0;
+  const reset = () => {
+    card.style.transition = ""; card.style.transform = "";
+    if(opts.fade) el.style.opacity = "";
+  };
+  card.addEventListener("pointerdown", e => {
+    if(WIDE.matches || e.pointerType === "mouse") return;
+    const grab = opts.handle && e.target.closest(opts.handle);
+    if(!grab && card.scrollTop > 0) return;   // deja desplazar el contenido
+    y0 = e.clientY; t0 = performance.now();
+    dy = 0; live = true; drag = false;
+    h = card.getBoundingClientRect().height;
+  });
+  card.addEventListener("pointermove", e => {
+    if(!live) return;
+    dy = e.clientY - y0;
+    if(!drag){
+      if(dy > 6){ drag = true; card.style.transition = "none";
+        try { card.setPointerCapture(e.pointerId); } catch(_){} }
+      else if(dy < -6){ live = false; return; }  // hacia arriba no cierra
+      else return;
+    }
+    if(dy < 0) dy = 0;
+    e.preventDefault();
+    card.style.transform = `translateY(${dy}px)`;
+    if(opts.fade) el.style.opacity = String(Math.max(.2, 1 - dy / (h * 1.3)));
+  }, {passive:false});
+  const end = () => {
+    if(!live) return; live = false;
+    const dt = performance.now() - t0;
+    const v = dt > 40 ? dy / dt : 0;   // sin tiempo no hay velocidad fiable
+    card.style.transition = "";
+    if(drag && (dy > 90 || v > 0.5)){
+      card.style.transform = "translateY(110%)";
+      if(opts.fade) el.style.opacity = "0";
+      setTimeout(() => { opts.close(); reset(); }, 260);
+    } else {
+      reset();
+    }
+    drag = false;
+  };
+  card.addEventListener("pointerup", end);
+  card.addEventListener("pointercancel", end);
+}
+
+dragToDismiss($("#sheet"), {card:".card", handle:".grab", fade:true,
+  close:() => $("#sheet").classList.remove("open")});
+dragToDismiss($("#statsheet"), {card:".card", handle:".grab", fade:true,
+  close:() => $("#statsheet").classList.remove("open")});
+dragToDismiss(palette, {fade:false, close:closePalette});
+
+(() => {                                   // la barra: deslizar para cerrar
+  const rail = $("#rail"), scrim = $("#scrim");
+  let x0 = 0, y0 = 0, dx = 0, dy = 0, live = false, drag = false, w = 0;
+  rail.addEventListener("pointerdown", e => {
+    if(WIDE.matches || !rail.classList.contains("on")
+       || e.pointerType === "mouse") return;
+    x0 = e.clientX; y0 = e.clientY; dx = 0; dy = 0;
+    live = true; drag = false;
+    w = rail.getBoundingClientRect().width;
+  });
+  rail.addEventListener("pointermove", e => {
+    if(!live) return;
+    dx = e.clientX - x0; dy = e.clientY - y0;
+    if(!drag){
+      if(Math.abs(dx) > Math.abs(dy) && dx < -6){
+        drag = true; rail.style.transition = "none";
+        scrim.style.transition = "none";
+        try { rail.setPointerCapture(e.pointerId); } catch(_){}
+      } else if(Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 6){
+        live = false; return;              // desplazamiento vertical
+      } else return;
+    }
+    if(dx > 0) dx = 0;
+    e.preventDefault();
+    rail.style.transform = `translateX(${dx}px)`;
+    scrim.style.opacity = String(Math.max(0, 1 + dx / w));
+  }, {passive:false});
+  const end = () => {
+    if(!live) return; live = false;
+    rail.style.transition = ""; scrim.style.transition = "";
+    rail.style.transform = ""; scrim.style.opacity = "";
+    if(drag && dx < -w * 0.33) closeRail();  // el resto anima al soltar
+    drag = false;
+  };
+  rail.addEventListener("pointerup", end);
+  rail.addEventListener("pointercancel", end);
+})();
 
 function menuSheet(){
   paintSheet("root");
