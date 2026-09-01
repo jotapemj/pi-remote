@@ -94,11 +94,12 @@ async def in_page():
                 ("con el titulo pedido",
                  sheet[1] == "Estadísticas de respuesta"),
                 ("y un icono de material", sheet[2] is True),
-                ("muestra generacion en tok/s", "18,3 tok/s" in body),
-                ("muestra el prompt en tok/s", "2130,5 tok/s" in body),
-                ("los tokens generados", "240 tokens" in body),
-                ("los del prompt, con separador de miles",
-                 "12.000 tokens" in body),
+                ("generacion: t/s y tokens en la misma fila",
+                 any("18,3 tok/s" in r and "240 tokens" in r
+                     for r in sheet[3])),
+                ("prompt: t/s y tokens en la misma fila, con miles",
+                 any("2130,5 tok/s" in r and "12.000 tokens" in r
+                     for r in sheet[3])),
                 ("la cache cuando la hay", "40 tokens" in body),
                 ("y el total", "12.270 tokens" in body),
             ]

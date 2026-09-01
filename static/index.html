@@ -262,6 +262,8 @@ main{flex:1; overflow-y:auto; padding:16px var(--gut) 8px; position:relative;
 .stv{font:600 15px/1.2 var(--mono); color:var(--ink);
   font-variant-numeric:tabular-nums}
 .stv em{font:500 11px/1 var(--mono); color:var(--faint); font-style:normal}
+.stv.col{display:flex; flex-direction:column; align-items:flex-end; gap:3px}
+.stv.col small{font:500 11px/1 var(--mono); color:var(--faint)}
 
 .copyb{
   position:absolute; top:8px; right:8px; width:30px; height:30px;
@@ -2859,15 +2861,20 @@ function statsRow(label, val, unit){
     + `<span class="stv">${esc(val)}`
     + (unit ? ` <em>${esc(unit)}</em>` : "") + `</span></div>`;
 }
+/* fila con el t/s grande y, debajo en pequeno, el recuento de tokens */
+function statsRate(label, tps, tokens){
+  return `<div class="strow"><span class="stk">${esc(label)}</span>`
+    + `<span class="stv col">`
+    + `<span>${esc(tps == null ? "\u2014" : nfmt(tps))} `
+    + `<em>${esc(T("tps"))}</em></span>`
+    + `<small>${esc(nfmt(tokens))} ${esc(T("tks"))}</small>`
+    + `</span></div>`;
+}
 function statsSheet(st){
   $("#statsTitle").textContent = T("statsTitle");
   const rows = [];
-  rows.push(statsRow(T("stGen"),
-    st.genTps == null ? "\u2014" : nfmt(st.genTps), T("tps")));
-  rows.push(statsRow("", nfmt(st.output), T("tks")));
-  rows.push(statsRow(T("stPrompt"),
-    st.promptTps == null ? "\u2014" : nfmt(st.promptTps), T("tps")));
-  rows.push(statsRow("", nfmt(st.input), T("tks")));
+  rows.push(statsRate(T("stGen"), st.genTps, st.output));
+  rows.push(statsRate(T("stPrompt"), st.promptTps, st.input));
   if(st.cacheRead) rows.push(statsRow(T("stCache"), nfmt(st.cacheRead),
                                        T("tks")));
   if(st.reasoning) rows.push(statsRow(T("stReason"), nfmt(st.reasoning),
