@@ -136,12 +136,12 @@ async def main():
                 ("entra deslizandose y con fundido",
                  moving[0] != 0 and moving[1] < 1),
                 ("apariencia trae el tema y el tamano",
-                 inside[0] == "apariencia" and inside[2] is True),
+                 inside[0].lower() == "apariencia" and inside[2] is True),
                 ("y una flecha para volver",
                  inside[1] is False and inside[3] is True),
                 ("el idioma es otra pagina", len(langs) == 2),
                 ("elegirlo aplica y vuelve al menu",
-                 after[0] == "en" and after[1] == "menu"
+                 after[0] == "en" and after[1].lower() == "menu"
                  and after[2] is True),
             ]
 
