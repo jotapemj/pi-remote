@@ -35,9 +35,11 @@ def turn(text):
          "result": {"content": [{"type": "text", "text": "total 48\ndrwx 4 x"}]},
          "isError": False})
     if "compact" in text:
+        global TOKENS
         out({"type": "compaction_end",
-             "result": {"tokensBefore": 28500,
+             "result": {"tokensBefore": TOKENS,
                         "estimatedTokensAfter": 5200}})
+        TOKENS = 5200
         finish()
         return
     if "danger" in text:
@@ -91,6 +93,8 @@ MESSAGES = [
      "content": [{"type": "text", "text": "exit 1"}]},
 ]
 
+TOKENS = 9000
+
 STATE = {"model": {"id": "qwen3-8b", "name": "Qwen3 8B", "provider": "local",
                    "contextWindow": 32768},
          "thinkingLevel": "medium", "isStreaming": False,
@@ -115,9 +119,11 @@ for line in sys.stdin:
     elif t == "get_session_stats":
         out({"type": "response", "command": "get_session_stats",
              "success": True,
-             "data": {"cost": 0.0, "tokens": {"total": 9000},
-                      "contextUsage": {"tokens": 9000, "contextWindow": 32768,
-                                       "percent": 27}}})
+             "data": {"cost": 0.0, "tokens": {"total": TOKENS},
+                      "contextUsage": {"tokens": TOKENS,
+                                       "contextWindow": 32768,
+                                       "percent": round(100.0 * TOKENS / 32768,
+                                                        2)}}})
     elif t == "get_messages":
         out({"type": "response", "command": "get_messages", "success": True,
              "data": {"messages": MESSAGES}})

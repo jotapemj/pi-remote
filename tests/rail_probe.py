@@ -91,6 +91,31 @@ async def main():
                                bool(sent) and sent[0]["type"] == "open_project"
                                and bool(sent[0].get("session"))))
 
+                # Al abrir la sesion, el puente manda `cleared` y con el
+                # se tira la cache: pudo nacer una sesion. El desplegable
+                # tiene que volver a pedirla, no quedarse en "cargando".
+                await js("toggleProj(%s)" % json.dumps(B))
+                await asyncio.sleep(0.9)
+                antes = await js(GROUP % 1)
+                await js("""
+                  state.cwd = %s;
+                  feed.innerHTML = ""; nodes.clear();
+                  delete sessCache[state.cwd];
+                  paint();
+                """ % json.dumps(B))
+                await asyncio.sleep(0.15)
+                justo = await js(GROUP % 1)
+                await asyncio.sleep(1.2)
+                luego = await js(GROUP % 1)
+                print("  tras abrir sesion: %s filas -> %s (%r) -> %s"
+                      % (antes[3], justo[3], justo[4], luego[3]))
+                checks += [
+                    ("sigue desplegado tras abrir la sesion",
+                     luego[0] is True),
+                    ("y las sesiones vuelven solas",
+                     luego[3] == antes[3] and luego[4] == ""),
+                ]
+
                 # pulsacion larga
                 await js("closeModal()")
                 await js(HOLD % 0)

@@ -124,7 +124,7 @@ body{
 
 .plate{
   display:flex; align-items:center; gap:10px;
-  padding:9px var(--gut); border-bottom:1px solid var(--rule);
+  padding:9px var(--gut);
   background:linear-gradient(var(--plate-a),var(--plate-b));
 }
 .plate .txt{
@@ -170,7 +170,12 @@ body{
 
 /* ---------- transcript ---------- */
 main{flex:1; overflow-y:auto; padding:16px var(--gut) 8px; position:relative;
-  overscroll-behavior:contain; scroll-behavior:smooth}
+  overscroll-behavior:contain; scroll-behavior:smooth;
+  --fade:26px;
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0,
+    #000 var(--fade), #000 calc(100% - var(--fade)), transparent 100%);
+  mask-image:linear-gradient(to bottom, transparent 0,
+    #000 var(--fade), #000 calc(100% - var(--fade)), transparent 100%);}
 .wrap{max-width:760px;margin:0 auto}
 .turn{margin-bottom:20px;animation:rise-in .22s ease-out}
 .nofx .turn{animation:none}   /* a snapshot must not animate 40 rows */
@@ -417,8 +422,8 @@ footer{
 /* ---------- slash palette ---------- */
 .palette{
   position:absolute; left:0; right:0; bottom:100%;
-  background:var(--surface); border-top:1px solid var(--rule);
-  border-bottom:1px solid var(--rule);
+  background:var(--surface); border:1px solid var(--rule);
+  border-bottom:none; border-radius:12px 12px 0 0;
   max-height:52vh; overflow-y:auto; z-index:15;
   box-shadow:var(--cast);
   opacity:0; visibility:hidden; transform:translateY(10px);
@@ -1653,6 +1658,17 @@ function groupOf(path){
   return [...document.querySelectorAll(".pgroup")]
     .find(g => g.dataset.path === path);
 }
+const loadingSubs = {};
+async function loadSubs(path){
+  if(loadingSubs[path]) return;
+  loadingSubs[path] = true;
+  const list = await fetchSessions(path);
+  delete loadingSubs[path];
+  sessCache[path] = list;
+  const g = groupOf(path);
+  if(g && openProj === path) fillSubs(g, path);
+}
+
 async function toggleProj(path){
   const g = groupOf(path);
   if(!g) return;
@@ -1667,10 +1683,7 @@ async function toggleProj(path){
   openProj = path;
   g.classList.add("open");
   marqueeAll($("#rail"));            // arranca el suyo, para el del anterior
-  if(sessCache[path]){ fillSubs(g, path); return; }   // repinta lo cacheado
-  const list = await fetchSessions(path);
-  sessCache[path] = list;
-  if(openProj === path && groupOf(path)) fillSubs(groupOf(path), path);
+  fillSubs(g, path);                 // pide por su cuenta si no hay nada
 }
 function menuModal(title, rows){
   openModal(title, rows.map((r, i) =>
@@ -1742,7 +1755,10 @@ function fillSubs(group, path){
     const p = document.createElement("div");
     p.className = "none"; p.textContent = txt; inner.appendChild(p);
   };
-  if(!cached) return void (group.classList.contains("open") && note(T("loading")));
+  if(!cached){
+    if(group.classList.contains("open")){ note(T("loading")); loadSubs(path); }
+    return;
+  }
   if(!cached.length) return note(T("noSessionsYet"));
   cached.forEach(x=>{
     const b = pickBtn({
@@ -1806,7 +1822,7 @@ const LANG_NAME = {en:"English", es:"Espa\u00f1ol"};
 function helpModal(){
   const rows = CMDS.map(c =>
     `<dt>/${esc(c.n)}${c.arg ? " &lt;" + esc(argOf(c)) + "&gt;" : ""}</dt>`
-    + `<dd>${esc(lang() === "es" && c.hEs ? c.hEs : c.h)}</dd>`).join("");
+    + `<dd>${esc(hintOf(c))}</dd>`).join("");
   modal(T("help"), "<dl>" + rows + "</dl>");
 }
 
@@ -2011,7 +2027,7 @@ function paintPalette(){
   if(sel >= shown.length) sel = 0;
   plist.innerHTML = shown.map((c,i)=>
     `<button class="cmd${i===sel?" sel":""}" data-i="${i}">
-       <b>/${c.n}${c.arg?" &lt;"+esc(argOf(c))+"&gt;":""}</b><span>${esc(c.h)}</span></button>`
+       <b>/${c.n}${c.arg?" &lt;"+esc(argOf(c))+"&gt;":""}</b><span>${esc(hintOf(c))}</span></button>`
   ).join("");
   plist.querySelectorAll(".cmd").forEach(b=>{
     b.onmousedown = e => e.preventDefault();      // keep focus in the textarea
@@ -2142,6 +2158,7 @@ function lang(){
 }
 const T = k => (STR[lang()] || STR.en)[k] || STR.en[k] || k;
 const argOf = c => (lang() === "es" && c.argEs) ? c.argEs : c.arg;
+const hintOf = c => (lang() === "es" && c.hEs) ? c.hEs : c.h;
 function setLang(v){
   try { localStorage.setItem("pi.lang", v); } catch(e){}
   applyLang();
