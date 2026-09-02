@@ -2766,6 +2766,7 @@ function statusBar(){
   const meta = document.querySelector('meta[name="theme-color"]');
   if(!meta) return;
   const installed = matchMedia("(display-mode: standalone)").matches
+    || matchMedia("(display-mode: fullscreen)").matches
     || navigator.standalone === true;
   if(installed){ meta.content = MANIFEST_BG; return; }
   const v = getComputedStyle(document.documentElement)

@@ -1082,7 +1082,11 @@ async def index():
 ICON_DIR = INDEX.parent
 MANIFEST = {
     "name": "pi-remote", "short_name": "pi-remote",
-    "start_url": "/", "scope": "/", "display": "standalone",
+    "start_url": "/", "scope": "/",
+    # fullscreen oculta la barra de estado en Android; iOS no lo soporta y
+    # cae a standalone (se queda su barra). display_override da la cascada.
+    "display": "fullscreen",
+    "display_override": ["fullscreen", "standalone"],
     "background_color": "#12151a", "theme_color": "#12151a",
     "icons": [
         {"src": "/icons/icon-192.png", "sizes": "192x192",

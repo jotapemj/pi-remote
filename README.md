@@ -64,6 +64,11 @@ The client is a PWA: over HTTPS it installs to the home screen, opens
 full-screen with its own icon, and starts instantly from a cached shell.
 It is still the same single page.
 
+On Android it runs true full-screen (`display: fullscreen`), so even the
+system status bar is hidden — swipe down to see the clock or notifications.
+iOS does not support that and falls back to `standalone`, keeping its status
+bar. Changing the display mode needs a reinstall of the app.
+
 - **You need HTTPS.** A PWA will not install over plain HTTP, and on the
   phone the bridge is reached by its Tailscale name, not `localhost`, so it
   is not a secure context on its own. The clean route is `tailscale serve`,

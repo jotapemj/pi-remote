@@ -31,6 +31,9 @@ async def main():
              st == 200 and "manifest" in ct),
             ("con start_url y scope en la raiz",
              man.get("start_url") == "/" and man.get("scope") == "/"),
+            ("a pantalla completa, con caida a standalone",
+             man.get("display") == "fullscreen"
+             and man.get("display_override") == ["fullscreen", "standalone"]),
             ("con icono normal y maskable",
              any(i["sizes"] == "512x512" for i in man["icons"])
              and any(i.get("purpose") == "maskable" for i in man["icons"])),
