@@ -129,27 +129,55 @@ async def main():
                      " render({id:2, kind:'user', text:%s}); paint();"
                      % json.dumps(longtext))
             await asyncio.sleep(0.3)
-            fold = await js("(() => {"
-                            " const b = [...document.querySelectorAll("
-                            "'.blk-you')];"
-                            " const long = b.find(x =>"
-                            " x.classList.contains('foldable'));"
-                            " const exp = Math.round(long.querySelector("
-                            "'.utext').getBoundingClientRect().height);"
-                            " const chev = long.querySelector('.ufold');"
-                            " chev.click();"
-                            " const fol = Math.round(long.querySelector("
-                            "'.utext').getBoundingClientRect().height);"
-                            " return [b[0].classList.contains('foldable'),"
-                            "  !!chev, exp, fol,"
-                            "  long.classList.contains('folded')];})()")
-            print("  plegable: corto=%s chevron=%s alto %s->%s folded=%s"
-                  % tuple(fold))
+            rot = lambda m: m[1]  # el signo del segundo termino de la matriz
+            pre = await js("(() => {"
+                           " const b = [...document.querySelectorAll("
+                           "'.blk-you')];"
+                           " const long = b.find(x =>"
+                           " x.classList.contains('foldable'));"
+                           " return [b[0].classList.contains('foldable'),"
+                           "  !!long.querySelector('.ufold'),"
+                           "  Math.round(long.querySelector('.utext')"
+                           ".getBoundingClientRect().height),"
+                           "  getComputedStyle(long.querySelector('.ufold .i'))"
+                           ".transform];})()")
+            print("  plegable: corto=%s chevron=%s alto=%s rot(exp)=%s"
+                  % tuple(pre))
+            # ^ expandido = rotate(-90) => segundo termino de la matriz negativo
+            await js("foldToggle(document.querySelector('.blk-you.foldable'))")
+            await asyncio.sleep(0.45)
+            post = await js("(() => { const long ="
+                            " document.querySelector('.blk-you.foldable');"
+                            " return [long.classList.contains('folded'),"
+                            "  Math.round(long.querySelector('.utext')"
+                            ".getBoundingClientRect().height),"
+                            "  getComputedStyle(long.querySelector('.ufold .i'))"
+                            ".transform];})()")
+            print("  al plegar: folded=%s alto=%s rot(fold)=%s" % tuple(post))
             checks += [
-                ("el mensaje corto no es plegable", fold[0] is False),
-                ("el largo tiene chevron", fold[1] is True),
+                ("el mensaje corto no es plegable", pre[0] is False),
+                ("el largo tiene chevron", pre[1] is True),
+                ("expandido el chevron apunta arriba (^)",
+                 "0, -1, 1, 0" in pre[3]),
                 ("plegar recorta la altura",
-                 fold[3] < fold[2] and fold[4] is True),
+                 post[1] < pre[2] and post[0] is True),
+                ("plegado el chevron apunta abajo (v)",
+                 "0, 1, -1, 0" in post[2]),
+            ]
+
+            # el boton de enviar gira un spinner mientras el mensaje se manda
+            await js("state.cwd='C:/x'; state.running=false; paint();"
+                     " window.__s2=[]; ws.send = x => window.__s2.push(x);"
+                     " box.value='hola'; submit()")
+            await asyncio.sleep(0.15)
+            spin = await js("[$('#send').classList.contains('sending'),"
+                            " !!$('#send .sspin'),"
+                            " Number(getComputedStyle($('#send .wait')).opacity)"
+                            " > 0.5]")
+            print("  al enviar: sending=%s spinner=%s visible=%s" % tuple(spin))
+            checks += [
+                ("enviar muestra un spinner en el boton",
+                 spin[0] is True and spin[1] is True and spin[2] is True),
             ]
 
             return report(checks)

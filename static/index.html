@@ -225,9 +225,9 @@ main{flex:1; overflow-y:auto; padding:16px var(--gut) 8px; position:relative;
 }
 /* mensajes largos del usuario: plegables con un chevron */
 .blk-you.foldable{position:relative; padding-bottom:26px}
-.foldable .utext{transition:max-height .0s}
+.foldable .utext{overflow:hidden}
 .foldable.folded .utext{
-  max-height:4.4em; overflow:hidden;
+  max-height:4.4em;
   -webkit-mask-image:linear-gradient(to bottom, #000 55%, transparent);
   mask-image:linear-gradient(to bottom, #000 55%, transparent);
 }
@@ -237,8 +237,10 @@ main{flex:1; overflow-y:auto; padding:16px var(--gut) 8px; position:relative;
   padding:3px; border-radius:6px; display:flex; line-height:0;
 }
 .ufold:hover{color:var(--ink); background:var(--rule)}
-.ufold .i{width:18px; height:18px; transition:transform .2s ease}
-.foldable:not(.folded) .ufold .i{transform:rotate(90deg)}
+.ufold .i{width:18px; height:18px;
+  transition:transform .28s cubic-bezier(.32,.72,0,1)}
+.foldable.folded .ufold .i{transform:rotate(90deg)}       /* v: desplegar */
+.foldable:not(.folded) .ufold .i{transform:rotate(-90deg)} /* ^: comprimir */
 
 .said{word-break:break-word; font-size:var(--chat-size,15px);
   font-family:var(--chat-font,var(--sans))}
@@ -608,9 +610,18 @@ textarea:focus{outline:none;border-color:var(--faint)}
 .send .ic{
   grid-area:1/1; display:flex; transition:opacity .18s ease;
 }
-.send .halt{opacity:0}
+.send .halt,.send .wait{opacity:0}
 .send.halting .go{opacity:0}
 .send.halting .halt{opacity:1}
+/* enviando: un aro que gira hasta que el mensaje aparece en el chat */
+.send.sending .go,.send.sending .halt{opacity:0}
+.send.sending .wait{opacity:1}
+.send .wait{align-items:center; justify-content:center}
+.sspin{
+  width:22px; height:22px; border-radius:50%;
+  border:2.5px solid #ffffff55; border-top-color:#fff;
+  animation:turn .8s linear infinite;
+}
 /* al parar, un cuadrado claro sobre fondo apagado */
 .send.halting{
   background:var(--raise); color:var(--ink);
@@ -1033,7 +1044,7 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
       <button class="slashb" id="slashBtn" aria-label="/">/</button>
       <textarea id="box" rows="1"></textarea>
     </div>
-    <button class="send" id="send" aria-label="send"><span class="ic go"></span><span class="ic halt"></span></button>
+    <button class="send" id="send" aria-label="send"><span class="ic go"></span><span class="ic halt"></span><span class="ic wait"><span class="sspin"></span></span></button>
   </div>
 </footer>
 </div><!-- stack -->
@@ -1649,6 +1660,33 @@ function placeActions(){
 /* Un mensaje del usuario que ocupa mas de seis lineas se puede plegar.
    Se mide la altura, porque contar caracteres no sabe cuanto envuelve en
    el ancho real de la pantalla. */
+function foldToggle(b){
+  const t = b.querySelector(".utext");
+  const wasFolded = b.classList.contains("folded");
+  if(STILL.matches){ b.classList.toggle("folded"); return; }
+  const cap = 4.4 * parseFloat(getComputedStyle(t).fontSize);
+  const full = t.scrollHeight;
+  const ease = "max-height .28s cubic-bezier(.32,.72,0,1)";
+  if(wasFolded){
+    // desplegar: de recortado a completo, y luego sin limite. Sin mover el chat.
+    b.classList.remove("folded");
+    t.style.maxHeight = cap + "px"; t.getBoundingClientRect();
+    t.style.transition = ease; t.style.maxHeight = full + "px";
+    setTimeout(() => { t.style.maxHeight = ""; t.style.transition = ""; }, 300);
+  } else {
+    // comprimir: de completo a recortado, y la vista al inicio del mensaje
+    const turn = b.closest(".turn");
+    const top = turn.getBoundingClientRect().top
+              - main.getBoundingClientRect().top + main.scrollTop - 8;
+    t.style.transition = "none"; t.style.maxHeight = full + "px";
+    t.getBoundingClientRect();
+    b.classList.add("folded");
+    t.style.transition = ease; t.style.maxHeight = cap + "px";
+    setTimeout(() => { t.style.maxHeight = ""; t.style.transition = ""; }, 300);
+    main.scrollTo({top: Math.max(0, top), behavior: "smooth"});
+  }
+}
+
 function markFoldable(el){
   const bubble = el.querySelector(".blk-you");
   const t = bubble && bubble.querySelector(".utext");
@@ -1754,7 +1792,7 @@ function legacyCopy(text){
 /* los <details> nativos abren de golpe: se anima la altura a mano */
 feed.addEventListener("click", e=>{
   const uf = e.target.closest(".ufold");
-  if(uf){ uf.closest(".blk-you").classList.toggle("folded"); return; }
+  if(uf){ foldToggle(uf.closest(".blk-you")); return; }
   const gh = e.target.closest(".ghead");
   if(gh){
     const g = gh.parentNode, body = g.querySelector(".gbody");
@@ -1887,6 +1925,7 @@ function paint(){
   const busy = state.running && !state.waiting;
   $("#readout").hidden = !busy;
   $("#send").classList.toggle("halting", busy);
+  if(busy) stopSending();
   if(busy && !tick) tick = setInterval(secs, 1000);
   if(!busy && tick){ clearInterval(tick); tick = null; }
   if(busy && !wordTimer){
@@ -2347,7 +2386,7 @@ function connect(){
     }
     else if(m.type === "item"){
       render(m.item);
-      if(m.item.kind === "user") jumpTo(main.scrollHeight);  // mi mensaje, al fin
+      if(m.item.kind === "user"){ jumpTo(main.scrollHeight); stopSending(); }
       placeActions();
     }
     else if(m.type === "patch"){
@@ -2536,7 +2575,13 @@ function submit(){
   box.value = ""; box.style.height = "auto"; closePalette(); slashToggle();
   if(text.startsWith("/")) return runLine(text);
   send({type:"prompt", message:text});
+  $("#send").classList.add("sending");
+  clearTimeout(sendTimer);
+  sendTimer = setTimeout(() => $("#send").classList.remove("sending"), 8000);
 }
+var sendTimer = null;
+function stopSending(){ clearTimeout(sendTimer);
+  $("#send").classList.remove("sending"); }
 
 
 /* ---------- language ---------- */
