@@ -180,6 +180,38 @@ async def main():
                  spin[0] is True and spin[1] is True and spin[2] is True),
             ]
 
+            # la barra de contexto: aparece con el turno, se queda, y al
+            # aparecer lleva el chat al final para no tapar el mensaje
+            await js("""
+              state.running=false; state.context=null; barShown=false;
+              feed.innerHTML=''; nodes.clear();
+              for(let i=0;i<30;i++) render({id:i,kind:'user',text:'m'+i});
+              paint(); main.scrollTop = main.scrollHeight - 300;
+            """)
+            await asyncio.sleep(0.2)
+            barIdle = await js("$('#readout').hidden")
+            await js("state.running=true;"
+                     " state.context={percent:40,tokens:5,window:100}; paint()")
+            await asyncio.sleep(0.25)
+            barOn = await js("[$('#readout').hidden,"
+                             " Math.round(main.scrollHeight - main.scrollTop"
+                             " - main.clientHeight)]")
+            await js("state.running=false; paint()")
+            await asyncio.sleep(0.15)
+            barStays = await js("$('#readout').hidden")
+            await js("ws.onmessage({data: JSON.stringify({type:'cleared'})})")
+            await asyncio.sleep(0.15)
+            barGone = await js("$('#readout').hidden")
+            print("  barra: idle=%s aparece=%s(faltan %s) queda=%s cleared=%s"
+                  % (barIdle, barOn[0], barOn[1], barStays, barGone))
+            checks += [
+                ("la barra no esta antes del primer turno", barIdle is True),
+                ("aparece con el turno y baja el chat al final",
+                 barOn[0] is False and barOn[1] < 40),
+                ("una vez aparece, se queda al terminar", barStays is False),
+                ("en una sesion nueva se esconde de nuevo", barGone is True),
+            ]
+
             return report(checks)
 
 raise SystemExit(asyncio.run(main()))

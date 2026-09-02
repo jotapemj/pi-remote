@@ -308,12 +308,7 @@ main{flex:1; overflow-y:auto; padding:16px var(--gut) 8px; position:relative;
 }
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.15}}
 @keyframes blink{50%{opacity:0}}
-.wordi{
-  font:500 13px/1 var(--mono); color:var(--amber); margin-left:8px;
-  letter-spacing:.02em; transition:opacity .22s ease;
-}
-.elapsed{font:500 13px/1 var(--mono); color:var(--dim); margin-left:7px}
-.wordi.out{opacity:0}
+
 body.waiting .cursor{display:none}   /* pi no escribe: te espera */
 
 /* ---------- grupo de herramientas ---------- */
@@ -465,9 +460,19 @@ body.waiting .cursor{display:none}   /* pi no escribe: te espera */
 /* ---------- readout: the signature ---------- */
 .readout[hidden]{display:none}     /* display:flex below beats [hidden] */
 .readout{
-  display:flex; justify-content:flex-end; margin:0 0 9px;
-  font:500 12px/1 var(--mono);
+  display:flex; align-items:center; justify-content:space-between;
+  gap:10px; margin:0 0 9px; font:500 12px/1 var(--mono);
 }
+.rstat{display:flex; align-items:center; gap:8px; min-width:0}
+/* la palabra solo se ve mientras piensa, no mientras teclea */
+.rword{
+  font:500 13px/1 var(--mono); color:var(--amber); letter-spacing:.02em;
+  white-space:nowrap; opacity:0; transition:opacity .28s ease;
+}
+.readout.thinking .rword{opacity:1}
+.rword.out{opacity:0 !important}
+.rsecs{font:500 13px/1 var(--mono); color:var(--dim); white-space:nowrap}
+.rsecs:empty{display:none}
 .ctx{
   width:min(62%, 260px); min-width:0; height:22px; border-radius:11px;
   background:var(--raise); border:1px solid var(--rule);
@@ -1032,6 +1037,7 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
 <footer>
   <button class="godown" id="godown" aria-label="down"></button>
   <div class="readout" id="readout" hidden>
+    <span class="rstat"><span class="rword" id="rword"></span><span class="rsecs" id="rsecs"></span></span>
     <div class="ctx" id="bar"><i></i><span></span></div>
   </div>
   <div class="palette" id="palette">
@@ -1702,11 +1708,7 @@ function markFoldable(el){
   }
 }
 
-const tail = it => it.streaming
-  ? `<span class="cursor"></span>`
-    + `<span class="wordi">${esc(wordText())}</span>`
-    + `<span class="elapsed">${esc(elapsed())}</span>`
-  : "";
+const tail = it => it.streaming ? `<span class="cursor"></span>` : "";
 
 function html(it){
   if(it.kind === "user")
@@ -1923,7 +1925,11 @@ function paint(){
   // the readout is for work in progress: not while pi waits on you
   document.body.classList.toggle("waiting", !!state.waiting);
   const busy = state.running && !state.waiting;
-  $("#readout").hidden = !busy;
+  const wasHidden = $("#readout").hidden;
+  if(busy) barShown = true;                 // una vez aparece, se queda
+  $("#readout").hidden = !(busy || barShown);
+  if((busy || barShown) && wasHidden)       // recien aparecida: no tapar
+    requestAnimationFrame(()=> jumpTo(main.scrollHeight));
   $("#send").classList.toggle("halting", busy);
   if(busy) stopSending();
   if(busy && !tick) tick = setInterval(secs, 1000);
@@ -1935,7 +1941,8 @@ function paint(){
   if(!busy && wordTimer){
     clearInterval(wordTimer); wordTimer = null; curWord = "";
   }
-  if(busy){ showWord(false); secs(); }
+  if(busy) showWord(false);
+  paintStatus();
 
   paintCtx();
 }
@@ -2321,11 +2328,20 @@ function elapsed(){
   return state.startedAt
     ? Math.round(Date.now()/1000 - state.startedAt) + "s" : "";
 }
+/* piensa = trabaja pero no ha escrito texto en el ultimo instante */
+let lastDelta = 0, barShown = false;
+function thinking(){
+  return state.running && !state.waiting && Date.now() - lastDelta > 700;
+}
+function paintStatus(){
+  const rs = $("#rsecs");
+  if(rs) rs.textContent = state.running ? elapsed() : "";
+  $("#readout").classList.toggle("thinking", thinking());
+}
 let statsAsked = 0;
 function secs(){
   if(!state.startedAt) return;
-  const el = feed.querySelector(".elapsed");
-  if(el) el.textContent = elapsed();
+  paintStatus();
   // pi no avisa cuando el contexto cambia: hay que preguntarlo
   if(state.cwd && state.running && Date.now() - statsAsked > 5000){
     statsAsked = Date.now();
@@ -2410,6 +2426,8 @@ function connect(){
       const was = atBottom();
       el.__item = el.__item || {kind:"assistant", text:"", streaming:true, id:m.id};
       el.__item.text += m.delta;
+      lastDelta = Date.now();
+      $("#readout").classList.remove("thinking");
       const body = el.querySelector("[data-body]");
       if(body) body.innerHTML = md(el.__item.text) + tail(el.__item);
       else el.innerHTML = html(el.__item);
@@ -2423,6 +2441,7 @@ function connect(){
     }
     else if(m.type === "cleared"){
       feed.innerHTML=""; nodes.clear();
+      barShown = false;
       if(state.cwd) delete sessCache[state.cwd];   // pudo nacer una sesion
       spinner(true);
       paint();
@@ -2832,7 +2851,7 @@ function pickWord(){
 }
 const wordText = () => curWord ? curWord + "\u2026" : "";
 function showWord(fade){
-  const el = feed.querySelector(".wordi");
+  const el = $("#rword");
   if(!el || el.textContent === wordText()) return;
   if(!fade){ el.textContent = wordText(); return; }
   el.classList.add("out");

@@ -29,31 +29,43 @@ async def main():
 
             checks = []
 
-            w = await js("[(feed.querySelector('.wordi')||{}).textContent,"
+            w = await js("[($('#rword')||{}).textContent,"
                          " !!feed.querySelector('.cursor'),"
-                         " !!document.querySelector('#readout .wordi'),"
                          " getComputedStyle(feed.querySelector('.cursor'))"
                          ".animationName,"
-                         " (feed.querySelector('.elapsed')||{}).textContent,"
-                         " getComputedStyle(feed.querySelector('.elapsed'))"
-                         ".color]")
-            print("  palabra=%r cursor=%s en la barra=%s animacion=%s"
-                  % tuple(w[:4]))
-            print("  segundos=%r color=%s" % (w[4], w[5]))
-            checks.append(("la palabra va junto al cursor",
-                           w[0] == "Cacharreando\u2026" and w[1]
-                           and not w[2]))
-            checks.append(("los segundos van a su lado, apagados",
-                           bool(w[4]) and w[4].endswith("s")
-                           and w[5] != w[3]))
-            checks.append(("el cursor late suave", w[3] == "pulse"))
+                         " ($('#rsecs')||{}).textContent,"
+                         " $('#readout').classList.contains('thinking'),"
+                         " Number(getComputedStyle($('#rword')).opacity),"
+                         " !!feed.querySelector('.wordi')]")
+            print("  palabra=%r cursor=%s animacion=%s" % (w[0], w[1], w[2]))
+            print("  segundos=%r pensando=%s opacidad=%s en_burbuja=%s"
+                  % (w[3], w[4], w[5], w[6]))
+            checks += [
+                ("la palabra esta en la barra, no en la burbuja",
+                 w[0] == "Cacharreando\u2026" and w[6] is False),
+                ("el cursor sigue en la burbuja que genera", w[1] is True),
+                ("el cursor late suave", w[2] == "pulse"),
+                ("los segundos van en la barra",
+                 bool(w[3]) and w[3].endswith("s")),
+                ("mientras piensa, la palabra se ve",
+                 w[4] is True and w[5] > 0.5),
+            ]
+
+            # al teclear (llega un delta) la palabra se esconde
+            await js("ws.onmessage({data: JSON.stringify("
+                     "{type:'delta', id:1, delta:' mas texto'})})")
+            await asyncio.sleep(0.1)
+            typing = await js("[$('#readout').classList.contains('thinking'),"
+                              " Number(getComputedStyle($('#rword')).opacity)]")
+            print("  al teclear: pensando=%s opacidad=%s" % tuple(typing))
+            checks.append(("mientras teclea, la palabra desaparece",
+                           typing[0] is False and typing[1] < 0.6))
 
             await js("curWord = 'Soldando'; showWord(true)")
             await asyncio.sleep(0.08)
-            mid = await js("Number(getComputedStyle("
-                           "feed.querySelector('.wordi')).opacity)")
+            mid = await js("Number(getComputedStyle($('#rword')).opacity)")
             await asyncio.sleep(0.5)
-            end = await js("(feed.querySelector('.wordi')||{}).textContent")
+            end = await js("($('#rword')||{}).textContent")
             print("  al rotar: opacidad a 80ms=%s -> %r" % (mid, end))
             checks.append(("la palabra se funde al cambiar",
                            0 <= mid < 1 and end == "Soldando\u2026"))
@@ -75,7 +87,7 @@ async def main():
                  halt[2] == 1 and halt[3] == 0),
                 ("y ya no hay boton de parar suelto", halt[4] is False),
                 ("la barra de contexto va a la derecha",
-                 halt[5] == "flex-end"),
+                 halt[5] == "space-between"),
             ]
 
             await js("for(let i=0;i<24;i++)"

@@ -36,8 +36,9 @@ checks = [
      h.index('act("appearance"') < h.index('act("language"')),
     ("entra y sale por lados distintos",
      "#sheetBody.to-left{" in css and "#sheetBody.to-right{" in css),
-    ("palabra de estado junto al cursor",
-     ".wordi{" in css and 'feed.querySelector(".wordi")' in h),
+    ("palabra de estado en la barra, solo al pensar",
+     ".rword{" in css and ".readout.thinking .rword" in css
+     and 'id="rword"' in body),
     ("cursor con latido suave", "@keyframes pulse{" in css),
     ("medidor de contexto redondeado",
      ".ctx{" in css and "border-radius:11px" in css
@@ -49,7 +50,7 @@ checks = [
     ("el nombre se funde al cambiar",
      ".plate h1 > span.out{opacity:0}" in css),
     ("fade entre palabras",
-     ".wordi.out{opacity:0}" in css and "showWord(true)" in h),
+     ".rword.out{opacity:0" in css and "showWord(true)" in h),
     ("animacion de barra lateral",
      "cubic-bezier(.32,.72,0,1)" in css and "translateX(-101%)" in css),
     ("dialogo anima al abrir y cerrar",
