@@ -350,6 +350,16 @@ body.waiting .cursor{display:none}   /* pi no escribe: te espera */
   font:400 12px/1.5 var(--mono); color:var(--box-ink);
   white-space:pre-wrap; word-break:break-word; max-height:340px; overflow:auto;
 }
+/* la salida de consola de un comando: cabecera "salida" y el texto debajo */
+.cout{border-top:1px solid var(--rule)}
+.cout .ch{
+  display:flex; align-items:center; gap:6px; padding:7px 11px 5px;
+  font:600 9.5px/1 var(--mono); letter-spacing:.1em; text-transform:uppercase;
+  color:var(--faint);
+}
+.cout .ch .i{width:13px; height:13px}
+.cout pre{border-top:none; padding-top:2px}
+.cempty{color:var(--faint); font-style:italic}
 /* cuenta de lineas en la fila plegada, como en la tui */
 .tally{display:flex;gap:7px;flex:none;font:600 11px/1 var(--mono)}
 .tally .plus{color:var(--add)}
@@ -1599,6 +1609,26 @@ function groupToolRun(){
 }
 const runLabel = n => T("ranN").replace("{n}", n);
 
+/* Copiar y estadisticas van una sola vez, en la respuesta final del
+   turno; nunca en los trozos de texto entre comandos, ni mientras genera. */
+function placeActions(){
+  feed.querySelectorAll(".msgacts").forEach(el => el.remove());
+  if(state.running) return;
+  const said = [...feed.querySelectorAll(".turn")].filter(t =>
+    t.__item && t.__item.kind === "assistant" && !t.__item.streaming);
+  const last = said[said.length - 1];
+  if(!last) return;
+  const it = last.__item;
+  const acts = document.createElement("div");
+  acts.className = "msgacts";
+  acts.innerHTML =
+    `<button class="mact copy" aria-label="${esc(T("copy"))}">`
+    + `${ico("copy")}</button>`
+    + (it.stats ? `<button class="mact stats"`
+        + ` aria-label="${esc(T("statsTitle"))}">${ico("stats")}</button>` : "");
+  last.appendChild(acts);
+}
+
 const tail = it => it.streaming
   ? `<span class="cursor"></span>`
     + `<span class="wordi">${esc(wordText())}</span>`
@@ -1610,25 +1640,21 @@ function html(it){
     return `<div class="msg mine"><div class="blk blk-you">`
          + (it.steer ? `<span class="tag">steer</span>` : "")
          + `${esc(it.text)}</div></div>`;
-  if(it.kind === "assistant"){
-    const acts = it.streaming ? "" :
-      `<div class="msgacts">`
-      + `<button class="mact copy" aria-label="${esc(T("copy"))}">`
-      + `${ico("copy")}</button>`
-      + (it.stats ? `<button class="mact stats"`
-          + ` aria-label="${esc(T("statsTitle"))}">${ico("stats")}</button>`
-          : "")
-      + `</div>`;
-    return `<div class="said" data-body>${md(it.text)}${tail(it)}</div>${acts}`;
-  }
+  if(it.kind === "assistant")
+    return `<div class="said" data-body>${md(it.text)}${tail(it)}</div>`;
   if(it.kind === "note")
     return `<div class="note ${it.level||""}${it.key==="compacting"?" busy":""}">`
          + ico(NOTE_ICON[it.level] || "info")
          + `<span>${esc(noteText(it))}</span></div>`;
   if(it.kind === "tool"){
-    const body = it.lines ? diffHtml(it.lines)
-               : it.output ? `<pre>${esc(it.output)}</pre>` : "";
-    const out = body;
+    const done = it.status && it.status !== "running";
+    const out = it.lines ? diffHtml(it.lines)
+      : done ? `<div class="cout"><div class="ch">${ico("terminal")}`
+          + `<span>${esc(T("output"))}</span></div><pre>`
+          + (it.output && it.output.trim() ? esc(it.output)
+             : `<span class="cempty">${esc(T("noOutput"))}</span>`)
+          + `</pre></div>`
+      : "";
     const g = it.lines ? (it.args && (it.args.path || it.args.filePath))
                        : gist(it.args);
     const arg = g ? " " + esc(g.length > 88 ? g.slice(0, 87) + "\u2026" : g)
@@ -1636,7 +1662,8 @@ function html(it){
     const tally = it.added != null
       ? `<span class="tally"><span class="plus">+${it.added}</span>`
         + `<span class="minus">-${it.removed}</span></span>` : "";
-    return `<details class="tool" data-s="${it.status||"running"}"${it.output?"":" open"}>
+    const open = it.lines || !done || it.status === "error" ? " open" : "";
+    return `<details class="tool" data-s="${it.status||"running"}"${open}>
       <summary><span class="dot"></span>${ico(toolIcon(it.name))}`
     + `<span class="nm">${esc(it.name||T("tools"))}${arg}</span>${tally}`
     + `</summary>${out}</details>`;
@@ -2270,6 +2297,7 @@ function connect(){
       feed.innerHTML = ""; nodes.clear(); CWD = m.cwd || "";
       m.items.forEach(render); state = m.state; paint();
       if(!state.running) groupToolRun();
+      placeActions();
       const goEnd = firstSnap || wasDown;
       firstSnap = false;
       requestAnimationFrame(()=>{
@@ -2283,6 +2311,7 @@ function connect(){
     else if(m.type === "item"){
       render(m.item);
       if(m.item.kind === "user") jumpTo(main.scrollHeight);  // mi mensaje, al fin
+      placeActions();
     }
     else if(m.type === "patch"){
       const it = m.fields, el = nodes.get(m.id);
@@ -2298,6 +2327,7 @@ function connect(){
         el.innerHTML = html(cur);
         if(cur.kind === "ask") wireAsk(el, cur);
       }
+      placeActions();
     }
     else if(m.type === "delta"){
       const el = nodes.get(m.id); if(!el) return;
@@ -2313,6 +2343,7 @@ function connect(){
       const wasRunning = state.running;
       state = m.state; paint();
       if(wasRunning && !state.running) groupToolRun();
+      placeActions();
     }
     else if(m.type === "cleared"){
       feed.innerHTML=""; nodes.clear();
@@ -2504,6 +2535,7 @@ const STR = {
       compactB:"The conversation gets summarised. It cannot be undone.",
       clearqQ:"Drop the queued messages?",
       typeAnswer:"type an answer", answered:"answered", tools:"tool",
+      output:"output", noOutput:"no output",
       ranN:"Ran {n} commands", ranNShown:"{n} commands",
       statsTitle:"Response stats", stGen:"Generation", stPrompt:"Prompt",
       stCache:"Cached", stReason:"Reasoning", stTotal:"Total", stCost:"Cost",
@@ -2541,7 +2573,7 @@ const STR = {
       compactB:"La conversaci\u00f3n se resume. No se puede deshacer.",
       clearqQ:"\u00bfDescartar los mensajes en cola?",
       typeAnswer:"escribir respuesta", answered:"respondido",
-      tools:"herramienta",
+      tools:"herramienta", output:"salida", noOutput:"sin salida",
       ranN:"Ejecutados {n} comandos", ranNShown:"{n} comandos",
       statsTitle:"Estad\u00edsticas de respuesta", stGen:"Generaci\u00f3n",
       stPrompt:"Prompt", stCache:"En cach\u00e9", stReason:"Razonamiento",

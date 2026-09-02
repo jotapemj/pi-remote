@@ -91,6 +91,36 @@ async def main():
                  opened[0] is False and opened[3] > 0),
             ]
 
+            # la salida de consola de un comando: cabecera + texto, y las
+            # que fallan salen abiertas
+            await js("feed.innerHTML=''; nodes.clear();"
+                     " render({id:10, kind:'tool', name:'bash',"
+                     " status:'done', args:{command:'ls'},"
+                     " output:'total 48 ficheros'});"
+                     " render({id:11, kind:'tool', name:'bash',"
+                     " status:'error', args:{command:'rm /x'},"
+                     " output:'rm: no existe'})")
+            await asyncio.sleep(0.25)
+            con = await js("(() => {"
+                           " const ok = document.querySelector"
+                           "('.tool[data-s=done]');"
+                           " const err = document.querySelector"
+                           "('.tool[data-s=error]');"
+                           " ok.open = true;"
+                           " return [!!ok.querySelector('.cout .ch'),"
+                           "  ok.querySelector('.cout pre').textContent.trim(),"
+                           "  err.open,"
+                           "  err.querySelector('.cout pre').textContent"
+                           ".includes('no existe')];})()")
+            print("  consola: cabecera=%s texto=%r error_abierto=%s err_txt=%s"
+                  % tuple(con))
+            checks += [
+                ("la salida tiene cabecera y texto",
+                 con[0] is True and "total 48" in con[1]),
+                ("un comando que falla sale abierto, con su error",
+                 con[2] is True and con[3] is True),
+            ]
+
             # --- una sola no se agrupa
             await js(SOLO)
             await asyncio.sleep(0.25)

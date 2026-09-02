@@ -61,7 +61,8 @@ async def in_page():
             await js("setLang('es')")
             await js("feed.innerHTML=''; nodes.clear();"
                      " render({id:1, kind:'assistant', streaming:false,"
-                     " text:'hecho', stats:%s}); paint();" % json.dumps(ST))
+                     " text:'hecho', stats:%s}); paint();"
+                     " state.running=false; placeActions();" % json.dumps(ST))
             await asyncio.sleep(0.3)
             acts = await js("[!!document.querySelector('.msgacts .copy'),"
                             " !!document.querySelector('.msgacts .stats'),"

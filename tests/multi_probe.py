@@ -81,6 +81,7 @@ async def in_page():
             await p.go()
             await js("setLang('es')")
             await js(SEQ)
+            await js("state.running=false; placeActions()")
             await asyncio.sleep(0.35)
             r = await js("""(() => {
               const saids = [...document.querySelectorAll('.said')];
@@ -88,6 +89,9 @@ async def in_page():
                 said: saids.length,
                 vacias: saids.filter(d => d.textContent.trim()==='').length,
                 msgacts: document.querySelectorAll('.msgacts').length,
+                actsEnUltima: (() => { const a =
+                  [...document.querySelectorAll('.said')].pop();
+                  return a && !!a.parentNode.querySelector('.msgacts'); })(),
                 grupos: document.querySelectorAll('.toolgroup').length,
                 enGrupo: document.querySelectorAll(
                           '.toolgroup .gbody .tool').length,
@@ -101,8 +105,8 @@ async def in_page():
             checks += [
                 ("dos burbujas, ninguna vacia",
                  r["said"] == 2 and r["vacias"] == 0),
-                ("un juego de botones por burbuja, no por herramienta",
-                 r["msgacts"] == 2),
+                ("un solo juego de botones, en la respuesta final",
+                 r["msgacts"] == 1 and r["actsEnUltima"] is True),
                 ("las tres herramientas en un solo grupo",
                  r["grupos"] == 1 and r["enGrupo"] == 3),
                 ("con su rotulo", "3 comandos" in r["rotulo"]),
