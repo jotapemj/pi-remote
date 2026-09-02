@@ -163,16 +163,16 @@ body{
   justify-content:center;
 }
 .plate h1{
-  font:600 13px/1.2 var(--mono); margin:0; letter-spacing:.02em;
+  font:600 15px/1.2 var(--sans); margin:0; letter-spacing:.01em;
 }
 .plate h1 > span{transition:opacity .22s ease}
 .plate h1 > span.out{opacity:0}
 .plate .sub{
-  font:400 11px/1.45 var(--mono); color:var(--faint);
+  font:400 13px/1.3 var(--sans); color:var(--faint);
   opacity:0; height:0;
   transition:opacity .3s ease, height .28s cubic-bezier(.32,.72,0,1);
 }
-.plate .sub.on{opacity:1;height:16px}
+.plate .sub.on{opacity:1;height:18px}
 .iconbtn{
   background:none;border:1px solid var(--rule);color:var(--dim);
   font:500 11px/1 var(--mono); padding:7px 9px;border-radius:5px;
@@ -183,6 +183,10 @@ body{
 .i{width:18px;height:18px;flex:none;display:block}
 .i-lg{width:32px;height:32px;margin:0 auto 10px;color:var(--faint)}
 .iconbtn:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+/* en la toolbar el boton es solo el icono, sin caja y mas grande */
+.plate .iconbtn{border:none; padding:6px; background:none}
+.plate .iconbtn:hover{background:none}
+.plate .iconbtn .i{width:24px; height:24px}
 
 .warnbar{
   display:flex; align-items:center; gap:8px; flex:none;
@@ -262,6 +266,17 @@ main{flex:1; overflow-y:auto; padding:16px var(--gut) 8px; position:relative;
   margin:.7em 0;
 }
 .said pre code{background:none;padding:0;color:var(--box-ink);font-size:12.5px}
+/* tablas GFM: rejilla de instrumento, datos en mono, scroll propio en movil */
+.said .twrap{overflow-x:auto; margin:.9em 0; -webkit-overflow-scrolling:touch}
+.said table{border-collapse:collapse; font:500 12.5px/1.5 var(--mono)}
+.said th,.said td{border:1px solid var(--rule); padding:6px 11px;
+  text-align:left; white-space:nowrap; vertical-align:top}
+.said thead th{background:var(--raise); color:var(--amber); font-weight:600;
+  letter-spacing:.02em; border-bottom:2px solid var(--rule)}
+.said tbody tr:nth-child(even){background:var(--surface)}
+.said tbody td{color:var(--dim)}
+.said tbody td:first-child{color:var(--ink)}   /* la etiqueta de la fila, fuerte */
+.said table code{font-size:12px}
 .cwrap{position:relative}
 .cwrap pre{padding-right:48px}
 /* los dos iconos bajo cada respuesta del asistente */
@@ -301,15 +316,7 @@ main{flex:1; overflow-y:auto; padding:16px var(--gut) 8px; position:relative;
 .copyb:hover{opacity:1;color:var(--ink);border-color:var(--faint)}
 .copyb .i{width:16px;height:16px}
 .copyb.done{color:var(--mint);border-color:var(--mint);opacity:1}
-.cursor{
-  display:inline-block; width:7px; height:15px; background:var(--amber);
-  vertical-align:-2px; border-radius:1px;
-  animation:pulse 1.4s ease-in-out infinite;
-}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.15}}
 @keyframes blink{50%{opacity:0}}
-
-body.waiting .cursor{display:none}   /* pi no escribe: te espera */
 
 /* ---------- grupo de herramientas ---------- */
 .toolgroup{margin:9px 0}
@@ -345,6 +352,67 @@ body.waiting .cursor{display:none}   /* pi no escribe: te espera */
   flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;
 }
 .tool>summary::-webkit-details-marker{display:none}
+/* razonamiento del modelo: bloque sobrio, plegado por defecto */
+.think{margin:6px 0 11px; border-left:2px solid var(--rule)}
+.think>summary{
+  list-style:none; cursor:pointer; user-select:none;
+  display:flex; align-items:center; gap:7px; padding:5px 6px 5px 11px;
+  font:500 12px/1.3 var(--mono); letter-spacing:.02em; color:var(--dim);
+}
+.think>summary::-webkit-details-marker{display:none}
+.think>summary:hover{color:var(--ink)}
+.think>summary .i{width:15px; height:15px; opacity:.85; flex:none}
+.think .tlabel{flex:1; min-width:0}
+.think .tw{width:16px; height:16px; opacity:.7;
+  transition:transform .2s ease}
+.think[open] .tw{transform:rotate(90deg)}
+.think .tbody{
+  padding:2px 11px 7px 13px; color:var(--dim);
+  font:400 13px/1.55 var(--sans); font-style:italic;
+}
+.think .tbody p{margin:0 0 .5em}
+.think .tbody p:last-child{margin-bottom:0}
+.think .tbody code{font-style:normal; font-family:var(--mono)}
+.think .copyb{display:none}            /* el razonamiento no se copia */
+/* Functions: card de ajuste con interruptor Material */
+.fcard{
+  background:var(--raise); border:1px solid var(--rule);
+  border-radius:var(--r-tool); box-shadow:var(--lift); margin-bottom:7px;
+}
+.frow{display:flex; align-items:center; gap:14px; padding:14px 16px}
+.ftext{flex:1; min-width:0}
+.flbl{font:600 14px/1.3 var(--sans); color:var(--ink)}
+.fsub{font:400 12px/1.45 var(--sans); color:var(--dim); margin-top:3px}
+.sw{
+  width:44px; height:26px; border-radius:999px; flex:none;
+  background:var(--rule); border:none; padding:0; cursor:pointer;
+  position:relative; transition:background .2s ease;
+}
+.sw[aria-checked="true"]{background:var(--amber)}
+.sw .knob{
+  position:absolute; top:3px; left:3px; width:20px; height:20px;
+  border-radius:50%; background:#fff; box-shadow:0 1px 3px #0006;
+  transition:transform .2s ease;
+}
+.sw[aria-checked="true"] .knob{transform:translateX(18px)}
+.sw:focus-visible{outline:2px solid var(--amber); outline-offset:2px}
+/* el interruptor apagado esconde el razonamiento */
+html.hide-think .think-turn{display:none}
+/* movement: el texto se revela de izquierda a derecha (fade por caracter,
+   la opacidad la pone el motor de revelado en JS sobre spans .rv) */
+.said .rv{will-change:opacity}
+/* segmentado de dos opciones dentro de una fcard */
+.seg{display:flex; gap:6px; margin-top:12px}
+.seg button{
+  flex:1; padding:9px 8px; border-radius:8px; cursor:pointer;
+  background:var(--rule); border:1px solid transparent; color:var(--dim);
+  font:600 12px/1.2 var(--sans);
+  transition:background .18s, color .18s, border-color .18s;
+}
+.seg button[aria-pressed="true"]{
+  background:var(--raise); border-color:var(--amber); color:var(--ink);
+}
+.seg button:focus-visible{outline:2px solid var(--amber); outline-offset:2px}
 .tool .dot{width:6px;height:6px;border-radius:50%;background:var(--amber);flex:none}
 .tool[data-s="done"] .dot{background:var(--mint)}
 .tool[data-s="error"] .dot{background:var(--coral)}
@@ -579,16 +647,22 @@ footer > *{position:relative; z-index:1}
 .palette .none{padding:12px var(--gut) 16px;font:400 12px/1.4 var(--mono);
   color:var(--faint)}
 .entry{display:flex;gap:8px;align-items:flex-end}
+.cmeta{                                 /* modelo y razonamiento, sutil */
+  font:400 10.5px/1.4 var(--sans); color:var(--faint);
+  padding:5px 16px 0; min-height:14px; text-align:right;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
 .field{flex:1; min-width:0; position:relative; display:flex}
 textarea{
   flex:1; resize:none; background:var(--panel); color:var(--field-ink);
   border:1px solid var(--rule); border-radius:var(--r-pill);
   padding:15px 20px 15px 48px; font:15px/1.45 var(--sans);
   max-height:38vh; min-height:54px;
-  transition:padding-left .22s cubic-bezier(.32,.72,0,1),
+  transition:padding .22s cubic-bezier(.32,.72,0,1),
              background-color .18s, border-color .18s, color .18s;
 }
 .field.typing textarea{padding-left:20px}
+.field.typing textarea, .field.busy textarea{padding-right:48px}
 
 /* the key that opens the palette, shown as itself */
 .slashb{
@@ -608,8 +682,17 @@ textarea{
 textarea:focus{outline:none;border-color:var(--faint)}
 .send{
   background:var(--amber); color:var(--on-amber); border:none;
-  width:54px; height:54px; border-radius:50%; padding:0; cursor:pointer;
-  flex:none; display:grid; place-items:center; position:relative;
+  width:36px; height:36px; border-radius:50%; padding:0; cursor:pointer;
+  display:grid; place-items:center;
+  position:absolute; right:9px; top:50%; z-index:2;   /* espejo del '/' */
+  opacity:0; transform:translateY(-50%) scale(.6); pointer-events:none;
+  transition:opacity .18s ease, transform .2s cubic-bezier(.32,.72,0,1),
+             background-color .18s, box-shadow .18s;
+}
+/* aparece con el texto y al trabajar; si no, se esconde en la caja */
+.field.typing .send, .field.busy .send,
+.send.sending, .send.halting{
+  opacity:1; transform:translateY(-50%); pointer-events:auto;
 }
 /* enviar y parar comparten sitio y se cruzan con un fundido */
 .send .ic{
@@ -623,7 +706,7 @@ textarea:focus{outline:none;border-color:var(--faint)}
 .send.sending .wait{opacity:1}
 .send .wait{align-items:center; justify-content:center}
 .sspin{
-  width:22px; height:22px; border-radius:50%;
+  width:18px; height:18px; border-radius:50%;
   border:2.5px solid #ffffff55; border-top-color:#fff;
   animation:turn .8s linear infinite;
 }
@@ -632,8 +715,8 @@ textarea:focus{outline:none;border-color:var(--faint)}
   background:var(--raise); color:var(--ink);
   box-shadow:inset 0 0 0 1px var(--dim);
 }
-.send.halting .halt svg{width:26px;height:26px}
-.send .i{width:22px;height:22px}
+.send.halting .halt svg{width:18px;height:18px}
+.send .i{width:18px;height:18px}
 .send:disabled{background:var(--rule);color:var(--faint);cursor:default}
 
 /* ---------- sheet ---------- */
@@ -764,7 +847,7 @@ textarea:focus{outline:none;border-color:var(--faint)}
   display:flex; align-items:center; gap:9px; width:100%;
   background:var(--amber); color:var(--on-amber); border:none;
   border-radius:var(--r-tool); padding:12px 14px; cursor:pointer;
-  font:600 13px/1 var(--mono); margin-bottom:5px;
+  font:600 13px/1 var(--sans); margin-bottom:5px;
 }
 .addp svg{width:17px;height:17px;flex:none}
 .proj{
@@ -822,6 +905,13 @@ textarea:focus{outline:none;border-color:var(--faint)}
 .modal.open{
   opacity:1; visibility:visible;
   transition:opacity .2s ease, visibility 0s;
+}
+/* un dialogo sobre la hoja no dobla veil ni blur: usa los de la hoja.
+   Sin '.open': asi sigue transparente mientras se desvanece al cerrar,
+   o volveria a pintar su veil un instante (parpadeo al salir). */
+#sheet.open ~ .modal{
+  background:transparent;
+  -webkit-backdrop-filter:none; backdrop-filter:none;
 }
 .mcard{
   background:var(--surface); border:1px solid var(--rule);
@@ -943,16 +1033,20 @@ textarea:focus{outline:none;border-color:var(--faint)}
    este reparto seria peor. Lo que decide es cuanto ancho hay. */
 @media (min-width:1000px){
   body{
-    display:grid; grid-template-columns:var(--rail-w,292px) 1fr;
+    display:grid; grid-template-columns:auto 1fr;
     height:100%; overflow:hidden;
   }
-  body.folded{grid-template-columns:0 1fr}
   .rail{
-    position:static; transform:none; width:auto; min-width:0;
-    grid-area:1/1; z-index:1;
-    transition:none;                 /* la columna la mueve el tirador */
+    position:static; transform:none; min-width:0;
+    width:var(--rail-w,292px);
+    grid-area:1/1; z-index:1; overflow-x:hidden;
+    transition:width .3s cubic-bezier(.32,.72,0,1), opacity .18s ease;
   }
-  body.folded .rail{display:none}
+  body.folded .rail{
+    width:0; opacity:0; pointer-events:none;
+    padding-left:0; padding-right:0; border-right-width:0;
+  }
+  body.dragging .rail{transition:none}   /* el tirador manda al instante */
   .scrim{display:none!important}
   body:not(.folded) #railBtn{display:none}
   .foldb{display:flex}
@@ -969,10 +1063,10 @@ textarea:focus{outline:none;border-color:var(--faint)}
   }
   .grip:hover::after,.grip.drag::after{background:var(--amber)}
   body.folded .grip{display:none}
-  body.dragging{user-select:none; cursor:col-resize}
+  body.dragging{user-select:none; cursor:col-resize; transition:none}
 
   /* el compositor se alinea con el texto, no con la columna entera */
-  footer .entry,.readout,.palette{
+  footer .entry,footer .cmeta,.readout,.palette{
     max-width:760px; margin-left:auto; margin-right:auto;
   }
   .palette{left:0; right:0; width:min(760px,100%)}
@@ -1004,7 +1098,6 @@ textarea:focus{outline:none;border-color:var(--faint)}
   }
 
   /* con raton no hace falta tamano de dedo */
-  .send{width:46px;height:46px}
   .iconbtn{padding:6px 8px}
 }
 
@@ -1049,9 +1142,10 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
     <div class="field" id="field">
       <button class="slashb" id="slashBtn" aria-label="/">/</button>
       <textarea id="box" rows="1"></textarea>
+      <button class="send" id="send" aria-label="send"><span class="ic go"></span><span class="ic halt"></span><span class="ic wait"><span class="sspin"></span></span></button>
     </div>
-    <button class="send" id="send" aria-label="send"><span class="ic go"></span><span class="ic halt"></span><span class="ic wait"><span class="sspin"></span></span></button>
   </div>
+  <div class="cmeta" id="cmeta"></div>
 </footer>
 </div><!-- stack -->
 
@@ -1135,6 +1229,7 @@ const ICONS = {
   chevron:"M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z",
   up:"M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z",
   done:"M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z",
+  think:"M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z",
 };
 const ico = (k, cls) => ICONS[k]
   ? `<svg class="i${cls ? " " + cls : ""}" viewBox="0 0 24 24"`
@@ -1539,6 +1634,8 @@ function explain(tool, detail){
 const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;")
   .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 const LIST = /^\s*([-*+]|\d+[.)])\s+/;
+/* fila separadora de una tabla GFM: |---|:--:|--:| */
+const TSEP = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
 function inline(t){
   return t
     .replace(/\*\*\*(.+?)\*\*\*/gs,"<strong><em>$1</em></strong>")
@@ -1556,9 +1653,34 @@ function block(src){
     const flushL = () => { if(list.length){
       const tag = ol ? "ol" : "ul";
       out += `<${tag}>`+list.join("")+`</${tag}>`; list=[]; } };
-    for(const l of lines){
+    // parte una fila en celdas, respetando \| como barra literal
+    const cells = l => l.trim().replace(/^\|/,"").replace(/\|$/,"")
+      .split(/(?<!\\)\|/)              // | sin escapar separa
+      .map(c => c.trim().replace(/\\\|/g,"|"));
+    for(let i=0; i<lines.length; i++){
+      const l = lines[i], nx = lines[i+1];
       const h = l.match(/^#{1,6}\s*(.+)$/);
-      if(h){ flushP(); flushL(); out += "<h4>"+inline(h[1])+"</h4>"; }
+      // tabla: cabecera con | seguida de la fila separadora
+      if(l.includes("|") && nx && TSEP.test(nx)){
+        flushP(); flushL();
+        const head = cells(l);
+        const al = cells(nx).map(c =>
+          /^:-+:$/.test(c) ? ' style="text-align:center"'
+          : /-+:$/.test(c) ? ' style="text-align:right"'
+          : /^:-+/.test(c) ? ' style="text-align:left"' : "");
+        const A = k => al[k] || "";
+        let rows = "";
+        for(i += 2; i < lines.length && lines[i].includes("|"); i++){
+          const r = cells(lines[i]);
+          rows += "<tr>" + head.map((_,k) =>
+            `<td${A(k)}>${inline(r[k] || "")}</td>`).join("") + "</tr>";
+        }
+        i--;
+        out += `<div class="twrap"><table><thead><tr>`
+          + head.map((c,k) => `<th${A(k)}>${inline(c)}</th>`).join("")
+          + `</tr></thead><tbody>${rows}</tbody></table></div>`;
+      }
+      else if(h){ flushP(); flushL(); out += "<h4>"+inline(h[1])+"</h4>"; }
       else if(LIST.test(l)){
         const num = /^\s*\d/.test(l);
         if(list.length && num !== ol) flushL();
@@ -1618,6 +1740,7 @@ function render(item){
   el.innerHTML = html(item);
   if(item.kind === "ask") wireAsk(el, item);
   if(item.kind === "user") markFoldable(el);
+  el.classList.toggle("think-turn", item.kind === "thinking");
   keepDown(was);
   return el;
 }
@@ -1708,15 +1831,32 @@ function markFoldable(el){
   }
 }
 
-const tail = it => it.streaming ? `<span class="cursor"></span>` : "";
+const tail = () => "";   // sin cursor: la barra de lectura ya avisa
 
+/* 'Penso durante 3 segundos', y salta a minutos si se pasa de 60 */
+function thoughtLabel(secs){
+  let n, u;
+  if(secs < 60){ n = Math.max(1, secs);
+                 u = n === 1 ? T("secOne") : T("secMany"); }
+  else { n = Math.round(secs / 60);
+         u = n === 1 ? T("minOne") : T("minMany"); }
+  return T("thoughtFor").replace("{n}", n).replace("{u}", u);
+}
 function html(it){
   if(it.kind === "user")
     return `<div class="msg mine"><div class="blk blk-you">`
       + (it.steer ? `<span class="tag">steer</span>` : "")
       + `<div class="utext">${esc(it.text)}</div></div></div>`;
+  if(it.kind === "thinking"){
+    const lab = it.streaming ? T("thinking")
+      : (it.secs != null ? thoughtLabel(it.secs) : T("reasoning"));
+    return `<details class="think">`
+      + `<summary>${ico("think")}<span class="tlabel">${esc(lab)}</span>`
+      + `${ico("chevron", "tw")}</summary>`
+      + `<div class="tbody" data-body>${md(it.text || "")}</div></details>`;
+  }
   if(it.kind === "assistant")
-    return `<div class="said" data-body>${md(it.text)}${tail(it)}</div>`;
+    return `<div class="said${it.streaming ? " stream" : ""}" data-body>${md(it.text)}${tail(it)}</div>`;
   if(it.kind === "note")
     return `<div class="note ${it.level||""}${it.key==="compacting"?" busy":""}">`
          + ico(NOTE_ICON[it.level] || "info")
@@ -1737,7 +1877,7 @@ function html(it){
     const tally = it.added != null
       ? `<span class="tally"><span class="plus">+${it.added}</span>`
         + `<span class="minus">-${it.removed}</span></span>` : "";
-    const open = it.lines || !done || it.status === "error" ? " open" : "";
+    const open = !done || it.status === "error" ? " open" : "";  // los edits nacen plegados
     return `<details class="tool" data-s="${it.status||"running"}"${open}>
       <summary><span class="dot"></span>${ico(toolIcon(it.name))}`
     + `<span class="nm">${esc(it.name||T("tools"))}${arg}</span>${tally}`
@@ -1908,14 +2048,16 @@ function paint(){
   if(!has){
     title("");
     $("#sub").classList.remove("on");   // se desvanece
+    $("#cmeta").textContent = "";
   } else {
     title(state.sessionName || T("unnamed"));
-    const bits = [CWD.split(/[\\/]/).filter(Boolean).pop() || CWD,
-                  state.model || T("noModel"), state.thinking || "-"];
-    if(state.queue && (state.queue.followUp||[]).length)
-      bits.push(state.queue.followUp.length + " " + T("queued"));
-    $("#sub").firstElementChild.textContent = bits.join("  ·  ");
+    $("#sub").firstElementChild.textContent =
+      CWD.split(/[\\/]/).filter(Boolean).pop() || CWD;
     $("#sub").classList.add("on");
+    const meta = [state.model || T("noModel"), state.thinking || "-"];
+    if(state.queue && (state.queue.followUp||[]).length)
+      meta.push(state.queue.followUp.length + " " + T("queued"));
+    $("#cmeta").textContent = meta.join("  ·  ");
   }
   emptyState(has);
   paintRail();
@@ -1931,6 +2073,7 @@ function paint(){
   if((busy || barShown) && wasHidden)       // recien aparecida: no tapar
     requestAnimationFrame(()=> jumpTo(main.scrollHeight));
   $("#send").classList.toggle("halting", busy);
+  $("#field").classList.toggle("busy", busy);
   if(busy) stopSending();
   if(busy && !tick) tick = setInterval(secs, 1000);
   if(!busy && tick){ clearInterval(tick); tick = null; }
@@ -1948,7 +2091,7 @@ function paint(){
 }
 function title(name){
   const el = $("#title").firstElementChild;
-  const txt = name ? "pi-remote | " + name : "pi-remote";
+  const txt = name || "pi-remote";
   if(el.textContent === txt) return;
   const done = ()=>{
     el.textContent = txt;
@@ -2426,11 +2569,18 @@ function connect(){
       const was = atBottom();
       el.__item = el.__item || {kind:"assistant", text:"", streaming:true, id:m.id};
       el.__item.text += m.delta;
-      lastDelta = Date.now();
-      $("#readout").classList.remove("thinking");
-      const body = el.querySelector("[data-body]");
-      if(body) body.innerHTML = md(el.__item.text) + tail(el.__item);
-      else el.innerHTML = html(el.__item);
+      if(el.__item.kind !== "thinking"){   // pensar no cuenta como teclear
+        lastDelta = Date.now();
+        $("#readout").classList.remove("thinking");
+      }
+      if(motion === "fade" && !REDUCED
+         && el.__item.kind === "assistant" && el.__item.streaming){
+        scheduleReveal(el);              // se revela de izquierda a derecha
+      } else {
+        const body = el.querySelector("[data-body]");
+        if(body) body.innerHTML = md(el.__item.text) + tail(el.__item);
+        else el.innerHTML = html(el.__item);
+      }
       keepDown(was);
     }
     else if(m.type === "state"){
@@ -2445,6 +2595,19 @@ function connect(){
       if(state.cwd) delete sessCache[state.cwd];   // pudo nacer una sesion
       spinner(true);
       paint();
+    }
+    else if(m.type === "drop"){        // envio deshecho: fuera la burbuja
+      const el = nodes.get(m.id);
+      if(el){ el.remove(); nodes.delete(m.id); }
+      if(m.restore && !box.value.trim()){    // devuelve el texto al compositor
+        box.value = m.text || "";
+        box.dispatchEvent(new Event("input"));
+        box.focus();
+        try { box.setSelectionRange(box.value.length, box.value.length); }
+        catch(e){}
+      }
+      stopSending();
+      placeActions();
     }
     else if(m.type === "rpc") onRpc(m);
   };
@@ -2513,8 +2676,11 @@ box.addEventListener("input", ()=>{
   box.style.height = "auto"; box.style.height = Math.min(box.scrollHeight, 320)+"px";
   paintPalette(); slashToggle();
 });
+// no robar el foco al textarea: si lo tenia, su blur cerraria la palette
+// recien abierta (amago de abrir y cerrar); si no, evita abrir el teclado
+$("#slashBtn").onmousedown = e => e.preventDefault();
 $("#slashBtn").onclick = ()=>{
-  box.value = "/";              // sin focus: el teclado movia toda la vista
+  box.value = "/";
   paintPalette(); slashToggle();
 };
 box.addEventListener("blur", ()=>setTimeout(()=>closePalette(), 150));
@@ -2586,7 +2752,8 @@ box.addEventListener("keydown", e=>{
   }
 });
 $("#send").onclick = () => {
-  if($("#send").classList.contains("halting")) return send({type:"abort"});
+  if($("#send").classList.contains("halting"))
+    return send({type:"abort", undo:true});   // el puente decide si deshace
   submit();
 };
 function submit(){
@@ -2637,6 +2804,13 @@ const STR = {
       clearqQ:"Drop the queued messages?",
       typeAnswer:"type an answer", answered:"answered", tools:"tool",
       fold:"collapse",
+      thinking:"Thinking\u2026", thoughtFor:"Thought for {n} {u}",
+      secOne:"second", secMany:"seconds", minOne:"minute", minMany:"minutes",
+      reasoning:"Reasoning",
+      functions:"Functions", showThinking:"Show thinking",
+      showThinkingSub:"Show the model's reasoning under each reply",
+      movement:"Movement", movementSub:"How new text appears as it streams",
+      motion_fade:"Fade", motion_instant:"Instant",
       output:"output", noOutput:"no output",
       ranN:"Ran {n} commands", ranNShown:"{n} commands",
       statsTitle:"Response stats", stGen:"Generation", stPrompt:"Prompt",
@@ -2676,6 +2850,13 @@ const STR = {
       clearqQ:"\u00bfDescartar los mensajes en cola?",
       typeAnswer:"escribir respuesta", answered:"respondido",
       tools:"herramienta", fold:"plegar", output:"salida", noOutput:"sin salida",
+      thinking:"Pensando\u2026", thoughtFor:"Pens\u00f3 durante {n} {u}",
+      secOne:"segundo", secMany:"segundos", minOne:"minuto", minMany:"minutos",
+      reasoning:"Razonamiento",
+      functions:"Funciones", showThinking:"Mostrar pensamiento",
+      showThinkingSub:"Muestra el razonamiento del modelo bajo cada respuesta",
+      movement:"Movimiento", movementSub:"Cómo aparece el texto según se genera",
+      motion_fade:"Fundido", motion_instant:"Directo",
       ranN:"Ejecutados {n} comandos", ranNShown:"{n} comandos",
       statsTitle:"Estad\u00edsticas de respuesta", stGen:"Generaci\u00f3n",
       stPrompt:"Prompt", stCache:"En cach\u00e9", stReason:"Razonamiento",
@@ -2918,6 +3099,106 @@ function setTheme(pref){
   applyTheme(pref);
 }
 applyTheme(themePref());
+
+/* mostrar u ocultar el razonamiento del modelo, recordado en local */
+let showThinking = (() => {
+  try { return localStorage.getItem("pi.showThinking") !== "0"; }
+  catch(e){ return true; }
+})();
+function applyThinking(){
+  document.documentElement.classList.toggle("hide-think", !showThinking);
+}
+function setThinking(on){
+  showThinking = !!on;
+  try { localStorage.setItem("pi.showThinking", on ? "1" : "0"); } catch(e){}
+  applyThinking();
+}
+applyThinking();
+
+/* movimiento del texto que genera: fundido (suave) o directo (de golpe) */
+let motion = (() => {
+  try { return localStorage.getItem("pi.motion") === "instant" ? "instant" : "fade"; }
+  catch(e){ return "fade"; }
+})();
+function applyMotion(){
+  const r = document.documentElement.classList;
+  r.toggle("motion-fade", motion === "fade");
+  r.toggle("motion-instant", motion === "instant");
+}
+function setMotion(m){
+  motion = m === "instant" ? "instant" : "fade";
+  try { localStorage.setItem("pi.motion", motion); } catch(e){}
+  applyMotion();
+}
+applyMotion();
+
+/* Motor de revelado del modo fundido: el texto que genera el asistente
+   aparece de izquierda a derecha. El texto entero esta siempre en el DOM
+   (textContent completo); solo se gradua la opacidad de la cola aun no
+   revelada, con una frontera que persigue el final suavizada -> smooth. */
+const REDUCED = matchMedia("(prefers-reduced-motion:reduce)").matches;
+const REVEAL_FADE = 9;                  // ancho del degradado, en caracteres
+const revealing = new Set();
+let revealRAF = 0;
+
+function scheduleReveal(el){
+  revealing.add(el);
+  if(!revealRAF) revealRAF = requestAnimationFrame(revealTick);
+}
+function revealTick(){
+  revealRAF = 0;
+  const was = atBottom();
+  let more = false;
+  revealing.forEach(el => {
+    const it = el.__item;
+    if(!it || it.kind !== "assistant" || !it.streaming){
+      revealing.delete(el); return;
+    }
+    const len = (it.text || "").length;
+    if(it._front == null) it._front = 0;
+    if(it._front < len)                 // persigue el final con suavizado
+      it._front = Math.min(len, it._front + Math.max(0.8,
+        (len - it._front) * 0.22));
+    paintSaid(el, it.text || "", it._front);
+    if(it._front < len) more = true;
+    else revealing.delete(el);
+  });
+  keepDown(was);
+  if(more) revealRAF = requestAnimationFrame(revealTick);
+}
+
+/* pinta el .said con el texto completo y funde la cola no revelada */
+function paintSaid(el, full, front){
+  el.innerHTML = `<div class="said stream" data-body></div>`;
+  const body = el.firstChild;
+  body.innerHTML = md(full);
+  const pending = full.length - front;
+  if(pending > 0.01) fadeTail(body, pending);
+}
+
+/* grada la opacidad de la cola del ultimo nodo de texto: los caracteres
+   pasada la frontera se ocultan y los REVEAL_FADE previos suben de 0 a 1 */
+function fadeTail(root, pending){
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let last = null, n;
+  while(n = w.nextNode()) last = n;
+  if(!last) return;
+  const t = last.nodeValue, L = t.length;
+  const front = L - pending;                       // frontera en este nodo
+  const start = Math.max(0, Math.floor(front - REVEAL_FADE));
+  if(start >= L) return;
+  const frag = document.createDocumentFragment();
+  const head = t.slice(0, start);
+  if(head) frag.appendChild(document.createTextNode(head));
+  for(let i = start; i < L; i++){
+    const o = Math.max(0, Math.min(1, (front - i) / REVEAL_FADE));
+    const s = document.createElement("span");
+    s.className = "rv"; s.style.opacity = o.toFixed(3);
+    s.textContent = t[i];
+    frag.appendChild(s);
+  }
+  last.parentNode.replaceChild(frag, last);
+}
 SYS.addEventListener("change", () => {
   if(themePref() === "auto") applyTheme("auto");
 });
@@ -3000,6 +3281,39 @@ function paintSheet(page){
   const act = (key, icon, run) => body.appendChild(pickBtn({
     icon: icon, label: T(key), chevron: true, run: run}));
 
+  if(page === "functions"){
+    $("#sheetTitle").textContent = T("functions");
+    const card = document.createElement("div");
+    card.className = "fcard";
+    card.innerHTML = `<div class="frow"><div class="ftext">`
+      + `<div class="flbl">${esc(T("showThinking"))}</div>`
+      + `<div class="fsub">${esc(T("showThinkingSub"))}</div></div>`
+      + `<button class="sw" role="switch" aria-label="${esc(T("showThinking"))}"`
+      + ` aria-checked="${showThinking}"><span class="knob"></span></button>`;
+    const sw = card.querySelector(".sw");
+    sw.onclick = () => {
+      const on = sw.getAttribute("aria-checked") !== "true";
+      sw.setAttribute("aria-checked", on ? "true" : "false");
+      setThinking(on);
+    };
+    body.appendChild(card);
+
+    const mcard = document.createElement("div");
+    mcard.className = "fcard";
+    const seg = m => `<button data-m="${m}" aria-pressed="${motion === m}">`
+      + `${esc(T("motion_" + m))}</button>`;
+    mcard.innerHTML = `<div class="frow"><div class="ftext">`
+      + `<div class="flbl">${esc(T("movement"))}</div>`
+      + `<div class="fsub">${esc(T("movementSub"))}</div></div></div>`
+      + `<div class="seg">${seg("fade")}${seg("instant")}</div>`;
+    mcard.querySelectorAll(".seg button").forEach(b => b.onclick = () => {
+      setMotion(b.dataset.m);
+      mcard.querySelectorAll(".seg button").forEach(x =>
+        x.setAttribute("aria-pressed", x.dataset.m === motion));
+    });
+    body.appendChild(mcard);
+    return;
+  }
   if(page === "appearance"){
     $("#sheetTitle").textContent = T("appearance");
     body.appendChild(pickBtn({icon:"palette", label:T("theme"),
@@ -3019,11 +3333,12 @@ function paintSheet(page){
   $("#sheetTitle").textContent = T("menu");
   act("appearance", "palette", () => turnTo("appearance", 1));
   act("language", "lang", () => turnTo("language", 1));
+  act("functions", "tool", () => turnTo("functions", 1));
   head("\u00a0");
   body.appendChild(pickBtn({icon:"help", label:T("help"),
-    run: () => { $("#sheet").classList.remove("open"); helpModal(); }}));
+    run: () => helpModal()}));
   body.appendChild(pickBtn({icon:"info", label:T("about"),
-    run: () => { $("#sheet").classList.remove("open"); aboutModal(); }}));
+    run: () => aboutModal()}));
   body.appendChild(pickBtn({icon:"donate", label:T("donate"),
     run: () => { $("#sheet").classList.remove("open");
       PAYPAL ? open(PAYPAL, "_blank", "noopener")

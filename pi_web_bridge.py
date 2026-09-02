@@ -102,7 +102,7 @@ DIFF_CAP = 400           # diff lines kept per edit
 
 # Commands a browser may forward straight to pi. Everything else is refused.
 PASSTHROUGH = {
-    "prompt", "steer", "follow_up", "abort", "clear_queue", "new_session",
+    "prompt", "steer", "follow_up", "clear_queue", "new_session",
     "get_state", "get_messages", "set_model", "cycle_model",
     "get_available_models", "set_thinking_level", "get_available_thinking_levels",
     "compact", "set_auto_compaction", "set_auto_retry", "abort_retry",
@@ -437,6 +437,7 @@ class Bridge:
         self.gen_prompt_ms = None            # prefill de la respuesta actual
         self.cur_usage = {}                  # usage acumulado de la respuesta
         self.assistant_open = False          # hay una respuesta en curso
+        self.produced = False                # el turno ya genero algo
         self.cur = None                      # assistant item being streamed
 
         self.proc = None                     # no project, no agent
@@ -612,6 +613,8 @@ class Bridge:
         self.seq += 1
         item["id"] = self.seq
         item["t"] = int(time.time() * 1000)
+        if item.get("kind") in ("assistant", "thinking", "tool"):
+            self.produced = True
         self.log.append(item)
         self.emit({"type": "item", "item": item})
         return item
@@ -619,6 +622,15 @@ class Bridge:
     def patch(self, item, **fields):
         item.update(fields)
         self.emit({"type": "patch", "id": item["id"], "fields": fields})
+
+    def drop_last_user(self):
+        """Quita del log la ultima burbuja de usuario: un envio deshecho."""
+        for i in range(len(self.log) - 1, -1, -1):
+            if self.log[i].get("kind") == "user":
+                it = self.log[i]
+                del self.log[i]
+                return it
+        return None
 
     def note(self, level, key, text, **args):
         """Send the key so the browser can say it in its own language.
@@ -656,6 +668,15 @@ class Bridge:
         self.note("error", "pi_exited", "pi exited. reopen the project.")
         self.push_state()
 
+    def close_think(self):
+        """Cierra el bloque de pensamiento abierto y anota cuanto duro."""
+        if not self.think:
+            return
+        secs = int(round(time.time() - self.think_t0)) if self.think_t0 else None
+        self.patch(self.think, streaming=False, secs=secs)
+        self.think = None
+        self.think_t0 = None
+
     def on_event(self, ev):
         t = ev.get("type")
 
@@ -672,13 +693,19 @@ class Bridge:
                 # trae una herramienta no deja burbuja vacia
                 self.cur = None
                 self.assistant_open = True
+                self.produced = True          # el modelo empieza a responder
                 self.gen_first = None
                 self.gen_prompt_ms = None
                 self.cur_usage = {}
+                self.think = None
+                self.think_t0 = None
 
         elif t == "message_update":
             d = ev.get("assistantMessageEvent") or {}
-            if d.get("type") == "text_delta" and self.assistant_open:
+            dt = d.get("type")
+            if dt == "text_delta" and self.assistant_open:
+                if self.think:            # el texto real cierra el pensamiento
+                    self.close_think()
                 delta = d.get("delta", "")
                 if self.cur is None:
                     self.gen_first = time.time()
@@ -691,6 +718,19 @@ class Bridge:
                     self.cur["text"] += delta
                     self.emit({"type": "delta", "id": self.cur["id"],
                                "delta": delta})
+            elif dt == "thinking_start" and self.assistant_open:
+                self.think_t0 = time.time()
+            elif dt == "thinking_delta" and self.assistant_open:
+                delta = d.get("delta", "")
+                if self.think is None:
+                    self.think = self.push({"kind": "thinking",
+                                            "text": delta, "streaming": True})
+                else:
+                    self.think["text"] += delta
+                    self.emit({"type": "delta", "id": self.think["id"],
+                               "delta": delta})
+            elif dt == "thinking_end" and self.assistant_open:
+                self.close_think()
             u = grab_usage(ev)
             if u:
                 self.cur_usage = u
@@ -699,6 +739,8 @@ class Bridge:
             m = ev.get("message") or {}
             if m.get("role") != "assistant":
                 return
+            if self.think:
+                self.close_think()
             text = ""
             c = m.get("content")
             if isinstance(c, str):
@@ -850,6 +892,11 @@ class Bridge:
             self.state["model"] = data.get("name")
             self.push_state()
 
+        elif cmd == "set_thinking_level":
+            # pi no avisa del nuevo nivel: sin esto la cabecera se queda en el
+            # viejo (parecia "off" aunque el razonamiento estuviese activo)
+            self.send_pi({"type": "get_state"})
+
         else:
             self.emit({"type": "rpc", "command": cmd, "data": data})
 
@@ -901,7 +948,9 @@ class Bridge:
                         if diff:
                             item.update(diff)
                         calls[b.get("id")] = add(item)
-                    # thinking blocks stay out, same as during a live turn
+                    elif kind == "thinking" and b.get("thinking", "").strip():
+                        add({"kind": "thinking", "text": b["thinking"],
+                             "streaming": False, "t": stamp})
 
             elif role == "toolResult":
                 # half of what a live turn keeps: the whole history
@@ -997,6 +1046,8 @@ class Bridge:
             text = (msg.get("message") or "").strip()
             if not text:
                 return
+            if not self.state["running"]:
+                self.produced = False        # turno fresco: nada generado aun
             self.push({"kind": "user", "text": text})
             cmd = {"type": "prompt", "message": text}
             if self.state["running"]:
@@ -1032,6 +1083,18 @@ class Bridge:
                 return                       # the open one is not forgettable
             self.state["recent"] = forget(path, self.cwd)
             self.push_state()
+            return
+
+        if t == "abort":
+            self.send_pi({"type": "abort"})
+            # deshacer el envio: solo si el modelo no empezo nada todavia
+            if (msg.get("undo") and self.state.get("running")
+                    and not self.produced):
+                dropped = self.drop_last_user()
+                if dropped:
+                    self.emit({"type": "drop", "id": dropped["id"],
+                               "text": dropped.get("text", ""),
+                               "restore": True})
             return
 
         if t in PASSTHROUGH:

@@ -55,6 +55,22 @@ async def main():
             print("\n  al pulsarlo: valor %r, panel oculto %s, %d comandos"
                   % (val[0], val[1], val[2]))
 
+            # el amago: con el textarea enfocado, clicar '/' abria el panel y
+            # se cerraba solo (el blur del textarea disparaba closePalette)
+            await js("box.value=''; box.dispatchEvent(new Event('input'));"
+                     " box.focus()")
+            await asyncio.sleep(0.1)
+            await js("$('#slashBtn').dispatchEvent(new MouseEvent('mousedown',"
+                     "{bubbles:true, cancelable:true})); $('#slashBtn').click()")
+            amago0 = await js("[$('#palette').classList.contains('open'),"
+                              " document.activeElement === box]")
+            await asyncio.sleep(0.25)                 # pasar los 150ms del blur
+            amago1 = await js("$('#palette').classList.contains('open')")
+            print("  amago: abre=%s foco_en_box=%s  sigue_abierta=%s"
+                  % (amago0[0], amago0[1], amago1))
+            await js("main.dispatchEvent(new Event('pointerdown'))")
+            await asyncio.sleep(0.2)
+
             ok = [
                 ("visible con el campo vacio", float(vacio[0]) == 1),
                 ("hueco reservado", vacio[2] == "48px"),
@@ -68,6 +84,9 @@ async def main():
                 ("no roba el foco ni abre teclado", val[3] != "box"),
                 ("tocar fuera cierra y limpia la barra",
                  after[0] == "" and after[1] is True and after[2] == 1),
+                ("con el campo enfocado el '/' no hace amago",
+                 amago0[0] is True and amago1 is True),
+                ("y no le quita el foco al textarea", amago0[1] is True),
             ]
             print()
             for name, good in ok:

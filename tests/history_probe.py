@@ -42,11 +42,13 @@ async def main():
             ids = [i["id"] for i in hist]
 
             return report([
-                ("el bloque thinking no se cuela",
-                 "esto no debe salir" not in texts),
+                ("el razonamiento guardado sale como su propio bloque",
+                 any(i["kind"] == "thinking"
+                     and "razonamiento guardado" in (i.get("text") or "")
+                     for i in hist)),
                 ("orden de los turnos",
-                 kinds[:5] == ["user", "assistant", "tool", "tool",
-                               "assistant"]),
+                 kinds[:5] == ["user", "thinking", "assistant", "tool",
+                               "tool"]),
                 ("una edicion trae su recuento",
                  any(t.get("added") == 3 and t.get("removed") == 2
                      for t in tools)),

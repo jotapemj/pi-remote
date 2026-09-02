@@ -52,9 +52,64 @@ def multi_turn():
     out({"type": "agent_end", "messages": [], "willRetry": False})
     out({"type": "agent_settled"})
 
+def think_turn():
+    """Un turno que razona antes de hablar: thinking_start/delta/end y luego
+    el texto. El puente debe volverlo un item plegable con su duracion."""
+    out({"type": "agent_start"})
+    out({"type": "message_start",
+         "message": {"role": "assistant", "content": []}})
+    out({"type": "message_update", "usage": {},
+         "assistantMessageEvent": {"type": "thinking_start", "contentIndex": 0}})
+    reason = ["El usuario ", "pregunta algo. ", "Reviso y decido."]
+    for c in reason:
+        time.sleep(0.1)
+        out({"type": "message_update", "usage": {},
+             "assistantMessageEvent": {"type": "thinking_delta",
+                                       "contentIndex": 0, "delta": c}})
+    full = "".join(reason)
+    out({"type": "message_update", "usage": {},
+         "assistantMessageEvent": {"type": "thinking_end",
+                                   "contentIndex": 0, "content": full}})
+    for c in ["La ", "respuesta clara."]:
+        time.sleep(0.1)
+        out({"type": "message_update", "usage": {},
+             "assistantMessageEvent": {"type": "text_delta",
+                                       "contentIndex": 1, "delta": c}})
+    out({"type": "message_end", "message": {
+        "role": "assistant",
+        "content": [{"type": "thinking", "thinking": full},
+                    {"type": "text", "text": "La respuesta clara."}],
+        "usage": USAGE}})
+    out({"type": "agent_end", "messages": [], "willRetry": False})
+    out({"type": "agent_settled"})
+
+
+ABORT = threading.Event()
+
+
+def slow_turn(text):
+    """Arranca el turno pero se demora antes de generar: es la ventana para
+    deshacer el envio. Si llega abort en esa pausa, para sin generar nada."""
+    out({"type": "agent_start"})
+    for _ in range(40):                  # ~2 s de margen, revisando el abort
+        if ABORT.is_set():
+            out({"type": "agent_settled"})
+            return
+        time.sleep(0.05)
+    say(["Ya ", "voy."], "Ya voy.")
+    out({"type": "agent_end", "messages": [], "willRetry": False})
+    out({"type": "agent_settled"})
+
+
 def turn(text):
+    if "slow" in text:
+        slow_turn(text)
+        return
     if "multi" in text:
         multi_turn()
+        return
+    if "think" in text:
+        think_turn()
         return
     out({"type": "agent_start"})
     out({"type": "message_start", "message": {"role": "assistant", "content": []}})
@@ -128,7 +183,7 @@ MESSAGES = [
     {"role": "user", "content": "primer encargo de la sesion",
      "timestamp": 1756000000000},
     {"role": "assistant", "timestamp": 1756000001000, "content": [
-        {"type": "thinking", "thinking": "esto no debe salir"},
+        {"type": "thinking", "thinking": "razonamiento guardado"},
         {"type": "text", "text": "Miro el fichero."},
         {"type": "toolCall", "id": "h1", "name": "read_file",
          "arguments": {"path": "app/build.gradle"}}]},
@@ -168,6 +223,7 @@ for line in sys.stdin:
     cmd = json.loads(line)
     t = cmd.get("type")
     if t == "prompt":
+        ABORT.clear()
         threading.Thread(target=turn, args=(cmd.get("message", ""),),
                          daemon=True).start()
     elif t == "extension_ui_response":
@@ -191,7 +247,7 @@ for line in sys.stdin:
         out({"type": "response", "command": "get_available_models",
              "success": True, "data": {"models": [STATE["model"]]}})
     elif t == "abort":
+        ABORT.set()
         out({"type": "response", "command": "abort", "success": True})
-        out({"type": "agent_settled"})
     else:
         out({"type": "response", "command": t, "success": True, "data": {}})

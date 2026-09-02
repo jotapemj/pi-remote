@@ -225,10 +225,11 @@ async def main():
                 ("y se va desvaneciendo",
                  spin_mid[1] is True and 0 <= (spin_mid[0] or 0) < 1),
                 ("sin dejar rastro", spin_off is False),
-                ("el desplegable se cierra animando",
-                 before[0] is True and mid[2] is True
-                 and mid[1] not in ("0px", before[1])),
-                ("y acaba cerrado", after[0] is False),
+                ("el edit terminado nace plegado", before[0] is False),
+                ("el desplegable se abre animando",
+                 mid[2] is True and mid[1].endswith("px")
+                 and mid[1] != "0px"),
+                ("y acaba abierto", after[0] is True),
                 ("solo la edicion lleva cuenta", r[0] == 1),
                 ("suma en verde y resta en rojo",
                  r[1] == "+3" and r[2] == "-2"),

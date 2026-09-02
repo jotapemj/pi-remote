@@ -284,6 +284,16 @@ Two themes and two languages (English and Spanish), picked from the menu and
 remembered per browser. Fonts, icons and everything else are served by the
 bridge, so the page works on a tailnet with no route to the internet.
 
+The agent's reasoning appears as a collapsible "Thought for N seconds" block,
+closed by default. A **Functions** page in the settings menu turns it on or
+off and chooses how streamed text arrives: a left-to-right fade or all at
+once. The active model and reasoning level show in small print below the
+composer.
+
+The send button lives inside the composer and becomes a stop while the agent
+works. Pressing stop before the agent has produced anything takes the message
+back out and returns it to the composer, unsent.
+
 <!-- CAPTURA 7 — el menú de ajustes: apariencia con auto/claro/oscuro, la
      tarjeta de idioma, y ayuda / acerca de / donar. Una en cada tema, lado
      a lado, estaría bien. -->
@@ -329,11 +339,11 @@ streaming, tool calls, a permission dialog that blocks until answered, and
 `get_messages` for history. No API key and no model needed.
 
 ```bash
-python tests/run.py            # everything, about 80 seconds
+python tests/run.py            # everything, about four minutes
 python tests/run.py rail       # just the ones matching "rail"
 ```
 
-Sixteen checks: the page is driven in a real headless Chrome through the
+Thirty checks: the page is driven in a real headless Chrome through the
 DevTools protocol, which is how the animation, contrast, layout and security
 checks are measured rather than assumed. Chrome or Edge is found
 automatically; point `CHROME` at it otherwise.

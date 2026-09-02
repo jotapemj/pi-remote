@@ -31,24 +31,21 @@ async def main():
 
             w = await js("[($('#rword')||{}).textContent,"
                          " !!feed.querySelector('.cursor'),"
-                         " getComputedStyle(feed.querySelector('.cursor'))"
-                         ".animationName,"
                          " ($('#rsecs')||{}).textContent,"
                          " $('#readout').classList.contains('thinking'),"
                          " Number(getComputedStyle($('#rword')).opacity),"
                          " !!feed.querySelector('.wordi')]")
-            print("  palabra=%r cursor=%s animacion=%s" % (w[0], w[1], w[2]))
+            print("  palabra=%r cursor=%s" % (w[0], w[1]))
             print("  segundos=%r pensando=%s opacidad=%s en_burbuja=%s"
-                  % (w[3], w[4], w[5], w[6]))
+                  % (w[2], w[3], w[4], w[5]))
             checks += [
                 ("la palabra esta en la barra, no en la burbuja",
-                 w[0] == "Cacharreando\u2026" and w[6] is False),
-                ("el cursor sigue en la burbuja que genera", w[1] is True),
-                ("el cursor late suave", w[2] == "pulse"),
+                 w[0] == "Cacharreando\u2026" and w[5] is False),
+                ("ya no hay cursor parpadeante en la burbuja", w[1] is False),
                 ("los segundos van en la barra",
-                 bool(w[3]) and w[3].endswith("s")),
+                 bool(w[2]) and w[2].endswith("s")),
                 ("mientras piensa, la palabra se ve",
-                 w[4] is True and w[5] > 0.5),
+                 w[3] is True and w[4] > 0.5),
             ]
 
             # al teclear (llega un delta) la palabra se esconde
