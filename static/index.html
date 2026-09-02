@@ -2754,15 +2754,29 @@ function setSize(step){
 }
 applySize(sizeStep());
 
+/* La barra de estado. En el navegador sigue al tema (borde alto de la
+   toolbar) y Android saca el contraste de iconos solo. Pero una PWA
+   INSTALADA fija el fondo de la barra al color del manifest (grafito) y no
+   lo cambia en caliente; ahi, si mandaramos un color claro, los iconos se
+   volverian negros sobre grafito = ilegible. Asi que instalada se mantiene
+   oscura, para que los iconos sigan blancos y legibles.
+   iOS: el estilo se lee al arrancar y no se puede cambiar (ver AGENTS). */
+const MANIFEST_BG = "#12151a";
+function statusBar(){
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if(!meta) return;
+  const installed = matchMedia("(display-mode: standalone)").matches
+    || navigator.standalone === true;
+  if(installed){ meta.content = MANIFEST_BG; return; }
+  const v = getComputedStyle(document.documentElement)
+              .getPropertyValue("--plate-a").trim();
+  meta.content = v || MANIFEST_BG;
+}
+
 function applyTheme(pref){
   const t = pref !== "auto" ? pref : (SYS.matches ? "light" : "dark");
   document.documentElement.dataset.theme = t;
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if(meta){                       // barra de estado = borde alto de la toolbar
-    const v = getComputedStyle(document.documentElement)
-                .getPropertyValue("--plate-a").trim();
-    if(v) meta.content = v;       // Android saca el contraste de iconos solo
-  }
+  statusBar();
 }
 function setTheme(pref){
   try { localStorage.setItem("pi.theme", pref); } catch(e){}
