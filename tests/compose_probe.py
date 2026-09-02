@@ -122,6 +122,36 @@ async def main():
             checks.append(("la sesion ofrece abrir y quitar",
                            sm[0] == 2 and sm[1] is True))
 
+            # los mensajes largos del usuario se pliegan; los cortos no
+            longtext = " ".join(["palabra%d" % i for i in range(90)])
+            await js("feed.innerHTML=''; nodes.clear();"
+                     " render({id:1, kind:'user', text:'corto, una linea'});"
+                     " render({id:2, kind:'user', text:%s}); paint();"
+                     % json.dumps(longtext))
+            await asyncio.sleep(0.3)
+            fold = await js("(() => {"
+                            " const b = [...document.querySelectorAll("
+                            "'.blk-you')];"
+                            " const long = b.find(x =>"
+                            " x.classList.contains('foldable'));"
+                            " const exp = Math.round(long.querySelector("
+                            "'.utext').getBoundingClientRect().height);"
+                            " const chev = long.querySelector('.ufold');"
+                            " chev.click();"
+                            " const fol = Math.round(long.querySelector("
+                            "'.utext').getBoundingClientRect().height);"
+                            " return [b[0].classList.contains('foldable'),"
+                            "  !!chev, exp, fol,"
+                            "  long.classList.contains('folded')];})()")
+            print("  plegable: corto=%s chevron=%s alto %s->%s folded=%s"
+                  % tuple(fold))
+            checks += [
+                ("el mensaje corto no es plegable", fold[0] is False),
+                ("el largo tiene chevron", fold[1] is True),
+                ("plegar recorta la altura",
+                 fold[3] < fold[2] and fold[4] is True),
+            ]
+
             return report(checks)
 
 raise SystemExit(asyncio.run(main()))

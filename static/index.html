@@ -223,6 +223,22 @@ main{flex:1; overflow-y:auto; padding:16px var(--gut) 8px; position:relative;
   display:block; font:700 10px/1.4 var(--sans); letter-spacing:.09em;
   color:var(--amber); text-transform:uppercase; margin-bottom:5px;
 }
+/* mensajes largos del usuario: plegables con un chevron */
+.blk-you.foldable{position:relative; padding-bottom:26px}
+.foldable .utext{transition:max-height .0s}
+.foldable.folded .utext{
+  max-height:4.4em; overflow:hidden;
+  -webkit-mask-image:linear-gradient(to bottom, #000 55%, transparent);
+  mask-image:linear-gradient(to bottom, #000 55%, transparent);
+}
+.ufold{
+  position:absolute; right:8px; bottom:4px;
+  background:none; border:none; color:var(--faint); cursor:pointer;
+  padding:3px; border-radius:6px; display:flex; line-height:0;
+}
+.ufold:hover{color:var(--ink); background:var(--rule)}
+.ufold .i{width:18px; height:18px; transition:transform .2s ease}
+.foldable:not(.folded) .ufold .i{transform:rotate(90deg)}
 
 .said{word-break:break-word; font-size:var(--chat-size,15px);
   font-family:var(--chat-font,var(--sans))}
@@ -1584,6 +1600,7 @@ function render(item){
   el.__item = item;
   el.innerHTML = html(item);
   if(item.kind === "ask") wireAsk(el, item);
+  if(item.kind === "user") markFoldable(el);
   keepDown(was);
   return el;
 }
@@ -1629,6 +1646,24 @@ function placeActions(){
   last.appendChild(acts);
 }
 
+/* Un mensaje del usuario que ocupa mas de seis lineas se puede plegar.
+   Se mide la altura, porque contar caracteres no sabe cuanto envuelve en
+   el ancho real de la pantalla. */
+function markFoldable(el){
+  const bubble = el.querySelector(".blk-you");
+  const t = bubble && bubble.querySelector(".utext");
+  if(!t || bubble.classList.contains("foldable")) return;
+  const line = parseFloat(getComputedStyle(t).lineHeight) || 22;
+  if(t.scrollHeight > line * 6 + 4){
+    bubble.classList.add("foldable");           // por defecto, desplegado
+    const b = document.createElement("button");
+    b.className = "ufold";
+    b.setAttribute("aria-label", T("fold"));
+    b.innerHTML = ico("chevron");
+    bubble.appendChild(b);
+  }
+}
+
 const tail = it => it.streaming
   ? `<span class="cursor"></span>`
     + `<span class="wordi">${esc(wordText())}</span>`
@@ -1638,8 +1673,8 @@ const tail = it => it.streaming
 function html(it){
   if(it.kind === "user")
     return `<div class="msg mine"><div class="blk blk-you">`
-         + (it.steer ? `<span class="tag">steer</span>` : "")
-         + `${esc(it.text)}</div></div>`;
+      + (it.steer ? `<span class="tag">steer</span>` : "")
+      + `<div class="utext">${esc(it.text)}</div></div></div>`;
   if(it.kind === "assistant")
     return `<div class="said" data-body>${md(it.text)}${tail(it)}</div>`;
   if(it.kind === "note")
@@ -1718,6 +1753,8 @@ function legacyCopy(text){
 }
 /* los <details> nativos abren de golpe: se anima la altura a mano */
 feed.addEventListener("click", e=>{
+  const uf = e.target.closest(".ufold");
+  if(uf){ uf.closest(".blk-you").classList.toggle("folded"); return; }
   const gh = e.target.closest(".ghead");
   if(gh){
     const g = gh.parentNode, body = g.querySelector(".gbody");
@@ -2535,6 +2572,7 @@ const STR = {
       compactB:"The conversation gets summarised. It cannot be undone.",
       clearqQ:"Drop the queued messages?",
       typeAnswer:"type an answer", answered:"answered", tools:"tool",
+      fold:"collapse",
       output:"output", noOutput:"no output",
       ranN:"Ran {n} commands", ranNShown:"{n} commands",
       statsTitle:"Response stats", stGen:"Generation", stPrompt:"Prompt",
@@ -2573,7 +2611,7 @@ const STR = {
       compactB:"La conversaci\u00f3n se resume. No se puede deshacer.",
       clearqQ:"\u00bfDescartar los mensajes en cola?",
       typeAnswer:"escribir respuesta", answered:"respondido",
-      tools:"herramienta", output:"salida", noOutput:"sin salida",
+      tools:"herramienta", fold:"plegar", output:"salida", noOutput:"sin salida",
       ranN:"Ejecutados {n} comandos", ranNShown:"{n} comandos",
       statsTitle:"Estad\u00edsticas de respuesta", stGen:"Generaci\u00f3n",
       stPrompt:"Prompt", stCache:"En cach\u00e9", stReason:"Razonamiento",
