@@ -139,7 +139,48 @@ dead_cls = sorted(c for c in classes if c not in body)
 fused = [l.strip()[:60] for l in css.splitlines()
          if re.match(r"^[^@/*\s].*@(media|supports|keyframes)", l)]
 
-raise SystemExit(report(checks + [
+# paridad i18n: cada tabla traduce las mismas claves en todos los idiomas;
+# una clave ausente cae en silencio al ingles y nadie lo nota
+langs = re.findall(r"const LANGS = \[(.*?)\]", h)[0]
+lngs = [x.strip().strip('"') for x in langs.split(",")]
+
+def lang_block(objname, lg):
+    i = h.index("const %s" % objname)
+    j = i
+    while True:                       # la entrada real lleva { o , delante
+        j = h.index(lg + ":", j)
+        if h[:j].rstrip().endswith(("{", ",")):
+            break
+        j += 1
+    k = j + len(lg) + 1
+    open_c, close_c = ("[", "]") if h[k] == "[" else ("{", "}")
+    depth = 0
+    for m in range(k, len(h)):
+        if h[m] == open_c:
+            depth += 1
+        elif h[m] == close_c:
+            depth -= 1
+            if not depth:
+                break
+    return h[k + 1:m]
+
+def keys_of(block):
+    return set(re.findall(r'(\w+):"', block))
+
+i18n = []
+for obj in ("STR", "NOTES", "XS", "XW"):
+    base = keys_of(lang_block(obj, "en"))
+    for lg in lngs:
+        i18n.append(("%s.%s traduce las mismas %d claves que en"
+                     % (obj, lg, len(base)),
+                     keys_of(lang_block(obj, lg)) == base))
+for lg in lngs:
+    n = len(re.findall(r'"[\w\u4e00-\u9fff][^"\\]*"',
+                       lang_block("WORDS", lg)))
+    i18n.append(("WORDS.%s trae %d palabras de estado (>=50)" % (lg, n),
+                 n >= 50))
+
+raise SystemExit(report(checks + i18n + [
     ("ningun selector se traga una arroba", not fused),
     ("sin el flash azul del navegador al tocar",
      "-webkit-tap-highlight-color:transparent" in css),

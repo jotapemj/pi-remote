@@ -186,7 +186,8 @@ async def main():
             print("  entrando: desplazado %s opacidad %s" % tuple(moving))
             print("  dentro  : %r back=%s slider=%s flecha=%s" % tuple(inside))
             print("  idiomas : %s -> tras elegir: %r, vuelve a %r"
-                  % (langs, after[0], after[1]))
+                  % (json.dumps(langs, ensure_ascii=True),
+                     after[0], after[1]))
 
             checks += [
                 ("la raiz no trae flecha de volver", root[1] is True),
@@ -196,7 +197,11 @@ async def main():
                  inside[0].lower() == "apariencia" and inside[2] is True),
                 ("y una flecha para volver",
                  inside[1] is False and inside[3] is True),
-                ("el idioma es otra pagina", len(langs) == 2),
+                ("el idioma es otra pagina con los seis idiomas",
+                 len(langs) == 6
+                 and all(any(n in b for b in langs)
+                         for n in ("English", "Espa\u00f1ol", "Deutsch",
+                                   "Fran\u00e7ais", "Portugu\u00eas", "中文"))),
                 ("elegirlo aplica y vuelve al menu",
                  after[0] == "en" and after[1].lower() == "menu"
                  and after[2] is True),

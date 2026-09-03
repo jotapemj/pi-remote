@@ -283,8 +283,8 @@ guardrails: it is your hand, not the agent's.
 
 ## Look and language
 
-Two themes and two languages (English and Spanish), picked from the menu and
-remembered per browser. Fonts, icons and everything else are served by the
+Two themes and six languages (English, Spanish, German, French, Portuguese,
+Simplified Chinese), picked from the menu and remembered per browser. Fonts, icons and everything else are served by the
 bridge, so the page works on a tailnet with no route to the internet.
 
 The agent's reasoning appears as a collapsible "Thought for N seconds" block,
