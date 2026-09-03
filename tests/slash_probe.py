@@ -51,12 +51,24 @@ async def main():
                 ("y su icono", pop[4] is True),
             ]
 
-            # dismiss tocando fuera
+            # dismiss tocando fuera: se cierra y el '+' pierde el borde acento.
+            # El borde va por la clase .on (no por :focus), asi que en tactil,
+            # donde el foco puede quedarse, el borde igual desaparece
+            await js("if(!$('#plusMenu').classList.contains('open'))"
+                     " $('#slashBtn').click()")
+            on_abierto = await js("$('#slashBtn').classList.contains('on')")
             await js("document.dispatchEvent(new PointerEvent('pointerdown',"
                      "{bubbles:true}))")
             await asyncio.sleep(0.3)
-            fuera = await js("$('#plusMenu').classList.contains('open')")
-            checks.append(("se cierra tocando fuera", fuera is False))
+            fuera = await js("[$('#plusMenu').classList.contains('open'),"
+                             " $('#slashBtn').classList.contains('on')]")
+            print("  dismiss: on antes=%s -> abierto=%s on=%s"
+                  % (on_abierto, fuera[0], fuera[1]))
+            checks += [
+                ("se cierra tocando fuera", fuera[0] is False),
+                ("y el '+' pierde el borde acento al cerrar (clase .on fuera)",
+                 on_abierto is True and fuera[1] is False),
+            ]
 
             # 'Commands' abre la paleta, sin robar el foco (campo sin foco)
             await js("box.blur(); $('#slashBtn').click()")

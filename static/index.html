@@ -422,10 +422,10 @@ html.hide-think .think-turn{display:none}
   width:7px; height:7px; background:var(--panel);
   box-shadow:inset 0 0 0 2px var(--coral);
 }
-.tool > pre, .tool > .diff{
+.tool > pre, .tool > .diff, .tool > .tbody{
   transition:height .18s cubic-bezier(.32,.72,0,1);
 }
-.tool.moving > pre, .tool.moving > .diff{overflow:hidden}
+.tool.moving > pre, .tool.moving > .diff, .tool.moving > .tbody{overflow:hidden}
 .tool pre{
   margin:0; padding:10px 11px; border-top:1px solid var(--rule);
   font:400 12px/1.5 var(--mono); color:var(--box-ink);
@@ -706,16 +706,38 @@ footer > *{position:relative; z-index:1}
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
 .field{flex:1; min-width:0; position:relative; display:flex}
-textarea{
-  flex:1; resize:none; background:var(--panel); color:var(--field-ink);
+#box{
+  flex:1; min-width:0; background:var(--panel); color:var(--field-ink);
   border:1px solid var(--rule); border-radius:var(--r-pill);
   padding:15px 20px 15px 48px; font:15px/1.45 var(--sans);
-  max-height:38vh; min-height:54px;
+  max-height:38vh; min-height:24px; overflow-y:auto;
+  white-space:pre-wrap; word-break:break-word; cursor:text;
+  /* touch-action lo conmuta el JS: sin desborde, el arrastre mueve el
+     cursor y no scrollea nada; con desborde, scrollea el interior y el
+     'contain' impide que el gesto se encadene al chat */
+  touch-action:none; overscroll-behavior:contain;
   transition:padding .22s cubic-bezier(.32,.72,0,1),
              background-color .18s, border-color .18s, color .18s;
+  scrollbar-width:none;                        // la linea fina hace de scrollbar
 }
-.field.typing textarea, .field.busy textarea,
-.field.hasimg textarea{padding-right:48px}
+#box::-webkit-scrollbar{display:none}
+.scrollind{position:absolute; width:3px; border-radius:2px; left:0; top:0;
+  background:var(--faint); pointer-events:none; opacity:0; transition:opacity .18s}
+.field.typing #box, .field.busy #box,
+.field.hasimg #box{padding-right:48px}
+/* el marcador de posicion: solo cuando el campo esta vacio de verdad.
+   Clase propia (no '.empty', que es la tarjeta de estado sin proyecto) */
+#box.ce-blank::before{
+  content:attr(data-ph); color:var(--faint); pointer-events:none;
+}
+#box[contenteditable="false"]{opacity:.6; cursor:default}
+/* bloque de texto pegado: acento del tema en negrita, se borra como unidad */
+.chip{
+  color:var(--amber); font-weight:700;
+  font-family:var(--mono); font-size:12.5px;
+  background:var(--raise); border-radius:6px; padding:1px 7px;
+  white-space:nowrap; cursor:default;
+}
 
 /* the key that opens the palette, shown as itself */
 .slashb{
@@ -727,9 +749,13 @@ textarea{
   transition:opacity .18s ease,
              transform .22s cubic-bezier(.32,.72,0,1);
 }
-.slashb:hover{border-color:var(--amber)}
+/* hover solo en dispositivos con puntero: en tactil, Chrome mantiene el
+   :hover pegado al ultimo elemento tocado hasta que se toca fuera. En tactil
+   el estado va por clase: borde ambar mientras el menu esta abierto */
+@media (hover:hover){ .slashb:hover{border-color:var(--amber)} }
+.slashb.on{border-color:var(--amber)}
 .slashb:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
-textarea:focus{outline:none;border-color:var(--faint)}
+#box:focus{outline:none;border-color:var(--faint)}
 .slashb .i{width:22px; height:22px}
 .send{
   background:var(--amber); color:var(--on-amber); border:none;
@@ -1193,7 +1219,9 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
   <div class="entry">
     <div class="field" id="field">
       <button class="slashb" id="slashBtn" aria-label="add"></button>
-      <textarea id="box" rows="1"></textarea>
+      <div id="box" class="ce-blank" contenteditable="true" role="textbox"
+           aria-multiline="true" data-ph=""></div>
+      <div class="scrollind" id="scrollInd"></div>
       <button class="send" id="send" aria-label="send"><span class="ic go"></span><span class="ic halt"></span><span class="ic wait"><span class="sspin"></span></span></button>
       <div class="plusmenu" id="plusMenu" hidden>
         <button class="pmi" data-act="commands"><span class="pmi-ic" data-ic="terminal"></span><span data-t="commands"></span></button>
@@ -1961,7 +1989,7 @@ function html(it){
     return `<details class="tool" data-s="${it.status||"running"}"${open}>
       <summary><span class="dot"></span>${ico(toolIcon(it.name))}`
     + `<span class="nm">${esc(it.name||T("tools"))}${arg}</span>${tally}`
-    + `</summary>${cmd}${out}</details>`;
+    + `</summary><div class="tbody">${cmd}${out}</div></details>`;
   }
   if(it.kind === "ask"){
     const done = it.answered ? " done" : "";
@@ -2035,7 +2063,7 @@ feed.addEventListener("click", e=>{
   const sum = e.target.closest(".tool > summary");
   if(!sum) return;
   const det = sum.parentNode;
-  const body = det.querySelector(":scope > pre, :scope > .diff");
+  const body = det.querySelector(":scope > .tbody, :scope > pre, :scope > .diff");
   if(!body || STILL.matches) return;          // sin cuerpo, comportamiento normal
   e.preventDefault();
   const done = () => {
@@ -2046,13 +2074,18 @@ feed.addEventListener("click", e=>{
   if(det.open){
     body.style.height = body.scrollHeight + "px";
     requestAnimationFrame(()=>{ body.style.height = "0px"; });
-    setTimeout(()=>{ det.open = false; done(); }, 190);
+    setTimeout(()=>{ det.open = false; done(); }, 240);
   } else {
+    // doble rAF: el contenido acaba de renderizarse al abrir el <details>
+    // y Chrome no dispara la transicion si el cambio llega en la misma
+    // oleada de frames (por eso el open se veia al instante en el movil)
     det.open = true;
     const h = body.scrollHeight;
     body.style.height = "0px";
-    requestAnimationFrame(()=>{ body.style.height = h + "px"; });
-    setTimeout(done, 190);
+    requestAnimationFrame(()=>{ requestAnimationFrame(()=>{
+      body.style.height = h + "px";
+    });});
+    setTimeout(done, 280);
   }
 });
 
@@ -2121,9 +2154,9 @@ function paint(){
   // mientras trabaja el boton para, y para eso no hace falta texto
   const ro = state.readOnly === true;
   $("#send").disabled = !has || ro;
-  box.disabled = ro;
-  box.placeholder = ro ? T("noToken")
-                       : (has ? T("ask") : T("pickFirst"));
+  box.contentEditable = ro ? "false" : "true";
+  box.dataset.ph = ro ? T("noToken")
+                      : (has ? T("ask") : T("pickFirst"));
 
   if(!has){
     title("");
@@ -2665,6 +2698,10 @@ function connect(){
     }
     else if(m.type === "state"){
       const wasRunning = state.running;
+      // si el nombre cambio (/name), la caché del arbol se queda vieja:
+      // fuera antes de pintar para que el proyecto abierto se re-fetch
+      if(state.sessionName !== m.state.sessionName && state.cwd)
+        delete sessCache[state.cwd];
       state = m.state; paint();
       if(wasRunning && !state.running) groupToolRun();
       placeActions();
@@ -2683,7 +2720,9 @@ function connect(){
         box.value = m.text || "";
         box.dispatchEvent(new Event("input"));
         box.focus();
-        try { box.setSelectionRange(box.value.length, box.value.length); }
+        try { const s = window.getSelection(), r = document.createRange();
+              r.selectNodeContents(box); r.collapse(false);
+              s.removeAllRanges(); s.addRange(r); }
         catch(e){}
       }
       stopSending();
@@ -2749,18 +2788,328 @@ function note(text){
 const box = $("#box"), palette = $("#palette"), plist = $("#plist");
 let sel = 0, shown = [];
 
-function slashToggle(){
-  $("#field").classList.toggle("typing", box.value.length > 0);
+/* El compositor es un contenteditable: admite chips de "texto pegado" en
+   linea. Se expone .value para que el resto del codigo (y los tests) lo lea
+   y escriba como si fuese un textarea. El getter serializa a texto plano,
+   expandiendo cada chip a su contenido completo; el setter mete texto llano. */
+const ZW = "​";                     // marca invisible tras un chip
+function readBox(){
+  let s = "";
+  (function walk(node){
+    for(const n of node.childNodes){
+      if(n.nodeType === 3) s += n.nodeValue;
+      else if(n.nodeName === "BR") s += "\n";
+      else if(n.nodeType === 1 && n.classList.contains("chip"))
+        s += n.dataset.full || "";
+      else if(n.nodeType === 1){
+        if(/^(DIV|P)$/.test(n.nodeName) && s && !s.endsWith("\n")) s += "\n";
+        walk(n);
+      }
+    }
+  })(box);
+  // fuera los huecos invisibles: ZW y el BOM del envoltorio de chip
+  return s.split(ZW).join("").split("\uFEFF").join("");
 }
-box.addEventListener("input", ()=>{
-  box.style.height = "auto"; box.style.height = Math.min(box.scrollHeight, 320)+"px";
+Object.defineProperty(box, "value", {
+  get(){ return readBox(); },
+  set(v){ box.innerHTML = "";
+          if(v) box.appendChild(document.createTextNode(v));
+          slashToggle(); },
+});
+function slashToggle(){
+  // el navegador deja un <br> fantasma al vaciar: fuera, o nunca esta vacio
+  if(box.childNodes.length === 1 && box.firstChild.nodeName === "BR")
+    box.innerHTML = "";
+  const empty = readBox().length === 0 && !box.querySelector(".chip");
+  box.classList.toggle("ce-blank", empty);
+  $("#field").classList.toggle("typing", !empty);
+}
+box.addEventListener("input", ()=>{ paintPalette(); slashToggle(); });
+// con el prompt mas largo que el campo, el arrastre vertical scrollea el
+// interior en vez de mover el cursor; sin desborde, ni eso ni el chat
+// linea de scrol fina: se dibuja donde termina la linea de texto mas
+// ancha, no en el borde lejano del campo. El navegador no deja mover la
+// barra nativa: se oculta y esta la sustituye (solo indica, no arrastra)
+const sInd = $("#scrollInd");
+function paintScrollInd(){
+  const over = box.scrollHeight - box.clientHeight;
+  if(over < 2){ sInd.style.opacity = "0"; return; }
+  const fr = $("#field").getBoundingClientRect();
+  const r = document.createRange(); r.selectNodeContents(box);
+  let x = 0;
+  for(const rc of r.getClientRects()) x = Math.max(x, rc.right);
+  sInd.style.left = (x - fr.left + 6) + "px";
+  const pad = 8, track = box.clientHeight - pad*2;
+  const th = Math.max(20, track * box.clientHeight / box.scrollHeight);
+  sInd.style.top = (box.offsetTop + pad + box.scrollTop/over*(track-th)) + "px";
+  sInd.style.height = th + "px";
+  sInd.style.opacity = "1";
+}
+box.addEventListener("scroll", paintScrollInd, {passive:true});
+new ResizeObserver(()=>{
+  box.style.touchAction = box.scrollHeight > box.clientHeight + 1 ? "pan-y" : "none";
+  paintScrollInd();
+}).observe(box);
+
+/* Pegar: una imagen va a la fila de miniaturas (reusa Fase 1); un bloque
+   grande de texto se mete como chip "Texto pegado N lineas" en el punto del
+   cursor; lo corto va llano. Siempre texto plano, sin formato heredado. */
+const PASTE_LINES = 4, PASTE_CHARS = 240;
+function caretRange(){
+  const s = window.getSelection();
+  if(s && s.rangeCount && box.contains(s.anchorNode)) return s.getRangeAt(0);
+  const r = document.createRange();          // sin cursor: al final
+  r.selectNodeContents(box); r.collapse(false);
+  return r;
+}
+function placeCaret(r){
+  const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+}
+function insertText(t){
+  const r = caretRange(); clearSel(r);
+  const node = document.createTextNode(t);
+  r.insertNode(node); r.setStartAfter(node); r.collapse(true); placeCaret(r);
+}
+function makeChip(full, lines){
+  // El chip es editable, no atomo: en Chrome Android el cursor que cruza
+  // un nodo contenteditable=false cierra el teclado (bug de Chromium,
+  // ProseMirror#565). Se prubo a envolverlo en un span editable: el
+  // arrastre del cursor lo sigue cerrando. La etiqueta es cosmetica; el
+  // contenido real vive en dataset.full y las guardas de beforeinput la
+  // protegen. Seleccionar a traves del chip incluye la etiqueta, pero
+  // copiar y enviar expanden al contenido completo.
+  const chip = document.createElement("span");
+  chip.className = "chip";
+  chip.dataset.full = full;
+  chip.textContent = T("pasted").replace("{n}", lines);
+  return chip;
+}
+const isBulk = text => text != null && text !== ""
+  && (text.length >= PASTE_CHARS || text.split("\n").length >= PASTE_LINES);
+function insertChip(full, lines){
+  const frag = document.createDocumentFragment();
+  frag.appendChild(makeChip(full, lines));
+  const tail = document.createTextNode(ZW);   // hueco para el cursor tras el chip
+  frag.appendChild(tail);
+  const r = caretRange(); clearSel(r); r.insertNode(frag);
+  r.setStartAfter(tail); r.collapse(true); placeCaret(r);
+}
+/* El chip es texto editable para el navegador, pero se comporta como unidad:
+   teclear dentro de la etiqueta sale al final del chip, y borrar come el chip
+   entero, no sus letras. readBox() lee dataset.full, asi que la etiqueta puede
+   maltratarse sin tocar el contenido. La guarda va en beforeinput, no en
+   keydown: el IME movil no manda keydown por letra, commitea por beforeinput,
+   y ese evento cubre escritorio y movil a la vez. */
+function chipsInRange(r){
+  const out = [];
+  for(const c of box.querySelectorAll(".chip"))
+    if(r.intersectsNode(c)) out.push(c);
+  return out;
+}
+const wrapperOf = c => c.closest(".chipwrap") || c;   // fuera el envoltorio entero
+function clearSel(r){
+  chipsInRange(r).forEach(c => wrapperOf(c).remove());   // seleccion que toca un chip: fuera
+  r.deleteContents();
+}
+function chipNeighbor(r, after){
+  // chip pegado al cursor, con solo huecos ZW de por medio. Vale con el cursor
+  // en un nodo de texto o con el contenedor en el propio #box (es donde queda
+  // justo tras pegar): por eso el lado se mira con comparePoint, no con
+  // compareDocumentPosition del contenedor
+  if(!r.collapsed) return null;
+  for(const c of box.querySelectorAll(".chip")){
+    let side;
+    try { side = r.comparePoint(c, 0); } catch(_){ continue; }
+    if(after ? side <= 0 : side >= 0) continue;   // chip del lado que toca
+    const gap = document.createRange();
+    if(after){ gap.setStart(r.startContainer, r.startOffset); gap.setEndBefore(c); }
+    else     { gap.setStartAfter(c); gap.setEnd(r.startContainer, r.startOffset); }
+    // el hueco cuenta con ZW y BOM: son los respiraderos del envoltorio
+    if(gap.toString().split(ZW).join("").split("\uFEFF").join("") === "") return c;
+  }
+  return null;
+}
+box.addEventListener("beforeinput", e => {
+  const s = window.getSelection();
+  if(!s || !s.rangeCount || !box.contains(s.anchorNode)) return;
+  const r = s.getRangeAt(0);
+  let chips = chipsInRange(r);
+  if(!chips.length && r.collapsed){
+    if(e.inputType === "deleteContentBackward"){
+      const c = chipNeighbor(r, false); if(c) chips = [c];
+    } else if(e.inputType === "deleteContentForward"){
+      const c = chipNeighbor(r, true); if(c) chips = [c];
+    }
+  }
+  if(!chips.length) return;
+  if(e.inputType === "deleteContentBackward"
+     || e.inputType === "deleteContentForward"){
+    e.preventDefault();
+    const at = document.createRange();
+    at.setStartBefore(chips[0]); at.collapse(true);
+    chips.forEach(c => {
+      let g = wrapperOf(c).nextSibling;   // el hueco ZW que lo seguia
+      while(g && g.nodeType === 3 && g.nodeValue.split(ZW).join("") === ""){
+        const nx = g.nextSibling; g.remove(); g = nx;
+      }
+      wrapperOf(c).remove();
+    });
+    try { r.deleteContents(); } catch(_){}   // el resto de la seleccion, si lo hay
+    s.removeAllRanges(); s.addRange(at);
+    slashToggle();
+  } else if(!r.collapsed){
+    chips.forEach(c => wrapperOf(c).remove());   // lo escrito reemplaza a la seleccion
+  } else {
+    // teclear (o Enter) dentro de la etiqueta: fuera. El navegador inserta
+    // en la posicion original del evento, no donde muevas la seleccion,
+    // asi que se come el input y se inserta a mano tras el chip
+    e.preventDefault();
+    const nr = document.createRange();
+    nr.setStartAfter(chips[chips.length - 1]); nr.collapse(true);
+    s.removeAllRanges(); s.addRange(nr);
+    if(e.inputType === "insertText" || e.inputType === "insertCompositionText")
+      insertText(e.data || "");
+    else if(e.inputType === "insertParagraph" || e.inputType === "insertLineBreak"){
+      const d = document.createElement("div");
+      nr.insertNode(d); nr.setStartAfter(d); nr.collapse(true); placeCaret(nr);
+    }
+    paintPalette(); slashToggle();
+  }
+});
+// copiar con la seleccion tocando un chip: viaja el contenido completo,
+// no la etiqueta cosmetica. La seleccion lo incluye (es texto editable),
+// pero reescribirla a mitad del arrastre hace que Chrome la cancele
+box.addEventListener("copy", e => {
+  const s = window.getSelection();
+  if(!s || !s.rangeCount || !box.contains(s.anchorNode)) return;
+  if(!chipsInRange(s.getRangeAt(0)).length) return;
+  e.preventDefault();
+  const frag = s.getRangeAt(0).cloneContents();
+  for(const c of frag.querySelectorAll(".chip")){
+    const w = c.closest(".chipwrap") || c;
+    w.replaceWith(document.createTextNode(c.dataset.full || ""));
+  }
+  const div = document.createElement("div");
+  div.appendChild(frag);
+  let t = "";
+  (function walk(n){
+    for(const k of n.childNodes){
+      if(k.nodeType === 3) t += k.nodeValue;
+      else if(k.nodeName === "BR") t += "\n";
+      else if(/^(DIV|P)$/.test(k.nodeName) && t && !t.endsWith("\n")) t += "\n";
+      else if(k.nodeType === 1) walk(k);
+    }
+  })(div);
+  navigator.clipboard.writeText(t.split(ZW).join("").split("\uFEFF").join("")).catch(()=>{});
+});
+let pasteLock = false;                        // dedupe: 'paste' y 'beforeinput'
+function pasteText(text){                     // devuelve true si lo trato
+  if(text == null || text === "") return false;
+  if(pasteLock) return true;                  // el mismo pegado, dos eventos
+  pasteLock = true;                           // se libera al vaciar la microcola
+  Promise.resolve().then(() => { pasteLock = false; });
+  if(isBulk(text)) insertChip(text, text.split("\n").length);
+  else insertText(text);
+  paintPalette(); slashToggle();
+  return true;
+}
+box.addEventListener("paste", e => {         // long-press -> pegar, y escritorio
+  const dt = e.clipboardData; if(!dt) return;
+  const files = [...(dt.items || [])]
+    .filter(it => it.kind === "file" && /^image\//.test(it.type))
+    .map(it => it.getAsFile()).filter(Boolean);
+  if(files.length){                           // imagen pegada -> miniatura
+    e.preventDefault();
+    files.forEach(f => { const rd = new FileReader();
+      rd.onload = () => { const u = String(rd.result), c = u.indexOf(",");
+        addImage({data: u.slice(c + 1), mimeType: f.type || "image/png", url: u}); };
+      rd.readAsDataURL(f); });
+    return;
+  }
+  if(pasteText(dt.getData("text/plain"))) e.preventDefault();
+});
+// GBoard y otros teclados pegan por beforeinput, no por 'paste'. En el movil
+// el portapapeles no se puede leer desde beforeinput, asi que si no hay texto
+// en el evento, marcamos el punto, dejamos insertar, y recogemos el bloque del
+// DOM en el 'input' que sigue. mark = marca invisible, sin hueco de texto.
+const PASTE_LIKE = new Set(["insertFromPaste", "insertFromDrop"]);
+let pMark = null;
+function dropMark(){ if(pMark && pMark.parentNode) pMark.remove(); pMark = null; }
+box.addEventListener("beforeinput", e => {
+  const dt = e.dataTransfer;
+  const text = dt ? dt.getData("text/plain") : (e.data || "");
+  // algunos teclados pegan como insertText con datos en bloque: nadie
+  // teclea 240 chars en un evento, asi que un insertText gordo es pegado
+  const like = PASTE_LIKE.has(e.inputType)
+    || (e.inputType === "insertText" && isBulk(text));
+  if(!like) return;
+  if(pasteLock){ e.preventDefault(); return; }   // ya lo trato el evento 'paste'
+  if(text){ if(pasteText(text)) e.preventDefault(); return; }   // via directa
+  // sin texto legible: marcar y recoger del DOM tras insertar
+  try {
+    dropMark();
+    pMark = document.createElement("span");
+    pMark.dataset.pmark = "1"; pMark.style.cssText = "font-size:0;line-height:0";
+    const r = caretRange(); r.deleteContents(); r.insertNode(pMark);
+    r.setStartAfter(pMark); r.collapse(true); placeCaret(r);
+  } catch(err){ pMark = null; }
+});
+box.addEventListener("input", () => {          // recoge el pegado marcado
+  if(!pMark) return;
+  const mark = pMark; pMark = null;
+  if(!box.contains(mark)) return;
+  const s = window.getSelection();
+  const r = document.createRange(); r.setStartAfter(mark);
+  if(s.rangeCount && box.contains(s.focusNode)) r.setEnd(s.focusNode, s.focusOffset);
+  else r.setEndAfter(mark);
+  const text = r.toString();
+  if(isBulk(text)){
+    r.deleteContents();
+    const tail = document.createTextNode(ZW);
+    mark.replaceWith(makeChip(text, text.split("\n").length), tail);
+    const cr = document.createRange();
+    cr.setStartAfter(tail); cr.collapse(true); placeCaret(cr);
+  } else {
+    mark.remove();                             // pegado corto: se queda llano
+  }
   paintPalette(); slashToggle();
 });
+// tocar un chip no debe soltar el foco (cerraria el teclado): mantengo el
+// foco y dejo el cursor justo tras el chip
+box.addEventListener("pointerdown", e => {
+  const chip = e.target.closest && e.target.closest(".chip");
+  if(!chip) return;
+  e.preventDefault();
+  box.focus();
+  const r = document.createRange(); r.setStartAfter(chip); r.collapse(true);
+  placeCaret(r);
+});
+// arrastrar el cursor por encima de un chip (contenteditable=false) borra el
+// foco y cierra el teclado. El toque en la manija del cursor no genera
+// pointerdown en el DOM: es UI del navegador. Se rastrea el ultimo
+// pointerdown real; si fue dentro de la caja, el blur es del arrastre y el
+// foco vuelve al sitio. Sincrono, para ganarle al cierre del teclado.
+let lastDownInBox = false;
+document.addEventListener("pointerdown", e => {
+  lastDownInBox = !!(e.target.closest && e.target.closest("#box"));
+}, true);
+box.addEventListener("focusout", e => {
+  if(e.relatedTarget || !lastDownInBox) return;   // salto real: no robar foco
+  box.focus();
+  const s = window.getSelection();
+  if(!(s.rangeCount && box.contains(s.anchorNode))) {
+    const r = document.createRange();
+    r.selectNodeContents(box); r.collapse(false);
+    placeCaret(r);
+  }
+});
+
 // el '+' abre un popup con Commands e Image; el '/' teclado sigue valiendo
 $("#slashBtn").innerHTML = ico("add");
 const plusMenu = $("#plusMenu"), imgInput = $("#imgInput"), thumbs = $("#thumbs");
 plusMenu.querySelectorAll(".pmi-ic").forEach(s => s.innerHTML = ico(s.dataset.ic));
 function plusOpen(on){
+  $("#slashBtn").classList.toggle("on", on);   // borde ambar solo con menu abierto
   if(on){ plusMenu.hidden = false;
           requestAnimationFrame(()=> plusMenu.classList.add("open")); }
   else { plusMenu.classList.remove("open");
@@ -2768,10 +3117,14 @@ function plusOpen(on){
                             plusMenu.hidden = true; }, 200); }
 }
 // el '+' no es para escribir: soltar el foco cierra el teclado en el movil.
-// con el foco puesto (cursor parpadeando) pulsar '+' lo reabria.
+// con el foco puesto (cursor parpadeando) pulsar '+' lo reabria. El blur en
+// el tap enfoca al boton DESPUES del onclick: un blur inmediato no llega,
+// hay que tardarlo un tick para que corra tras el foco nativo
+$("#slashBtn").onmousedown = e => e.preventDefault();
 $("#slashBtn").onclick = () => {
   box.blur();
   plusOpen(!plusMenu.classList.contains("open"));
+  setTimeout(() => $("#slashBtn").blur(), 0);
 };
 plusMenu.querySelectorAll(".pmi").forEach(b => {
   b.onmousedown = e => e.preventDefault();   // el item no roba el foco
@@ -2869,7 +3222,7 @@ function paintPalette(){
 function closePalette(){
   palette.classList.remove("open"); sel = 0;
   if(box.value === "/"){        // barra suelta de un panel que no se uso
-    box.value = ""; box.style.height = "auto"; slashToggle();
+    box.value = "";                        // el setter refresca el estado
   }
 }
 main.addEventListener("pointerdown", ()=>{
@@ -2880,7 +3233,7 @@ function choose(c){
     box.value = "/" + c.n + " ";
     box.focus(); closePalette(); slashToggle(); return;
   }
-  box.value = ""; box.style.height = "auto";
+  box.value = "";
   closePalette(); slashToggle(); c.run();
 }
 function runLine(text){
@@ -2899,8 +3252,11 @@ box.addEventListener("keydown", e=>{
     if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); choose(shown[sel]); return; }
     if(e.key === "Escape"){ closePalette(); return; }
   }
-  if(e.key === "Enter" && !e.shiftKey && !matchMedia("(pointer:coarse)").matches){
-    e.preventDefault(); submit();
+  const coarse = matchMedia("(pointer:coarse)").matches;
+  if(e.key === "Enter" && !e.shiftKey && !coarse){ e.preventDefault(); submit(); return; }
+  if(e.key === "Enter"){          // shift+enter, o enter en el movil: salto limpio
+    e.preventDefault(); document.execCommand("insertLineBreak");
+    paintPalette(); slashToggle();
   }
 });
 $("#send").onclick = () => {
@@ -2913,7 +3269,7 @@ function submit(){
   const imgs = pendingImages.map(im => ({type:"image", data:im.data,
                                          mimeType:im.mimeType}));
   if(!text && !imgs.length) return;
-  box.value = ""; box.style.height = "auto"; closePalette(); slashToggle();
+  box.value = ""; closePalette(); slashToggle();
   clearThumbs();
   if(text.startsWith("/") && !imgs.length) return runLine(text);
   const cmd = {type:"prompt", message:text};
@@ -2970,6 +3326,7 @@ const STR = {
       movement:"Movement", movementSub:"How new text appears as it streams",
       motion_fade:"Fade", motion_instant:"Instant", image:"Image",
       output:"output", noOutput:"no output", command:"command",
+      pasted:"Pasted text {n} lines",
       ranN:"Ran {n} commands", ranNShown:"{n} commands",
       statsTitle:"Response stats", stGen:"Generation", stPrompt:"Prompt",
       stCache:"Cached", stReason:"Reasoning", stTotal:"Total", stCost:"Cost",
@@ -3008,7 +3365,7 @@ const STR = {
       clearqQ:"\u00bfDescartar los mensajes en cola?",
       typeAnswer:"escribir respuesta", answered:"respondido",
       tools:"herramienta", fold:"plegar", output:"salida", noOutput:"sin salida",
-      command:"comando",
+      command:"comando", pasted:"Texto pegado {n} líneas",
       thinking:"Pensando\u2026", thoughtFor:"Pens\u00f3 durante {n} {u}",
       secOne:"segundo", secMany:"segundos", minOne:"minuto", minMany:"minutos",
       reasoning:"Razonamiento",

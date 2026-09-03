@@ -155,7 +155,8 @@ async def read_only():
                             " return [$('#warnbar').hidden,"
                             "  bash ? bash.disabled : null,"
                             "  stats ? stats.disabled : null,"
-                            "  box.disabled, $('#send').disabled];})()")
+                            "  !box.isContentEditable,"
+                            " $('#send').disabled];})()")
             print("  la pagina: aviso oculto=%s /bash=%s /stats=%s"
                   " caja=%s enviar=%s" % tuple(ui))
             out += [
@@ -205,7 +206,7 @@ async def main():
             # los desplegables de las herramientas
             det = """(() => {
               const d = document.querySelector('.tool');
-              const b = d.querySelector(':scope > .diff, :scope > pre');
+              const b = d.querySelector(':scope > .tbody, :scope > .diff, :scope > pre');
               return [d.open, getComputedStyle(b).height,
                       d.classList.contains('moving')];
             })()"""

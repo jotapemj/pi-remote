@@ -59,9 +59,10 @@ checks = [
      ".cmeta{" in css and 'id="cmeta"' in body),
     ("el enviar mide igual que el circulo de comando (sin override 46px)",
      ".send{width:46px" not in css),
-    ("el boton de enviar vive dentro de la caja",
-     "<textarea id=\"box\" rows=\"1\"></textarea>\n"
-     "      <button class=\"send\" id=\"send\"" in body),
+    ("el compositor es editable y el enviar vive dentro de la caja",
+     '<div id="box"' in body and 'contenteditable="true"' in body
+     and body.index('<button class="send" id="send"')
+         > body.index('<div id="box"')),
     ("un solo blur: la hoja difumina, el dialogo sobre ella no",
      "#sheet.open ~ .modal{" in css),
     ("el interruptor usa el acento del tema",
@@ -106,7 +107,7 @@ checks = [
     ("nadie pisa la transicion del rail",
      ".rail,.segb{" not in css and "transition:transform .3s" in css),
     ("nadie pisa la del compositor",
-     ",textarea,.segb{" not in css),
+     ",#box,.segb{" not in css),
     ("paleta anima al abrir y cerrar",
      ".palette.open{" in css and "@keyframes rise{" not in css
      and "palette.hidden" not in h),

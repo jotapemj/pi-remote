@@ -181,29 +181,55 @@ def session_dir(cwd):
 
 
 def session_label(path):
+    """Nombre para el arbol, con esta prioridad:
+
+    1. la ultima entrada `session_info`: pi anota CADA rebautizado al final
+       del fichero y el propio pi lee el nombre escaneando hacia atras.
+       Una ventana fija desde el final no basta: en una sesion activa el
+       rename puede quedar a megas del borde.
+    2. el nombre de creacion (cabecera) o el primer mensaje de usuario.
+
+    Un solo pase; solo se parsea lo que el prefiltro de cadena deja pasar.
+    """
+    info = None
+    head = None
     try:
         with open(path, encoding="utf-8") as fh:
-            for _ in range(40):
-                line = fh.readline()
-                if not line:
-                    break
-                try:
-                    e = json.loads(line)
-                except ValueError:
-                    continue
-                if e.get("type") == "session" and e.get("name"):
-                    return e["name"]
-                msg = e.get("message") or {}
-                if msg.get("role") == "user":
-                    c = msg.get("content")
-                    if isinstance(c, str):
-                        return c[:60]
-                    for blk in c or []:
-                        if blk.get("type") == "text":
-                            return blk["text"][:60]
+            for i, line in enumerate(fh):
+                if i < 40 and head is None:
+                    try:
+                        e = json.loads(line)
+                    except ValueError:
+                        e = None
+                    if e:
+                        t = e.get("type")
+                        if t == "session" and e.get("name"):
+                            head = e["name"]
+                        elif t == "message":
+                            msg = e.get("message") or {}
+                            if msg.get("role") == "user":
+                                c = msg.get("content")
+                                if isinstance(c, str):
+                                    head = c[:60]
+                                else:
+                                    for blk in c or []:
+                                        if blk.get("type") == "text":
+                                            head = blk["text"][:60]
+                                            break
+                # prefiltro barato antes de parsear ficheros de varios MB;
+                # el tipo se confirma despues, ya parseado
+                if "session_info" in line:
+                    try:
+                        e = json.loads(line)
+                    except ValueError:
+                        continue
+                    if e.get("type") == "session_info":
+                        n = (e.get("name") or "").strip()
+                        if n:
+                            info = n        # la ultima gana
     except OSError:
         pass
-    return path.stem[:60]
+    return info or head or path.stem[:60]
 
 
 def trash_session(path, active):

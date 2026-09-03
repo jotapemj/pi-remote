@@ -14,7 +14,7 @@ HERE = Path(__file__).resolve().parent
 ORDER = ["static_check", "theme_check", "notes_check", "trash_test",
          "history_probe", "projects_probe", "sec_probe", "anim_probe",
          "plate_probe", "slash_probe", "confirm_probe", "rail_probe",
-         "marquee_probe", "compose_probe", "readout_probe",
+         "marquee_probe", "compose_probe", "paste_probe", "readout_probe",
          "diff_probe", "restart_probe", "pending_probe", "wide_probe",
          "compact_probe", "group_probe", "table_probe", "think_probe",
          "functions_probe", "undo_probe", "header_probe", "image_probe",
