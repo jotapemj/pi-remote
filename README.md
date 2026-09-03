@@ -268,8 +268,11 @@ and this layout would be worse there.
 
 ## Commands
 
-Type `/` or tap the button inside the composer. Twenty-two commands, filtered
-as you type, with keyboard navigation on a desktop browser.
+Type `/`, or tap the **+** inside the composer and pick **Commands**.
+Twenty-two commands, filtered as you type, with keyboard navigation on a
+desktop browser. The same **+** menu attaches an image — paste one, or pick it
+from the device — for a model that can see; it rides along with your next
+message.
 
 <!-- CAPTURA 6 — el diálogo de ayuda con la lista de comandos y su
      descripción, sobre el fondo desenfocado. -->
@@ -293,6 +296,10 @@ composer.
 The send button lives inside the composer and becomes a stop while the agent
 works. Pressing stop before the agent has produced anything takes the message
 back out and returns it to the composer, unsent.
+
+A run of tool calls collapses into one expandable row once the turn ends —
+reasoning the model interleaves between them does not break the run. Each tool
+box shows the full command it ran and its output, one below the other.
 
 <!-- CAPTURA 7 — el menú de ajustes: apariencia con auto/claro/oscuro, la
      tarjeta de idioma, y ayuda / acerca de / donar. Una en cada tema, lado
@@ -327,6 +334,7 @@ browser  <--WebSocket-->  pi_web_bridge.py  <--stdin/stdout JSONL-->  pi --mode 
 The script spawns `pi --mode rpc` and owns its stdin and stdout. Events
 (`agent_start`, `message_update`, `tool_execution_*`, `agent_settled`) become
 messages to you; what you send becomes `prompt`, `steer` or `abort` commands.
+A `prompt` or `steer` can carry attached images for a model with vision.
 
 It cannot attach to a pi already running in a terminal: a process has one
 stdin. What is shared is the session file on disk, so a session started in the

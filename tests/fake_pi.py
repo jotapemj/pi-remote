@@ -101,7 +101,20 @@ def slow_turn(text):
     out({"type": "agent_settled"})
 
 
-def turn(text):
+def image_turn(nimg):
+    """Confirma cuantas imagenes llegaron: prueba el passthrough del puente."""
+    plural = "es" if nimg != 1 else ""
+    out({"type": "agent_start"})
+    say(["Veo ", "%d imagen%s." % (nimg, plural)],
+        "Veo %d imagen%s." % (nimg, plural))
+    out({"type": "agent_end", "messages": [], "willRetry": False})
+    out({"type": "agent_settled"})
+
+
+def turn(text, nimg=0):
+    if nimg:
+        image_turn(nimg)
+        return
     if "slow" in text:
         slow_turn(text)
         return
@@ -224,7 +237,8 @@ for line in sys.stdin:
     t = cmd.get("type")
     if t == "prompt":
         ABORT.clear()
-        threading.Thread(target=turn, args=(cmd.get("message", ""),),
+        nimg = len(cmd.get("images") or [])
+        threading.Thread(target=turn, args=(cmd.get("message", ""), nimg),
                          daemon=True).start()
     elif t == "extension_ui_response":
         out({"type": "response", "command": "ui", "success": True})

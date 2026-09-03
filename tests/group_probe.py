@@ -91,15 +91,18 @@ async def main():
                  opened[0] is False and opened[3] > 0),
             ]
 
-            # la salida de consola de un comando: cabecera + texto, y las
-            # que fallan salen abiertas
+            # la caja de un comando: bloque COMANDO (completo, sin recorte)
+            # y bloque SALIDA con su texto; las que fallan salen abiertas
+            longcmd = ("Get-ChildItem -Recurse -File | Where-Object "
+                       "{ $_.FullName -notmatch 'node_modules' } | "
+                       "Format-Table -AutoSize")
             await js("feed.innerHTML=''; nodes.clear();"
                      " render({id:10, kind:'tool', name:'bash',"
-                     " status:'done', args:{command:'ls'},"
+                     " status:'done', args:{command:%s},"
                      " output:'total 48 ficheros'});"
                      " render({id:11, kind:'tool', name:'bash',"
                      " status:'error', args:{command:'rm /x'},"
-                     " output:'rm: no existe'})")
+                     " output:'rm: no existe'})" % json.dumps(longcmd))
             await asyncio.sleep(0.25)
             con = await js("(() => {"
                            " const ok = document.querySelector"
@@ -107,18 +110,31 @@ async def main():
                            " const err = document.querySelector"
                            "('.tool[data-s=error]');"
                            " ok.open = true;"
+                           " const cc = ok.querySelector('.ccmd');"
                            " return [!!ok.querySelector('.cout .ch'),"
                            "  ok.querySelector('.cout pre').textContent.trim(),"
                            "  err.open,"
                            "  err.querySelector('.cout pre').textContent"
-                           ".includes('no existe')];})()")
-            print("  consola: cabecera=%s texto=%r error_abierto=%s err_txt=%s"
-                  % tuple(con))
+                           ".includes('no existe'),"
+                           "  cc ? cc.querySelector('pre').textContent : '',"
+                           "  cc ? getComputedStyle(cc.querySelector('pre'))"
+                           ".whiteSpace : '',"
+                           "  getComputedStyle(ok.querySelector('.cout'))"
+                           ".borderTopWidth];})()")
+            print("  caja: salida=%s texto=%r err_abierto=%s err_txt=%s"
+                  % tuple(con[:4]))
+            print("  comando: completo=%s wrap=%r divisoria=%r"
+                  % (con[4] == longcmd, con[5], con[6]))
             checks += [
                 ("la salida tiene cabecera y texto",
                  con[0] is True and "total 48" in con[1]),
                 ("un comando que falla sale abierto, con su error",
                  con[2] is True and con[3] is True),
+                ("el bloque COMANDO trae el comando entero sin recortar",
+                 con[4] == longcmd),
+                ("y ajusta linea en vez de desbordar", con[5] == "pre-wrap"),
+                ("con una divisoria antes de la salida",
+                 con[6] not in ("0px", "", None)),
             ]
 
             # --- una sola no se agrupa
@@ -129,6 +145,40 @@ async def main():
             print("  una sola: grupo=%s tools=%s" % (solo[0], solo[1]))
             checks.append(("una sola herramienta no se agrupa",
                            solo[0] is False and solo[1] == 1))
+
+            # --- razonamiento oculto intercalado no rompe el tramo
+            # (Qwen mete thinking entre tool calls; oculto seguia en el DOM
+            # y dejaba cada tool suelta)
+            await js("setThinking(false)")   # hide-think
+            await js("feed.innerHTML=''; nodes.clear();"
+                     " render({id:1, kind:'user', text:'lee cosas'});"
+                     " for(let i=0;i<4;i++){"
+                     "  render({id:100+i, kind:'thinking', text:'mmm',"
+                     "          streaming:false});"
+                     "  render({id:200+i, kind:'tool', name:'read',"
+                     "          status:'done', args:{path:'x'}, output:'ok'});}"
+                     " render({id:9, kind:'assistant', streaming:false,"
+                     "         text:'Ya.'}); paint()")
+            await asyncio.sleep(0.3)
+            mix = await js("(() => {"
+                           " const g = document.querySelector('.toolgroup');"
+                           " const loose = [...document.querySelectorAll("
+                           "'.tool')].filter(t => !t.closest('.toolgroup'))"
+                           ".length;"
+                           " return g ? [g.querySelectorAll('.gbody .tool')"
+                           ".length, g.querySelector('.gn').textContent,"
+                           "  g.querySelectorAll('.gbody .think-turn').length,"
+                           "  loose] : null;})()")
+            await js("setThinking(true)")
+            print("  thinking oculto: %s" % (mix,))
+            checks += [
+                ("el thinking intercalado no rompe el tramo",
+                 mix is not None and mix[0] == 4 and mix[3] == 0),
+                ("el rotulo cuenta solo las herramientas",
+                 mix is not None and "4 comandos" in mix[1]),
+                ("el razonamiento se absorbe en el grupo",
+                 mix is not None and mix[2] == 4),
+            ]
 
             # --- turno real de fake_pi (dos tools, luego se cierra)
             await js("feed.innerHTML=''; nodes.clear()")

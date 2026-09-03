@@ -55,7 +55,7 @@ async def main():
                             "menuSheet()",
                             "$('#sheet').classList.remove('open')")
             c = await trace("PALETA DE COMANDOS", "#palette", "#palette",
-                            "$('#slashBtn').click()",
+                            "box.value='/'; box.dispatchEvent(new Event('input'))",
                             "main.dispatchEvent(new Event('pointerdown'))")
             b = b and c
             print("\nTODO OK" if a and b else "\nFALLA")

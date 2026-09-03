@@ -123,8 +123,9 @@ checks = [
     ("marquee con degradado en los lados",
      "@keyframes mq{" in css and ".mq.run{" in css
      and "function marquee(" in h),
-    ("boton de barra en el compositor",
-     'id="slashBtn"' in body and ".field.typing .slashb{" in css),
+    ("boton '+' que abre el popup de comandos e imagen",
+     'id="slashBtn"' in body and 'id="plusMenu"' in body
+     and ".plusmenu{" in css and 'data-act="image"' in body),
 ]
 root = re.search(r":root\{(.*?)\n\}", css, re.S).group(1)
 dead = [t for t in re.findall(r"(--[\w-]+)\s*:", root)

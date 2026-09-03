@@ -431,15 +431,17 @@ html.hide-think .think-turn{display:none}
   font:400 12px/1.5 var(--mono); color:var(--box-ink);
   white-space:pre-wrap; word-break:break-word; max-height:340px; overflow:auto;
 }
-/* la salida de consola de un comando: cabecera "salida" y el texto debajo */
-.cout{border-top:1px solid var(--rule)}
-.cout .ch{
+/* cuerpo de una herramienta: bloque "comando" y bloque "salida", cada uno
+   con su cabecera en versalitas y el texto debajo. El borde superior de cada
+   bloque hace de divisoria (titulo | comando | salida) */
+.ccmd, .cout{border-top:1px solid var(--rule)}
+.ccmd .ch, .cout .ch{
   display:flex; align-items:center; gap:6px; padding:7px 11px 5px;
   font:600 9.5px/1 var(--mono); letter-spacing:.1em; text-transform:uppercase;
   color:var(--faint);
 }
-.cout .ch .i{width:13px; height:13px}
-.cout pre{border-top:none; padding-top:2px}
+.ccmd .ch .i, .cout .ch .i{width:13px; height:13px}
+.ccmd pre, .cout pre{border-top:none; padding-top:2px}
 .cempty{color:var(--faint); font-style:italic}
 /* cuenta de lineas en la fila plegada, como en la tui */
 .tally{display:flex;gap:7px;flex:none;font:600 11px/1 var(--mono)}
@@ -574,6 +576,7 @@ footer{
 footer::before{
   content:""; position:absolute; inset:0; z-index:0; pointer-events:none;
   background:var(--surface); border-top:1px solid var(--rule);
+  border-radius:18px 18px 0 0;
 }
 footer > *{position:relative; z-index:1}
 
@@ -647,6 +650,56 @@ footer > *{position:relative; z-index:1}
 .palette .none{padding:12px var(--gut) 16px;font:400 12px/1.4 var(--mono);
   color:var(--faint)}
 .entry{display:flex;gap:8px;align-items:flex-end}
+/* popup del '+' : commands e image */
+.plusmenu{
+  position:absolute; left:4px; bottom:calc(100% + 8px); z-index:30;
+  min-width:184px; padding:6px; transform-origin:bottom left;
+  background:var(--surface); border:1px solid var(--rule);
+  border-radius:var(--r-card); box-shadow:var(--cast-card);
+  display:flex; flex-direction:column; gap:2px;
+  opacity:0; transform:translateY(6px) scale(.96);
+  transition:opacity .16s ease, transform .18s cubic-bezier(.32,.72,0,1);
+}
+.plusmenu[hidden]{display:none}
+.plusmenu.open{opacity:1; transform:none}
+.pmi{
+  display:flex; align-items:center; gap:12px; width:100%; text-align:left;
+  background:none; border:none; border-radius:9px; cursor:pointer;
+  padding:11px 12px; color:var(--ink); font:500 13.5px/1 var(--sans);
+}
+.pmi:hover{background:var(--raise)}
+.pmi .pmi-ic{display:flex; flex:none}
+.pmi .i{width:20px; height:20px; color:var(--dim)}
+.pmi:focus-visible{outline:2px solid var(--amber); outline-offset:-2px}
+/* miniaturas sobre el compositor */
+.thumbs{display:flex; flex-wrap:wrap; gap:8px; padding:2px var(--gut) 8px}
+.thumbs[hidden]{display:none}
+.thumb{
+  position:relative; width:56px; height:56px; flex:none;
+  border-radius:10px; overflow:hidden;
+  border:1px solid var(--rule); background:var(--raise);
+  transform:scale(.6); opacity:0;                 /* estado de entrada */
+  transition:transform .2s cubic-bezier(.32,.72,0,1),
+             opacity .18s ease, width .2s ease, margin .2s ease;
+}
+.thumb.in{transform:none; opacity:1}
+.thumb.out{                                        /* salida: colapsa el hueco */
+  transform:scale(.6); opacity:0; width:0;
+  margin-left:-8px; border-width:0;
+}
+.thumb img{width:100%; height:100%; object-fit:cover; display:block}
+.thx{
+  position:absolute; top:2px; right:2px; width:18px; height:18px;
+  border-radius:50%; border:none; padding:0; cursor:pointer;
+  background:#000a; color:#fff; display:grid; place-items:center;
+}
+.thx .i{width:13px; height:13px}
+/* imagenes dentro de la burbuja de usuario */
+.uimgs{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:6px}
+.uimgs img{
+  max-width:200px; max-height:220px; border-radius:10px; display:block;
+  border:1px solid var(--rule);
+}
 .cmeta{                                 /* modelo y razonamiento, sutil */
   font:400 10.5px/1.4 var(--sans); color:var(--faint);
   padding:5px 16px 0; min-height:14px; text-align:right;
@@ -661,8 +714,8 @@ textarea{
   transition:padding .22s cubic-bezier(.32,.72,0,1),
              background-color .18s, border-color .18s, color .18s;
 }
-.field.typing textarea{padding-left:20px}
-.field.typing textarea, .field.busy textarea{padding-right:48px}
+.field.typing textarea, .field.busy textarea,
+.field.hasimg textarea{padding-right:48px}
 
 /* the key that opens the palette, shown as itself */
 .slashb{
@@ -676,10 +729,8 @@ textarea{
 }
 .slashb:hover{border-color:var(--amber)}
 .slashb:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
-.field.typing .slashb{
-  opacity:0; transform:translateY(-50%) scale(.55); pointer-events:none;
-}
 textarea:focus{outline:none;border-color:var(--faint)}
+.slashb .i{width:22px; height:22px}
 .send{
   background:var(--amber); color:var(--on-amber); border:none;
   width:36px; height:36px; border-radius:50%; padding:0; cursor:pointer;
@@ -690,7 +741,7 @@ textarea:focus{outline:none;border-color:var(--faint)}
              background-color .18s, box-shadow .18s;
 }
 /* aparece con el texto y al trabajar; si no, se esconde en la caja */
-.field.typing .send, .field.busy .send,
+.field.typing .send, .field.busy .send, .field.hasimg .send,
 .send.sending, .send.halting{
   opacity:1; transform:translateY(-50%); pointer-events:auto;
 }
@@ -1138,11 +1189,17 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
     <div class="phead" id="phead">commands</div>
     <div id="plist"></div>
   </div>
+  <div class="thumbs" id="thumbs" hidden></div>
   <div class="entry">
     <div class="field" id="field">
-      <button class="slashb" id="slashBtn" aria-label="/">/</button>
+      <button class="slashb" id="slashBtn" aria-label="add"></button>
       <textarea id="box" rows="1"></textarea>
       <button class="send" id="send" aria-label="send"><span class="ic go"></span><span class="ic halt"></span><span class="ic wait"><span class="sspin"></span></span></button>
+      <div class="plusmenu" id="plusMenu" hidden>
+        <button class="pmi" data-act="commands"><span class="pmi-ic" data-ic="terminal"></span><span data-t="commands"></span></button>
+        <button class="pmi" data-act="image"><span class="pmi-ic" data-ic="image"></span><span data-t="image"></span></button>
+      </div>
+      <input type="file" id="imgInput" accept="image/*" multiple hidden>
     </div>
   </div>
   <div class="cmeta" id="cmeta"></div>
@@ -1230,6 +1287,7 @@ const ICONS = {
   up:"M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z",
   done:"M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z",
   think:"M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z",
+  image:"M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z",
 };
 const ico = (k, cls) => ICONS[k]
   ? `<svg class="i${cls ? " " + cls : ""}" viewBox="0 0 24 24"`
@@ -1732,7 +1790,8 @@ function render(item){
   const was = atBottom();
   let el = nodes.get(item.id);
   if(!el){
-    if(item.kind !== "tool") groupToolRun();   // el agente vuelve a escribir
+    // el thinking es transparente: no cierra el tramo de herramientas
+    if(item.kind !== "tool" && item.kind !== "thinking") groupToolRun();
     el = document.createElement("div"); el.className="turn";
     nodes.set(item.id, el); feed.appendChild(el);
   }
@@ -1747,18 +1806,23 @@ function render(item){
 
 /* Un tramo de herramientas seguidas se pliega en un solo desplegable en
    cuanto el agente vuelve a escribir o el turno acaba. Mientras corren se
-   ven sueltas; solo se agrupan al cerrarse el tramo. */
+   ven sueltas; solo se agrupan al cerrarse el tramo. El razonamiento que el
+   modelo intercala entre llamadas no rompe el tramo: se absorbe en el grupo
+   (aunque este oculto). Solo cuentan las herramientas para el minimo y el
+   rotulo, si no un thinking oculto dejaba cada tool suelta. */
 function groupToolRun(){
   const run = [];
   let el = feed.lastElementChild;
-  while(el && el.__item && el.__item.kind === "tool"){
+  while(el && el.__item &&
+        (el.__item.kind === "tool" || el.__item.kind === "thinking")){
     run.unshift(el); el = el.previousElementSibling;
   }
-  if(run.length < 2) return;               // una sola no se agrupa
+  const tools = run.filter(e => e.__item.kind === "tool");
+  if(tools.length < 2) return;             // una sola no se agrupa
   const group = document.createElement("div");
   group.className = "turn toolgroup collapsed";
   group.innerHTML = `<button class="ghead">${ico("terminal")}`
-    + `<span class="gn">${esc(runLabel(run.length))}</span>`
+    + `<span class="gn">${esc(runLabel(tools.length))}</span>`
     + `${ico("chevron")}</button><div class="gbody"></div>`;
   const body = group.querySelector(".gbody");
   feed.insertBefore(group, run[0]);
@@ -1842,11 +1906,20 @@ function thoughtLabel(secs){
          u = n === 1 ? T("minOne") : T("minMany"); }
   return T("thoughtFor").replace("{n}", n).replace("{u}", u);
 }
+function imgHtml(images){
+  if(!images || !images.length) return "";
+  return `<div class="uimgs">` + images.map(im =>
+    /^image\/(png|jpe?g|webp|gif)$/.test(im.mimeType || "")
+      ? `<img src="data:${im.mimeType};base64,${im.data}" alt="">` : "")
+    .join("") + `</div>`;
+}
 function html(it){
   if(it.kind === "user")
     return `<div class="msg mine"><div class="blk blk-you">`
       + (it.steer ? `<span class="tag">steer</span>` : "")
-      + `<div class="utext">${esc(it.text)}</div></div></div>`;
+      + imgHtml(it.images)
+      + (it.text ? `<div class="utext">${esc(it.text)}</div>` : "")
+      + `</div></div>`;
   if(it.kind === "thinking"){
     const lab = it.streaming ? T("thinking")
       : (it.secs != null ? thoughtLabel(it.secs) : T("reasoning"));
@@ -1863,6 +1936,13 @@ function html(it){
          + `<span>${esc(noteText(it))}</span></div>`;
   if(it.kind === "tool"){
     const done = it.status && it.status !== "running";
+    // el comando completo va en el cuerpo (con ajuste de linea): el titulo
+    // solo cabe una vista previa y casi nunca entra entero
+    const full = it.lines ? "" : gist(it.args);
+    const cmd = full
+      ? `<div class="ccmd"><div class="ch">${ico("terminal")}`
+        + `<span>${esc(T("command"))}</span></div><pre>${esc(full)}</pre></div>`
+      : "";
     const out = it.lines ? diffHtml(it.lines)
       : done ? `<div class="cout"><div class="ch">${ico("terminal")}`
           + `<span>${esc(T("output"))}</span></div><pre>`
@@ -1871,7 +1951,7 @@ function html(it){
           + `</pre></div>`
       : "";
     const g = it.lines ? (it.args && (it.args.path || it.args.filePath))
-                       : gist(it.args);
+                       : full;
     const arg = g ? " " + esc(g.length > 88 ? g.slice(0, 87) + "\u2026" : g)
                   : "";
     const tally = it.added != null
@@ -1881,7 +1961,7 @@ function html(it){
     return `<details class="tool" data-s="${it.status||"running"}"${open}>
       <summary><span class="dot"></span>${ico(toolIcon(it.name))}`
     + `<span class="nm">${esc(it.name||T("tools"))}${arg}</span>${tally}`
-    + `</summary>${out}</details>`;
+    + `</summary>${cmd}${out}</details>`;
   }
   if(it.kind === "ask"){
     const done = it.answered ? " done" : "";
@@ -2676,14 +2756,86 @@ box.addEventListener("input", ()=>{
   box.style.height = "auto"; box.style.height = Math.min(box.scrollHeight, 320)+"px";
   paintPalette(); slashToggle();
 });
-// no robar el foco al textarea: si lo tenia, su blur cerraria la palette
-// recien abierta (amago de abrir y cerrar); si no, evita abrir el teclado
-$("#slashBtn").onmousedown = e => e.preventDefault();
-$("#slashBtn").onclick = ()=>{
-  box.value = "/";
-  paintPalette(); slashToggle();
+// el '+' abre un popup con Commands e Image; el '/' teclado sigue valiendo
+$("#slashBtn").innerHTML = ico("add");
+const plusMenu = $("#plusMenu"), imgInput = $("#imgInput"), thumbs = $("#thumbs");
+plusMenu.querySelectorAll(".pmi-ic").forEach(s => s.innerHTML = ico(s.dataset.ic));
+function plusOpen(on){
+  if(on){ plusMenu.hidden = false;
+          requestAnimationFrame(()=> plusMenu.classList.add("open")); }
+  else { plusMenu.classList.remove("open");
+         setTimeout(()=>{ if(!plusMenu.classList.contains("open"))
+                            plusMenu.hidden = true; }, 200); }
+}
+// el '+' no es para escribir: soltar el foco cierra el teclado en el movil.
+// con el foco puesto (cursor parpadeando) pulsar '+' lo reabria.
+$("#slashBtn").onclick = () => {
+  box.blur();
+  plusOpen(!plusMenu.classList.contains("open"));
 };
-box.addEventListener("blur", ()=>setTimeout(()=>closePalette(), 150));
+plusMenu.querySelectorAll(".pmi").forEach(b => {
+  b.onmousedown = e => e.preventDefault();   // el item no roba el foco
+  b.onclick = () => {
+    plusOpen(false);
+    if(b.dataset.act === "commands"){ box.value = "/"; paintPalette(); slashToggle(); }
+    else if(b.dataset.act === "image"){ imgInput.value = ""; imgInput.click(); }
+  };
+});
+document.addEventListener("pointerdown", e => {   // dismiss tocando fuera
+  if(plusMenu.classList.contains("open")
+     && !plusMenu.contains(e.target) && !$("#slashBtn").contains(e.target))
+    plusOpen(false);
+}, true);
+
+/* --- imagenes adjuntas: la fila anima al entrar y al salir --- */
+let pendingImages = [];              // {data, mimeType, url}
+imgInput.onchange = () => {
+  [...imgInput.files].forEach(f => {
+    if(!/^image\//.test(f.type)) return;
+    const r = new FileReader();
+    r.onload = () => {
+      const url = String(r.result), c = url.indexOf(",");
+      addImage({data: url.slice(c + 1), mimeType: f.type || "image/png", url});
+    };
+    r.readAsDataURL(f);
+  });
+  imgInput.value = "";
+};
+function addImage(im){
+  pendingImages.push(im);
+  const el = document.createElement("div");
+  el.className = "thumb"; el.__img = im;
+  el.innerHTML = `<img src="${im.url}" alt="">`
+    + `<button class="thx" aria-label="${esc(T("remove"))}">${ico("close")}</button>`;
+  thumbs.hidden = false;
+  $("#field").classList.add("hasimg");
+  thumbs.appendChild(el);
+  requestAnimationFrame(()=> el.classList.add("in"));   // anima la entrada
+}
+function removeImage(el){
+  if(el.classList.contains("out")) return;              // ya saliendo
+  pendingImages = pendingImages.filter(x => x !== el.__img);
+  const last = pendingImages.length === 0;
+  el.classList.remove("in"); el.classList.add("out");   // anima la salida
+  setTimeout(()=>{
+    el.remove();
+    if(last){ thumbs.hidden = true;                      // vuelve a lo normal
+              $("#field").classList.remove("hasimg"); }
+  }, 200);
+}
+thumbs.onclick = e => {
+  const b = e.target.closest(".thx");
+  if(b) removeImage(b.closest(".thumb"));
+};
+function clearThumbs(){                 // al enviar: la burbuja releva a la fila
+  pendingImages = [];
+  thumbs.innerHTML = ""; thumbs.hidden = true;
+  $("#field").classList.remove("hasimg");
+}
+// el blur solo cierra la paleta si esta abierta (no al soltar el foco por '+')
+box.addEventListener("blur", ()=>{
+  if(palette.classList.contains("open")) setTimeout(()=>closePalette(), 150);
+});
 
 function query(){
   const v = box.value;
@@ -2757,10 +2909,16 @@ $("#send").onclick = () => {
   submit();
 };
 function submit(){
-  const text = box.value.trim(); if(!text) return;
+  const text = box.value.trim();
+  const imgs = pendingImages.map(im => ({type:"image", data:im.data,
+                                         mimeType:im.mimeType}));
+  if(!text && !imgs.length) return;
   box.value = ""; box.style.height = "auto"; closePalette(); slashToggle();
-  if(text.startsWith("/")) return runLine(text);
-  send({type:"prompt", message:text});
+  clearThumbs();
+  if(text.startsWith("/") && !imgs.length) return runLine(text);
+  const cmd = {type:"prompt", message:text};
+  if(imgs.length) cmd.images = imgs;
+  send(cmd);
   $("#send").classList.add("sending");
   clearTimeout(sendTimer);
   sendTimer = setTimeout(() => $("#send").classList.remove("sending"), 8000);
@@ -2810,8 +2968,8 @@ const STR = {
       functions:"Functions", showThinking:"Show thinking",
       showThinkingSub:"Show the model's reasoning under each reply",
       movement:"Movement", movementSub:"How new text appears as it streams",
-      motion_fade:"Fade", motion_instant:"Instant",
-      output:"output", noOutput:"no output",
+      motion_fade:"Fade", motion_instant:"Instant", image:"Image",
+      output:"output", noOutput:"no output", command:"command",
       ranN:"Ran {n} commands", ranNShown:"{n} commands",
       statsTitle:"Response stats", stGen:"Generation", stPrompt:"Prompt",
       stCache:"Cached", stReason:"Reasoning", stTotal:"Total", stCost:"Cost",
@@ -2850,13 +3008,14 @@ const STR = {
       clearqQ:"\u00bfDescartar los mensajes en cola?",
       typeAnswer:"escribir respuesta", answered:"respondido",
       tools:"herramienta", fold:"plegar", output:"salida", noOutput:"sin salida",
+      command:"comando",
       thinking:"Pensando\u2026", thoughtFor:"Pens\u00f3 durante {n} {u}",
       secOne:"segundo", secMany:"segundos", minOne:"minuto", minMany:"minutos",
       reasoning:"Razonamiento",
       functions:"Funciones", showThinking:"Mostrar pensamiento",
       showThinkingSub:"Muestra el razonamiento del modelo bajo cada respuesta",
       movement:"Movimiento", movementSub:"Cómo aparece el texto según se genera",
-      motion_fade:"Fundido", motion_instant:"Directo",
+      motion_fade:"Fundido", motion_instant:"Directo", image:"Imagen",
       ranN:"Ejecutados {n} comandos", ranNShown:"{n} comandos",
       statsTitle:"Estad\u00edsticas de respuesta", stGen:"Generaci\u00f3n",
       stPrompt:"Prompt", stCache:"En cach\u00e9", stReason:"Razonamiento",

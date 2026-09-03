@@ -1044,21 +1044,34 @@ class Bridge:
 
         if t == "prompt":
             text = (msg.get("message") or "").strip()
-            if not text:
+            images = msg.get("images") or []
+            if not text and not images:
                 return
             if not self.state["running"]:
                 self.produced = False        # turno fresco: nada generado aun
-            self.push({"kind": "user", "text": text})
+            item = {"kind": "user", "text": text}
+            if images:
+                item["images"] = images
+            self.push(item)
             cmd = {"type": "prompt", "message": text}
+            if images:
+                cmd["images"] = images       # pi acepta images en el prompt
             if self.state["running"]:
                 cmd["streamingBehavior"] = msg.get("behavior", "followUp")
             self.send_pi(cmd)
             return
 
         if t == "steer":
-            self.push({"kind": "user", "text": msg.get("message", ""),
-                       "steer": True})
-            self.send_pi({"type": "steer", "message": msg.get("message", "")})
+            images = msg.get("images") or []
+            item = {"kind": "user", "text": msg.get("message", ""),
+                    "steer": True}
+            if images:
+                item["images"] = images
+            self.push(item)
+            cmd = {"type": "steer", "message": msg.get("message", "")}
+            if images:
+                cmd["images"] = images
+            self.send_pi(cmd)
             return
 
         if t == "open_project":
