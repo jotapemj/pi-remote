@@ -540,6 +540,7 @@ html.hide-think .think-turn{display:none}
   white-space:nowrap; opacity:0; transition:opacity .28s ease;
 }
 .readout.thinking .rword{opacity:1}
+.readout.prefill .rword{color:var(--amber); opacity:1}   /* reingiriendo contexto */
 .rword.out{opacity:0 !important}
 .rsecs{font:500 13px/1 var(--mono); color:var(--dim); white-space:nowrap}
 .rsecs:empty{display:none}
@@ -2589,10 +2590,32 @@ let lastDelta = 0, barShown = false;
 function thinking(){
   return state.running && !state.waiting && Date.now() - lastDelta > 700;
 }
+/* prefill = el modelo reingiere el contexto antes del primer token. pi no lo
+   avisa: se infiere. Certero al cambiar de sesion o compactar; por tiempo
+   cuando llama.cpp se reinicio y la reingesta tarda. */
+let produced = false, coldNext = false, turnStart = 0;
+const PREFILL_MS = 1500;
+function prefilling(){
+  return state.running && !state.waiting && !produced
+      && (coldNext                       // certero: sesion fria o compactacion
+          || (turnStart > 0 && Date.now() - turnStart > PREFILL_MS));  // heuristico
+}
+function coldTurn(){
+  produced = false; coldNext = true; turnStart = Date.now();
+  paintStatus();               // muestra "prefilling…" ya, sin esperar al tick
+}
+function noteProduced(){
+  if(produced) return;
+  produced = true; coldNext = false;
+  paintStatus();               // quita "prefilling…" y su clase en cuanto sale algo
+}
 function paintStatus(){
   const rs = $("#rsecs");
   if(rs) rs.textContent = state.running ? elapsed() : "";
-  $("#readout").classList.toggle("thinking", thinking());
+  const pre = prefilling();
+  $("#readout").classList.toggle("thinking", thinking() || pre);
+  $("#readout").classList.toggle("prefill", pre);
+  showWord(true);             // sigue el cambio prefill <-> palabra rotatoria
 }
 let statsAsked = 0;
 function secs(){
@@ -2659,6 +2682,8 @@ function connect(){
     else if(m.type === "item"){
       render(m.item);
       if(m.item.kind === "user"){ jumpTo(main.scrollHeight); stopSending(); }
+      if(m.item.kind === "tool") noteProduced();   // una tool ya es salida
+      if(m.item.key === "compacted") coldTurn();    // tras compactar, reingesta
       placeActions();
     }
     else if(m.type === "patch"){
@@ -2666,6 +2691,7 @@ function connect(){
       if(!el) return;
       const cur = Object.assign(el.__item || {}, it);
       el.__item = cur;
+      if(cur.key === "compacted") coldTurn();   // fin de compactacion: reingesta
       if(cur.kind === "note"){          // funde el texto, no lo cambia de golpe
         el.classList.add("fade");
         setTimeout(()=>{ el.innerHTML = html(cur);
@@ -2679,6 +2705,7 @@ function connect(){
     }
     else if(m.type === "delta"){
       const el = nodes.get(m.id); if(!el) return;
+      noteProduced();                    // primer token: fin del prefill
       const was = atBottom();
       el.__item = el.__item || {kind:"assistant", text:"", streaming:true, id:m.id};
       el.__item.text += m.delta;
@@ -2702,13 +2729,18 @@ function connect(){
       // fuera antes de pintar para que el proyecto abierto se re-fetch
       if(state.sessionName !== m.state.sessionName && state.cwd)
         delete sessCache[state.cwd];
-      state = m.state; paint();
+      state = m.state;
+      if(!wasRunning && state.running){    // arranca turno: se espera prefill
+        produced = false; turnStart = Date.now();
+      }
+      paint();
       if(wasRunning && !state.running) groupToolRun();
       placeActions();
     }
     else if(m.type === "cleared"){
       feed.innerHTML=""; nodes.clear();
       barShown = false;
+      coldNext = true; produced = false;   // sesion nueva: caché fria -> prefill
       if(state.cwd) delete sessCache[state.cwd];   // pudo nacer una sesion
       spinner(true);
       paint();
@@ -3326,7 +3358,7 @@ const STR = {
       movement:"Movement", movementSub:"How new text appears as it streams",
       motion_fade:"Fade", motion_instant:"Instant", image:"Image",
       output:"output", noOutput:"no output", command:"command",
-      pasted:"Pasted text {n} lines",
+      pasted:"Pasted text {n} lines", prefilling:"prefilling",
       ranN:"Ran {n} commands", ranNShown:"{n} commands",
       statsTitle:"Response stats", stGen:"Generation", stPrompt:"Prompt",
       stCache:"Cached", stReason:"Reasoning", stTotal:"Total", stCost:"Cost",
@@ -3365,7 +3397,7 @@ const STR = {
       clearqQ:"\u00bfDescartar los mensajes en cola?",
       typeAnswer:"escribir respuesta", answered:"respondido",
       tools:"herramienta", fold:"plegar", output:"salida", noOutput:"sin salida",
-      command:"comando", pasted:"Texto pegado {n} líneas",
+      command:"comando", pasted:"Texto pegado {n} líneas", prefilling:"procesando contexto",
       thinking:"Pensando\u2026", thoughtFor:"Pens\u00f3 durante {n} {u}",
       secOne:"segundo", secMany:"segundos", minOne:"minuto", minMany:"minutos",
       reasoning:"Razonamiento",
@@ -3546,10 +3578,12 @@ function pickWord(){
   while(w === curWord && list.length > 1) w = list[Math.random() * list.length | 0];
   curWord = w;
 }
-const wordText = () => curWord ? curWord + "\u2026" : "";
+// "prefilling\u2026" pisa la palabra rotatoria mientras reingesta el contexto
+const statusWord = () => prefilling() ? T("prefilling") : curWord;
+const wordText = () => { const w = statusWord(); return w ? w + "\u2026" : ""; };
 function showWord(fade){
   const el = $("#rword");
-  if(!el || el.textContent === wordText()) return;
+  if(!el || el.classList.contains("out") || el.textContent === wordText()) return;
   if(!fade){ el.textContent = wordText(); return; }
   el.classList.add("out");
   setTimeout(()=>{

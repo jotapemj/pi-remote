@@ -80,9 +80,12 @@ async def main():
                            "Razonamiento" in (hist or "")))
 
             # --- un delta de pensamiento NO esconde la palabra rotatoria
+            # (turno real de pensamiento: corriendo y sin token reciente)
             await js("feed.innerHTML=''; nodes.clear();"
                      " render({id:4, kind:'thinking', text:'a',"
-                     " streaming:true}); paint();"
+                     " streaming:true});"
+                     " state.running=true; state.waiting=false; lastDelta=0;"
+                     " paint();"
                      " $('#readout').classList.add('thinking');"
                      " ws.onmessage({data: JSON.stringify("
                      "{type:'delta', id:4, delta:'bc'})});")
