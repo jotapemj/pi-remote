@@ -108,8 +108,9 @@ async def main():
             await asyncio.sleep(0.3)
             f = await js("$('#rword').textContent")
             print("  F es: rword=%r" % f)
-            checks.append(("la etiqueta va traducida",
-                           f == "procesando contexto\u2026"))
+            # la etiqueta NO se traduce: todos los idiomas dicen igual
+            checks.append(("la etiqueta no se traduce",
+                           f == "prefilling\u2026"))
 
             checks.append(("sin errores de consola", not p.problems))
     return checks

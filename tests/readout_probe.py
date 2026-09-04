@@ -51,7 +51,7 @@ async def main():
             # al teclear (llega un delta) la palabra se esconde
             await js("ws.onmessage({data: JSON.stringify("
                      "{type:'delta', id:1, delta:' mas texto'})})")
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.15)   # a mitad del fundido, con colchon
             typing = await js("[$('#readout').classList.contains('thinking'),"
                               " Number(getComputedStyle($('#rword')).opacity)]")
             print("  al teclear: pensando=%s opacidad=%s" % tuple(typing))

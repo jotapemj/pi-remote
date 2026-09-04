@@ -540,7 +540,11 @@ html.hide-think .think-turn{display:none}
   white-space:nowrap; opacity:0; transition:opacity .28s ease;
 }
 .readout.thinking .rword{opacity:1}
-.readout.prefill .rword{color:var(--amber); opacity:1}   /* reingiriendo contexto */
+/* reingiriendo contexto: parpadeo suave y sin contador de tiempo */
+.readout.prefill .rword{color:var(--amber);
+  animation:prefillBlink 1.6s cubic-bezier(.45,0,.15,1) infinite}
+@keyframes prefillBlink{0%,100%{opacity:1} 50%{opacity:.35}}
+.readout.prefill .rsecs{display:none}
 .rword.out{opacity:0 !important}
 .rsecs{font:500 13px/1 var(--mono); color:var(--dim); white-space:nowrap}
 .rsecs:empty{display:none}
@@ -549,10 +553,23 @@ html.hide-think .think-turn{display:none}
   background:var(--raise); border:1px solid var(--rule);
   position:relative; overflow:hidden;
 }
+/* la primera vez que aparece: la fila se alarga y la barra entra en fade
+   desde transparente (sin crecer de ancho); el relleno lo pone la
+   transicion de .ctx i */
+.readout.show{animation:rowIn .45s cubic-bezier(.32,.72,0,1); overflow:hidden}
+@keyframes rowIn{
+  from{max-height:0; margin-bottom:0; opacity:0}
+  to{max-height:32px; margin-bottom:9px; opacity:1}
+}
+/* backwards: durante el delay la barra se queda invisible, asi que la
+   fila crece primero y la barra entra despues */
+.readout.show .ctx{animation:ctxIn .6s cubic-bezier(.45,0,.15,1) .35s backwards}
+@keyframes ctxIn{from{opacity:0}}
 .ctx i{
   position:absolute; left:0; top:0; bottom:0; width:0;
   background:var(--mint); opacity:.32; border-radius:11px;
-  transition:width .45s cubic-bezier(.32,.72,0,1), background-color .3s;
+  /* relleno: lento y con velocidad suave (frena a los dos extremos) */
+  transition:width .8s cubic-bezier(.45,0,.15,1), background-color .3s;
 }
 .ctx.hot i{background:var(--amber)}
 .ctx.max i{background:var(--coral)}
@@ -2392,8 +2409,26 @@ function paint(){
   const wasHidden = $("#readout").hidden;
   if(busy) barShown = true;                 // una vez aparece, se queda
   $("#readout").hidden = !(busy || barShown);
-  if((busy || barShown) && wasHidden)       // recien aparecida: no tapar
+  if((busy || barShown) && wasHidden){      // recien aparecida: no tapar
+    const ro = $("#readout");
+    ro.classList.remove("show"); void ro.offsetWidth; ro.classList.add("show");
+    // el relleno nace de cero: paintCtx corre despues en este mismo pase,
+    // asi que el reset se deja para el frame siguiente. Sin transicion en el
+    // reset (si no, la barra baja animada desde el valor viejo) y con flag:
+    // ningun paintCtx ajenos lo pisan durante la secuencia. Espera a que la
+    // barra haya entrado (fila 450 ms + fade hasta ~950 ms) antes de subir
+    ctxIntro = true;
+    requestAnimationFrame(()=> {
+      const f = $("#bar i");
+      f.style.transition = "none";
+      f.style.width = "0%";
+      void f.offsetWidth;
+      f.style.transition = "";
+      setTimeout(()=>{ ctxIntro = false; paintCtx(); }, 1000);
+    });
     requestAnimationFrame(()=> jumpTo(main.scrollHeight));
+  }
+  if(!(busy || barShown)) $("#readout").classList.remove("show");
   $("#send").classList.toggle("halting", busy);
   $("#field").classList.toggle("busy", busy);
   if(busy) stopSending();
@@ -2784,7 +2819,7 @@ function paintCtx(){
     fill.style.width = "0%"; label.textContent = ""; return;
   }
   const p = Math.max(0, Math.min(100, c.percent));
-  fill.style.width = p + "%";
+  if(!ctxIntro) fill.style.width = p + "%";   // durante la entrada: a cero
   bar.classList.toggle("hot", p > 60 && p <= 85);
   bar.classList.toggle("max", p > 85);
   label.textContent = p.toFixed(2) + "%"
@@ -2795,7 +2830,7 @@ function elapsed(){
     ? Math.round(Date.now()/1000 - state.startedAt) + "s" : "";
 }
 /* piensa = trabaja pero no ha escrito texto en el ultimo instante */
-let lastDelta = 0, barShown = false;
+let lastDelta = 0, barShown = false, ctxIntro = false;   // secuencia de entrada de la barra
 function thinking(){
   return state.running && !state.waiting && Date.now() - lastDelta > 700;
 }
@@ -3606,7 +3641,7 @@ const STR = {
       clearqQ:"\u00bfDescartar los mensajes en cola?",
       typeAnswer:"escribir respuesta", answered:"respondido",
       tools:"herramienta", fold:"plegar", output:"salida", noOutput:"sin salida",
-      command:"comando", pasted:"Texto pegado {n} líneas", prefilling:"procesando contexto",
+      command:"comando", pasted:"Texto pegado {n} líneas", prefilling:"prefilling",
       thinking:"Pensando\u2026", thoughtFor:"Pens\u00f3 durante {n} {u}",
       secOne:"segundo", secMany:"segundos", minOne:"minuto", minMany:"minutos",
       reasoning:"Razonamiento",
@@ -3653,7 +3688,7 @@ const STR = {
       typeAnswer:"Antwort eingeben", answered:"beantwortet",
       tools:"Werkzeug", fold:"einklappen", output:"Ausgabe",
       noOutput:"keine Ausgabe", command:"Befehl",
-      pasted:"Einf\u00fcgung: {n} Zeilen", prefilling:"Kontext wird verarbeitet",
+      pasted:"Einf\u00fcgung: {n} Zeilen", prefilling:"prefilling",
       thinking:"Denkt\u2026", thoughtFor:"{n} {u} nachgedacht",
       secOne:"Sekunde", secMany:"Sekunden", minOne:"Minute", minMany:"Minuten",
       reasoning:"Gedankengang",
@@ -3700,7 +3735,7 @@ const STR = {
       typeAnswer:"Saisir une r\u00e9ponse", answered:"r\u00e9pondu",
       tools:"Outil", fold:"replier", output:"sortie",
       noOutput:"aucune sortie", command:"commande",
-      pasted:"Texte coll\u00e9, {n} lignes", prefilling:"traitement du contexte",
+      pasted:"Texte coll\u00e9, {n} lignes", prefilling:"prefilling",
       thinking:"R\u00e9flexion\u2026", thoughtFor:"r\u00e9fl\u00e9chi pendant {n} {u}",
       secOne:"seconde", secMany:"secondes", minOne:"minute", minMany:"minutes",
       reasoning:"Raisonnement",
@@ -3747,7 +3782,7 @@ const STR = {
       typeAnswer:"digite a resposta", answered:"respondido",
       tools:"Ferramenta", fold:"recolher", output:"sa\u00edda",
       noOutput:"sem sa\u00edda", command:"comando",
-      pasted:"Texto colado, {n} linhas", prefilling:"a processar o contexto",
+      pasted:"Texto colado, {n} linhas", prefilling:"prefilling",
       thinking:"A pensar\u2026", thoughtFor:"pensou durante {n} {u}",
       secOne:"segundo", secMany:"segundos", minOne:"minuto", minMany:"minutos",
       reasoning:"Racioc\u00ednio",
@@ -3794,7 +3829,7 @@ const STR = {
       typeAnswer:"输入回答", answered:"已回答",
       tools:"工具", fold:"收起", output:"输出",
       noOutput:"无输出", command:"命令",
-      pasted:"粘贴文本，{n} 行", prefilling:"正在处理上下文",
+      pasted:"粘贴文本，{n} 行", prefilling:"prefilling",
       thinking:"思考中…", thoughtFor:"思考了 {n} {u}",
       secOne:"秒", secMany:"秒", minOne:"分钟", minMany:"分钟",
       reasoning:"推理",
