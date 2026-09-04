@@ -117,7 +117,8 @@ async def main():
                 ("pero sin boton de copiar", cp[1] == "none"),
             ]
 
-            # help no cierra el menu; Aceptar vuelve a el, con un solo blur
+            # help no cierra el menu: el dialogo se abre sobre la hoja con
+            # su propio velo (oscurece el fondo); Aceptar vuelve al menu
             await js("menuSheet(); paintSheet('root')")
             await asyncio.sleep(0.15)
             await js("[...document.querySelectorAll('#sheetBody .pick')]"
@@ -156,19 +157,22 @@ async def main():
             checks.append(("en escritorio enviar mide igual que el comando",
                            sz[0] == slw and sz[1] == slw))
 
-            # un solo blur: en escritorio la hoja difumina; el dialogo, no
+            # en escritorio la hoja difumina; el dialogo sobre la hoja lleva
+            # su propio velo y blur: el fondo se oscurece al abrirse
             await js("menuSheet(); paintSheet('root')")
             await asyncio.sleep(0.15)
             await js("[...document.querySelectorAll('#sheetBody .pick')]"
                      ".find(b => /Ayuda/.test(b.textContent)).click()")
             await asyncio.sleep(0.25)
             bl = await js("[getComputedStyle($('#sheet')).backdropFilter,"
-                          " getComputedStyle($('#modal')).backdropFilter]")
-            print("  blur escritorio: hoja=%r dialogo=%r" % tuple(bl))
+                          " getComputedStyle($('#modal')).backdropFilter,"
+                          " getComputedStyle($('#modal')).backgroundColor]")
+            print("  blur escritorio: hoja=%r dialogo=%r velo=%r"
+                  % (bl[0], bl[1], bl[2]))
             checks += [
                 ("la hoja difumina el fondo", "blur" in (bl[0] or "")),
-                ("el dialogo sobre la hoja no dobla el blur",
-                 bl[1] in ("none", "", None)),
+                ("el dialogo sobre la hoja lleva su propio velo",
+                 "blur" in (bl[1] or "") and bl[2] != "rgba(0, 0, 0, 0)"),
             ]
 
             checks.append(("sin errores de consola", not p.problems))

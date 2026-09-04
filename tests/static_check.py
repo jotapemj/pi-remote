@@ -63,8 +63,8 @@ checks = [
      '<div id="box"' in body and 'contenteditable="true"' in body
      and body.index('<button class="send" id="send"')
          > body.index('<div id="box"')),
-    ("un solo blur: la hoja difumina, el dialogo sobre ella no",
-     "#sheet.open ~ .modal{" in css),
+    ("el dialogo sobre la hoja lleva su propio velo y oscurece",
+     "#sheet.open ~ .modal" not in css),
     ("el interruptor usa el acento del tema",
      '.sw[aria-checked="true"]{background:var(--amber)}' in css),
     ("la barra lateral se anima en escritorio",

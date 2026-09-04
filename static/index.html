@@ -984,13 +984,6 @@ footer > *{position:relative; z-index:1}
   opacity:1; visibility:visible;
   transition:opacity .2s ease, visibility 0s;
 }
-/* un dialogo sobre la hoja no dobla veil ni blur: usa los de la hoja.
-   Sin '.open': asi sigue transparente mientras se desvanece al cerrar,
-   o volveria a pintar su veil un instante (parpadeo al salir). */
-#sheet.open ~ .modal{
-  background:transparent;
-  -webkit-backdrop-filter:none; backdrop-filter:none;
-}
 .mcard{
   background:var(--surface); border:1px solid var(--rule);
   border-radius:var(--r-card); box-shadow:var(--cast-card);
