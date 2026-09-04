@@ -300,6 +300,9 @@ back out and returns it to the composer, unsent.
 A run of tool calls collapses into one expandable row once the turn ends —
 reasoning the model interleaves between them does not break the run. Each tool
 box shows the full command it ran and its output, one below the other.
+A tool that returns an image — `read` over a png — shows it as a
+thumbnail under the output; tapping it opens a lightbox with pinch zoom
+and drag to close.
 
 <!-- CAPTURA 7 — el menú de ajustes: apariencia con auto/claro/oscuro, la
      tarjeta de idioma, y ayuda / acerca de / donar. Una en cada tema, lado

@@ -49,8 +49,8 @@ checks = [
      and ".seg button" in css),
     ("la card Movement ofrece Fundido y Directo",
      'T("movement")' in h and 'motion_fade:' in h and 'motion_instant:' in h),
-    ("los edits nacen plegados",
-     'const open = !done || it.status === "error"' in h),
+    ("hechos y fallidos nacen plegados; solo corriendo abre",
+     'const open = !done ?' in h),
     ("el pensamiento no lleva boton de copiar",
      ".think .copyb{display:none}" in css),
     ("los botones de la toolbar no llevan caja",
@@ -127,6 +127,11 @@ checks = [
     ("boton '+' que abre el popup de comandos e imagen",
      'id="slashBtn"' in body and 'id="plusMenu"' in body
      and ".plusmenu{" in css and 'data-act="image"' in body),
+    ("la app no hace pinch-zoom (viewport bloqueado)",
+     "user-scalable=no" in h),
+    ("el lightbox amplia con X y gestos propios",
+     'id="lbClose"' in body and ".lbx{" in css
+     and "function openLightbox" in h and 'touch-action:none' in css),
 ]
 root = re.search(r":root\{(.*?)\n\}", css, re.S).group(1)
 dead = [t for t in re.findall(r"(--[\w-]+)\s*:", root)

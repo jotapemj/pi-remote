@@ -92,7 +92,7 @@ async def main():
             ]
 
             # la caja de un comando: bloque COMANDO (completo, sin recorte)
-            # y bloque SALIDA con su texto; las que fallan salen abiertas
+            # y bloque SALIDA con su texto; las que fallan tambien nacen cerradas
             longcmd = ("Get-ChildItem -Recurse -File | Where-Object "
                        "{ $_.FullName -notmatch 'node_modules' } | "
                        "Format-Table -AutoSize")
@@ -128,8 +128,8 @@ async def main():
             checks += [
                 ("la salida tiene cabecera y texto",
                  con[0] is True and "total 48" in con[1]),
-                ("un comando que falla sale abierto, con su error",
-                 con[2] is True and con[3] is True),
+                ("un comando que falla nace cerrado, con su error dentro",
+                 con[2] is False and con[3] is True),
                 ("el bloque COMANDO trae el comando entero sin recortar",
                  con[4] == longcmd),
                 ("y ajusta linea en vez de desbordar", con[5] == "pre-wrap"),

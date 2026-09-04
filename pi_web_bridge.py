@@ -353,6 +353,30 @@ def text_of(content):
                       if b.get("type") == "text")
 
 
+IMG_MIME = re.compile(r"^image/(png|jpe?g|webp|gif)$", re.I)
+IMG_CAP = 1_500_000              # base64 chars; lo mas gordo no se guarda
+
+
+def images_of(content):
+    """Bloques de imagen (base64) de un content de mensaje o tool result.
+
+    Una herramienta como `read` sobre una imagen devuelve el fichero como
+    ImageContent junto al texto "Read image file". pi ya la redimensiona;
+    aun asi se descarta lo que pase del tope, para no engordar el snapshot.
+    """
+    out = []
+    for b in content or []:
+        if not isinstance(b, dict):
+            continue
+        data = b.get("data")
+        if (b.get("type") == "image" and data
+                and IMG_MIME.match(b.get("mimeType") or "")
+                and len(data) <= IMG_CAP):
+            out.append({"type": "image", "data": data,
+                        "mimeType": b["mimeType"]})
+    return out
+
+
 # ---------------------------------------------------------------- browsing
 
 def browse_root():
@@ -800,12 +824,14 @@ class Bridge:
             call = ev.get("toolCallId")
             for item in reversed(self.log):
                 if item.get("kind") == "tool" and item.get("callId") == call:
-                    out = "\n".join(
-                        b.get("text", "") for b in
-                        (ev.get("result") or {}).get("content", []))
-                    self.patch(item,
-                               status="error" if ev.get("isError") else "done",
-                               output=out[:8000])
+                    content = (ev.get("result") or {}).get("content", [])
+                    fields = dict(
+                        status="error" if ev.get("isError") else "done",
+                        output=text_of(content)[:8000])
+                    imgs = images_of(content)      # p.ej. read de una imagen
+                    if imgs:
+                        fields["images"] = imgs
+                    self.patch(item, **fields)
                     break
             self.state["tool"] = None
             self.prefill_t0 = time.time()
@@ -982,13 +1008,19 @@ class Bridge:
                 # half of what a live turn keeps: the whole history
                 # travels in one websocket frame
                 out = text_of(m.get("content"))[:4000]
+                imgs = images_of(m.get("content"))
                 status = "error" if m.get("isError") else "done"
                 item = calls.get(m.get("toolCallId"))
                 if item:
                     item.update(status=status, output=out)
+                    if imgs:
+                        item["images"] = imgs
                 else:                       # result without its call in range
-                    add({"kind": "tool", "name": m.get("toolName"),
-                         "status": status, "output": out, "t": stamp})
+                    it = {"kind": "tool", "name": m.get("toolName"),
+                          "status": status, "output": out, "t": stamp}
+                    if imgs:
+                        it["images"] = imgs
+                    add(it)
 
         for note in notes:                  # recent warnings survive the redraw
             self.log.append(note)

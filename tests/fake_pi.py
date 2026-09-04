@@ -13,6 +13,9 @@ def out(o):
 USAGE = {"input": 12000, "output": 240, "cacheRead": 0, "cacheWrite": 0,
          "reasoning": 30, "totalTokens": 12270, "cost": {"total": 0}}
 
+PNG_B64 = ("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8"
+           "z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
+
 def say(chunks, final):
     out({"type": "message_start",
          "message": {"role": "assistant", "content": []}})
@@ -111,9 +114,35 @@ def image_turn(nimg):
     out({"type": "agent_settled"})
 
 
+def readimg_turn():
+    """Una herramienta `read` que devuelve una imagen: prueba que el puente
+    reenvia el ImageContent del tool result al cliente."""
+    call = "cimg"
+    out({"type": "agent_start"})
+    out({"type": "message_start",
+         "message": {"role": "assistant", "content": []}})
+    out({"type": "tool_execution_start", "toolCallId": call,
+         "toolName": "read", "args": {"path": "shot.png"}})
+    time.sleep(0.15)
+    out({"type": "tool_execution_end", "toolCallId": call, "toolName": "read",
+         "result": {"content": [
+             {"type": "text", "text": "Read image file [image/png]"},
+             {"type": "image", "data": PNG_B64, "mimeType": "image/png"}]},
+         "isError": False})
+    out({"type": "message_end", "message": {
+        "role": "assistant",
+        "content": [{"type": "toolCall", "id": call, "name": "read"}],
+        "usage": USAGE}})
+    out({"type": "agent_end", "messages": [], "willRetry": False})
+    out({"type": "agent_settled"})
+
+
 def turn(text, nimg=0):
     if nimg:
         image_turn(nimg)
+        return
+    if "readimg" in text:
+        readimg_turn()
         return
     if "slow" in text:
         slow_turn(text)

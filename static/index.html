@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#12151a">
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%3E%3Crect%20width%3D%2724%27%20height%3D%2724%27%20rx%3D%275%27%20fill%3D%27%2312151a%27%2F%3E%3Cg%20transform%3D%27translate%282.4%202.4%29%20scale%28.8%29%27%3E%3Cpath%20d%3D%27M20%2C4H4C2.89%2C4%2C2%2C4.9%2C2%2C6v12c0%2C1.1%2C0.89%2C2%2C2%2C2h16c1.1%2C0%2C2-0.9%2C2-2V6C22%2C4.9%2C21.11%2C4%2C20%2C4z%20M20%2C18H4V8h16V18z%20M18%2C17h-6v-2%20h6V17z%20M7.5%2C17l-1.41-1.41L8.67%2C13l-2.59-2.59L7.5%2C9l4%2C4L7.5%2C17z%27%20fill%3D%27%23f2a63b%27%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E">
 <title>pi remote</title>
@@ -443,6 +443,33 @@ html.hide-think .think-turn{display:none}
 .ccmd .ch .i, .cout .ch .i{width:13px; height:13px}
 .ccmd pre, .cout pre{border-top:none; padding-top:2px}
 .cempty{color:var(--faint); font-style:italic}
+/* imagen que devuelve una herramienta: miniatura en la caja, ampliable */
+.toolimgs{padding:8px 11px; display:flex; flex-wrap:wrap; gap:8px}
+.tim{
+  max-height:160px; max-width:100%; border-radius:8px;
+  border:1px solid var(--rule); cursor:zoom-in; display:block;
+}
+.lightbox{
+  position:fixed; inset:0; z-index:100; display:flex; padding:20px;
+  align-items:center; justify-content:center; overflow:hidden;
+  background:var(--veil); opacity:0; transition:opacity .2s ease;
+  touch-action:none;                 /* los gestos los maneja el JS */
+}
+.lightbox.open{opacity:1}
+.lightbox[hidden]{display:none}
+.lightbox img{
+  max-width:100%; max-height:100%; border-radius:10px;
+  box-shadow:0 24px 60px #0009;
+  transform-origin:center center; will-change:transform;
+  user-select:none; -webkit-user-drag:none; touch-action:none;
+}
+.lbx{
+  position:absolute; top:calc(12px + env(safe-area-inset-top)); right:14px;
+  z-index:2; width:40px; height:40px; border-radius:50%; border:none;
+  background:#0007; color:#fff; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+.lbx .i{width:22px; height:22px}
 /* cuenta de lineas en la fila plegada, como en la tui */
 .tally{display:flex;gap:7px;flex:none;font:600 11px/1 var(--mono)}
 .tally .plus{color:var(--add)}
@@ -1279,6 +1306,11 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
     <button class="ok" id="modalOk">OK</button>
   </div>
 </div></div>
+
+<div class="lightbox" id="lightbox" hidden>
+  <button class="lbx" id="lbClose" aria-label="close"></button>
+  <img alt="" draggable="false">
+</div>
 
 <script>
 const TOKEN = (() => {
@@ -2211,11 +2243,22 @@ function html(it){
     const tally = it.added != null
       ? `<span class="tally"><span class="plus">+${it.added}</span>`
         + `<span class="minus">-${it.removed}</span></span>` : "";
-    const open = !done || it.status === "error" ? " open" : "";  // los edits nacen plegados
+    // imagen que devuelve la herramienta (p.ej. read de un png): miniatura
+    // bajo la salida; al pulsarla se abre en grande
+    const timg = (it.images && it.images.length)
+      ? `<div class="cout"><div class="ch">${ico("image")}`
+        + `<span>${esc(T("image"))}</span></div><div class="toolimgs">`
+        + it.images.map(im =>
+            /^image\/(png|jpe?g|webp|gif)$/.test(im.mimeType || "")
+              ? `<img class="tim" src="data:${im.mimeType};base64,${im.data}"`
+                + ` alt="">` : "").join("")
+        + `</div></div>`
+      : "";
+    const open = !done ? " open" : "";  // hechos y fallidos nacen plegados
     return `<details class="tool" data-s="${it.status||"running"}"${open}>
       <summary><span class="dot"></span>${ico(toolIcon(it.name))}`
     + `<span class="nm">${esc(it.name||T("tools"))}${arg}</span>${tally}`
-    + `</summary><div class="tbody">${cmd}${out}</div></details>`;
+    + `</summary><div class="tbody">${cmd}${out}${timg}</div></details>`;
   }
   if(it.kind === "ask"){
     const done = it.answered ? " done" : "";
@@ -2267,6 +2310,8 @@ function legacyCopy(text){
 }
 /* los <details> nativos abren de golpe: se anima la altura a mano */
 feed.addEventListener("click", e=>{
+  const tim = e.target.closest(".tim");     // miniatura de tool -> a lo grande
+  if(tim){ e.stopPropagation(); openLightbox(tim.src); return; }
   const uf = e.target.closest(".ufold");
   if(uf){ foldToggle(uf.closest(".blk-you")); return; }
   const gh = e.target.closest(".ghead");
@@ -2767,6 +2812,94 @@ function openModal(title, body, run, opts){
 const modal = (title, body) => openModal(title, body, null);
 const confirmModal = (title, body, run) => openModal(title, body, run);
 function closeModal(){ $("#modal").classList.remove("open"); }
+
+/* lightbox: la imagen de una herramienta, a pantalla. Toca fuera o Esc cierra */
+const LB = $("#lightbox"), LBimg = LB.querySelector("img");
+const COARSE = matchMedia("(pointer:coarse)");
+$("#lbClose").innerHTML = ico("close");
+let lbScale = 1, lbX = 0, lbY = 0;
+function lbApply(){
+  LBimg.style.transform = `translate(${lbX}px,${lbY}px) scale(${lbScale})`;
+}
+function openLightbox(src){
+  LBimg.style.transition = "none";
+  LBimg.src = src; lbScale = 1; lbX = 0; lbY = 0; lbApply();
+  LB.style.opacity = ""; LB.hidden = false;
+  requestAnimationFrame(()=> LB.classList.add("open"));
+}
+function closeLightbox(){
+  LB.classList.remove("open"); LB.style.opacity = "";
+  setTimeout(()=>{ LB.hidden = true; LBimg.src = "";
+                   LBimg.style.transition = "none";
+                   lbScale = 1; lbX = 0; lbY = 0; lbApply(); }, 200);
+}
+$("#lbClose").onclick = e => { e.stopPropagation(); closeLightbox(); };
+// en escritorio, tocar fuera cierra; en movil no (se usa la X o arrastrar)
+LB.addEventListener("click", e => {
+  if(e.target === LB && !COARSE.matches) closeLightbox();
+});
+addEventListener("keydown", e=>{
+  if(e.key === "Escape" && !LB.hidden) closeLightbox();
+});
+
+/* gestos del lightbox: pinch para zoom, un dedo para desplazar (con zoom) o
+   arrastrar abajo para cerrar (sin zoom). El resto de la app no hace zoom. */
+const lbpts = new Map();
+let lbDist = 0, lbStartScale = 1, lbDrag = false, lbSX = 0, lbSY = 0,
+    lbPX = 0, lbPY = 0;
+const lbHyp = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+LB.addEventListener("touchstart", e => {
+  for(const t of e.changedTouches)
+    lbpts.set(t.identifier, {x: t.clientX, y: t.clientY});
+  const p = [...lbpts.values()];
+  LBimg.style.transition = "none";
+  if(p.length === 2){ lbDist = lbHyp(p[0], p[1]); lbStartScale = lbScale; }
+  else if(p.length === 1){
+    lbDrag = true; lbSX = p[0].x; lbSY = p[0].y; lbPX = lbX; lbPY = lbY;
+  }
+}, {passive: false});
+LB.addEventListener("touchmove", e => {
+  e.preventDefault();
+  for(const t of e.changedTouches)
+    if(lbpts.has(t.identifier)) lbpts.set(t.identifier, {x: t.clientX, y: t.clientY});
+  const p = [...lbpts.values()];
+  if(p.length >= 2 && lbDist){
+    lbScale = Math.max(1, Math.min(5, lbStartScale * lbHyp(p[0], p[1]) / lbDist));
+    lbApply();
+  } else if(p.length === 1 && lbDrag){
+    const dx = p[0].x - lbSX, dy = p[0].y - lbSY;
+    if(lbScale > 1.02){ lbX = lbPX + dx; lbY = lbPY + dy; lbApply(); }
+    else {                              // sin zoom: arrastrar abajo cierra
+      lbY = Math.max(0, dy);
+      LBimg.style.transform = `translateY(${lbY}px) scale(1)`;
+      LB.style.opacity = String(Math.max(0, 1 - lbY / 320));
+    }
+  }
+}, {passive: false});
+function lbEnd(e){
+  for(const t of e.changedTouches) lbpts.delete(t.identifier);
+  if(lbpts.size === 0){
+    if(lbScale <= 1.02){
+      if(lbY > 90){                     // arrastrado abajo: desliza y cierra
+        LBimg.style.transition = "transform .2s ease";
+        LBimg.style.transform = `translateY(${innerHeight}px) scale(1)`;
+        closeLightbox(); return;        // NO resetear ahora: eso era el glitch
+      }
+      LBimg.style.transition = "transform .2s ease";   // no llego: vuelve suave
+      lbScale = 1; lbX = 0; lbY = 0; LB.style.opacity = ""; lbApply();
+    }
+    lbDrag = false;
+  } else if(lbpts.size === 1){          // de pinch a un dedo: re-anclar el pan
+    const q = [...lbpts.values()][0];
+    lbDrag = true; lbSX = q.x; lbSY = q.y; lbPX = lbX; lbPY = lbY;
+  }
+}
+LB.addEventListener("touchend", lbEnd);
+LB.addEventListener("touchcancel", lbEnd);
+
+// la app entera no debe hacer pinch-zoom (iOS ignora user-scalable=no)
+document.addEventListener("gesturestart", e => e.preventDefault());
+document.addEventListener("gesturechange", e => e.preventDefault());
 $("#modal").onclick = e => { if(e.target.id === "modal") closeModal(); };
 
 /* el tema se aplica al tocarlo, para verlo, pero no queda hasta Aceptar */
