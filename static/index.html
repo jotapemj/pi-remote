@@ -366,10 +366,16 @@ main{flex:1; overflow-y:auto; padding:16px var(--gut) 8px; position:relative;
 .think .tw{width:16px; height:16px; opacity:.7;
   transition:transform .2s ease}
 .think[open] .tw{transform:rotate(90deg)}
+/* el padding vertical vive dentro: con padding propio, height:0 no
+   llegaba a cero y la animacion nacía y moría en un residuo de 9 px */
 .think .tbody{
-  padding:2px 11px 7px 13px; color:var(--dim);
+  padding:0 11px 0 13px; color:var(--dim);
   font:400 13px/1.55 var(--sans); font-style:italic;
+  /* apertura y cierre con velocidad suave, como el relleno del contexto */
+  transition:height .25s cubic-bezier(.45,0,.15,1);
 }
+.think .tinn{padding:2px 0 7px}
+.think.moving .tbody{overflow:hidden}
 .think .tbody p{margin:0 0 .5em}
 .think .tbody p:last-child{margin-bottom:0}
 .think .tbody code{font-style:normal; font-family:var(--mono)}
@@ -2212,7 +2218,7 @@ function html(it){
     return `<details class="think">`
       + `<summary>${ico("think")}<span class="tlabel">${esc(lab)}</span>`
       + `${ico("chevron", "tw")}</summary>`
-      + `<div class="tbody" data-body>${md(it.text || "")}</div></details>`;
+      + `<div class="tbody"><div class="tinn" data-body>${md(it.text || "")}</div></div></details>`;
   }
   if(it.kind === "assistant")
     return `<div class="said${it.streaming ? " stream" : ""}" data-body>${md(it.text)}${tail(it)}</div>`;
@@ -2331,7 +2337,7 @@ feed.addEventListener("click", e=>{
     }
     return;
   }
-  const sum = e.target.closest(".tool > summary");
+  const sum = e.target.closest(".tool > summary, .think > summary");
   if(!sum) return;
   const det = sum.parentNode;
   const body = det.querySelector(":scope > .tbody, :scope > pre, :scope > .diff");
@@ -2343,9 +2349,13 @@ feed.addEventListener("click", e=>{
   };
   det.classList.add("moving");
   if(det.open){
+    // doble rAF tambien al cerrar: con uno solo Chrome no dispara
+    // la transicion y el cuerpo saltaba a cero al instante
     body.style.height = body.scrollHeight + "px";
-    requestAnimationFrame(()=>{ body.style.height = "0px"; });
-    setTimeout(()=>{ det.open = false; done(); }, 240);
+    requestAnimationFrame(()=>{ requestAnimationFrame(()=>{
+      body.style.height = "0px";
+    });});
+    setTimeout(()=>{ det.open = false; done(); }, 300);
   } else {
     // doble rAF: el contenido acaba de renderizarse al abrir el <details>
     // y Chrome no dispara la transicion si el cambio llega en la misma
@@ -2356,7 +2366,7 @@ feed.addEventListener("click", e=>{
     requestAnimationFrame(()=>{ requestAnimationFrame(()=>{
       body.style.height = h + "px";
     });});
-    setTimeout(done, 280);
+    setTimeout(done, 320);
   }
 });
 
