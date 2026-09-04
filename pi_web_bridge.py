@@ -478,7 +478,7 @@ class Bridge:
             "alive": True, "cwd": "", "waiting": False, "recent": [],
             "sessionFile": None,
             # como servicio nadie lee la consola: el aviso va a la pantalla
-            "readOnly": READ_ONLY, "version": VERSION,
+            "readOnly": READ_ONLY, "tokenMade": TOKEN_MADE, "version": VERSION,
         }
         self.pending = OrderedDict()         # dialog id -> item id
         self.compacting = None               # la nota "compactando" en curso

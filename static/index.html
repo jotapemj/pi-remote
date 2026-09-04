@@ -2954,7 +2954,9 @@ function aboutModal(){
     `<p><b>pi-remote</b></p><p>Jotapeveloper 2026 &middot; MIT</p>`
     + `<p style="color:var(--faint)">v${esc(state.version || "?")}</p>`
     + `<p style="margin-top:12px"><b>${esc(T("access"))}:</b> `
-    + `${esc(state.readOnly === true ? T("noToken") : T("withToken"))}</p>`
+    + `${state.readOnly === true
+        ? `<span style="color:var(--coral)">${esc(T("accessOff"))}</span>`
+        : esc(state.tokenMade === true ? T("tokenRun") : T("tokenSet"))}</p>`
     + `<p style="margin-top:14px"><b>${esc(T("thirdParty"))}</b></p><dl>`
     + `<dt>FastAPI</dt><dd>MIT</dd>`
     + `<dt>Uvicorn</dt><dd>BSD-3-Clause</dd>`
@@ -3735,7 +3737,8 @@ const STR = {
       loading:"loading...", noSessionsYet:"no sessions yet",
       copyFailed:"the browser would not let me copy",
       noToken:"read only: set PI_WEB_TOKEN to run anything",
-      withToken:"a token is required", access:"Access",
+      withToken:"a token is required", tokenRun:"protected with a temporary token",
+      tokenSet:"protected with a fixed token", accessOff:"disabled", access:"Access",
       readOnlyCmd:"needs a token",
       close:"close", theme:"Theme", fontSize:"Text size", font:"Font",
       openSession:"open", deleteSession:"remove session",
@@ -3781,7 +3784,8 @@ const STR = {
       loading:"cargando...", noSessionsYet:"a\u00fan sin sesiones",
       copyFailed:"el navegador no ha dejado copiar",
       noToken:"solo lectura: pon PI_WEB_TOKEN para poder ejecutar",
-      withToken:"hace falta token", access:"Acceso",
+      withToken:"hace falta token", tokenRun:"protegido con token temporal",
+      tokenSet:"protegido con token fijo", accessOff:"desactivado", access:"Acceso",
       readOnlyCmd:"necesita token",
       close:"cerrar", theme:"Tema", fontSize:"Tama\u00f1o del texto",
       font:"Fuente",
@@ -3827,7 +3831,8 @@ const STR = {
       loading:"wird geladen ...", noSessionsYet:"noch keine Sitzungen",
       copyFailed:"der Browser hat das Kopieren nicht erlaubt",
       noToken:"nur Lesezugriff: PI_WEB_TOKEN setzen, um etwas auszuf\u00fchren",
-      withToken:"ein Token ist erforderlich", access:"Zugang",
+      withToken:"ein Token ist erforderlich", tokenRun:"geschützt mit temporärem Token",
+      tokenSet:"geschützt mit festem Token", accessOff:"deaktiviert", access:"Zugang",
       readOnlyCmd:"ben\u00f6tigt ein Token",
       close:"schlie\u00dfen", theme:"Design", fontSize:"Textgr\u00f6\u00dfe",
       font:"Schriftart",
@@ -3875,7 +3880,8 @@ const STR = {
       loading:"chargement\u2026", noSessionsYet:"aucune session pour l'instant",
       copyFailed:"le navigateur n'a pas autoris\u00e9 la copie",
       noToken:"lecture seule : d\u00e9finissez PI_WEB_TOKEN pour agir",
-      withToken:"un jeton est requis", access:"Acc\u00e8s",
+      withToken:"un jeton est requis", tokenRun:"protégé par un jeton temporaire",
+      tokenSet:"protégé par un jeton fixe", accessOff:"désactivé", access:"Acc\u00e8s",
       readOnlyCmd:"n\u00e9cessite un jeton",
       close:"Fermer", theme:"Th\u00e8me", fontSize:"Taille du texte", font:"Police",
       openSession:"ouvrir", deleteSession:"supprimer la session",
@@ -3922,7 +3928,8 @@ const STR = {
       loading:"a carregar\u2026", noSessionsYet:"ainda sem sess\u00f5es",
       copyFailed:"o navegador n\u00e3o permitiu copiar",
       noToken:"s\u00f3 leitura: defina PI_WEB_TOKEN para agir",
-      withToken:"\u00e9 preciso um token", access:"Acesso",
+      withToken:"\u00e9 preciso um token", tokenRun:"protegido com token temporário",
+      tokenSet:"protegido com token fixo", accessOff:"desativado", access:"Acesso",
       readOnlyCmd:"precisa de token",
       close:"Fechar", theme:"Tema", fontSize:"tamanho do texto", font:"tipo de letra",
       openSession:"abrir", deleteSession:"remover sess\u00e3o",
@@ -3969,7 +3976,8 @@ const STR = {
       loading:"加载中…", noSessionsYet:"暂无会话",
       copyFailed:"浏览器不允许复制",
       noToken:"只读：设置 PI_WEB_TOKEN 才能操作",
-      withToken:"需要令牌", access:"访问",
+      withToken:"需要令牌", tokenRun:"临时令牌保护中",
+      tokenSet:"固定令牌保护中", accessOff:"已禁用", access:"访问",
       readOnlyCmd:"需要令牌",
       close:"关闭", theme:"主题", fontSize:"文字大小", font:"字体",
       openSession:"打开", deleteSession:"删除会话",
