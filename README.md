@@ -188,6 +188,9 @@ it, and no amount of configuration fixes that — check your power plan.
 
 The bridge starts with no project. Pick a folder and it launches pi there;
 the choice is remembered, so after a restart it comes back where you left off.
+The last open session comes back too: on startup the bridge reopens that
+exact session file, as long as it still exists in the project's session
+folder — a trashed or moved one falls back to a fresh session.
 
 <!-- CAPTURA 2 — la barra lateral abierta con tres o cuatro proyectos, uno
      de ellos desplegado mostrando "sesión nueva" en ámbar y sus sesiones

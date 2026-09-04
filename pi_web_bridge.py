@@ -436,12 +436,43 @@ def read_recent():
 
 
 def write_state(cwd, paths):
+    # fundir, no reemplazar: la ultima sesion sobrevive al cambio de recientes
+    d = read_state()
+    d["cwd"] = cwd
+    d["recent"] = paths
     try:
         with open(STATE_FILE, "w", encoding="utf-8") as fh:
-            json.dump({"cwd": cwd, "recent": paths}, fh, indent=1)
+            json.dump(d, fh, indent=1)
     except OSError as exc:
         print("state:", exc, file=sys.stderr)
     return [{"path": p, "name": Path(p).name} for p in paths]
+
+
+def persist(cwd, session):
+    """Carpeta y sesion activas: al arrancar, volver a exactamente aqui."""
+    d = read_state()
+    if d.get("cwd") == cwd and d.get("session") == (session or ""):
+        return
+    d["cwd"] = cwd
+    d["session"] = session or ""
+    try:
+        with open(STATE_FILE, "w", encoding="utf-8") as fh:
+            json.dump(d, fh, indent=1)
+    except OSError as exc:
+        print("state:", exc, file=sys.stderr)
+
+
+def last_session(cwd):
+    """La sesion guardada de esta carpeta, si sigue viva en su sitio."""
+    p = read_state().get("session") or ""
+    if not p:
+        return None
+    f = Path(p)
+    if not f.is_file():
+        return None                     # borrada o a la basura
+    if not same_path(f.parent, session_dir(cwd)):
+        return None                     # es de otra carpeta: no mezclar
+    return str(f)
 
 
 def remember(cwd):
@@ -498,7 +529,8 @@ class Bridge:
         self.state["recent"] = read_recent()
         first = START_CWD or read_last()
         if first and Path(first).is_dir():
-            self.open_project(first)
+            # seguir donde se quedo: misma carpeta y misma sesion
+            self.open_project(first, session=last_session(first))
 
     # ---- the agent, per project
 
@@ -902,6 +934,7 @@ class Bridge:
                 sessionFile=data.get("sessionFile"),
                 model=(data.get("model") or {}).get("name"),
                 thinking=data.get("thinkingLevel"))
+            persist(self.cwd, self.state.get("sessionFile"))
             self.push_state()
 
         elif cmd == "get_session_stats":
