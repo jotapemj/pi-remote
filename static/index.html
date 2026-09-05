@@ -3215,8 +3215,17 @@ const CMDS = [
   {n:"name",    h:"Set the session name", hEs:"Poner nombre a la sesión",   arg:"label", argEs:"etiqueta",
                 run:a=>a&&send({type:"set_session_name", name:a})},
   {n:"fork",    h:"Branch from an earlier message", hEs:"Ramificar desde un mensaje anterior",   run:()=>send({type:"get_fork_messages"})},
-  {n:"stats",   h:"Tokens, cost, context usage", hEs:"Tokens, coste y uso de contexto",      run:()=>send({type:"get_session_stats"})},
-  {n:"state",   h:"Current session, model, thinking", hEs:"Sesión, modelo y nivel actuales", run:()=>send({type:"get_state"})},
+  {n:"stats",   h:"Tokens, cost, context usage", hEs:"Tokens, coste y uso de contexto",      run:()=>{
+      send({type:"get_session_stats"});          // refresca la barra
+      const c = state.context || {};
+      const p = c.percent != null ? c.percent.toFixed(1) + "%  ·  " : "";
+      const t = c.tokens != null ? kilo(c.tokens) + "/" + kilo(c.window) : "—";
+      const cost = c.cost != null ? "  ·  $" + c.cost.toFixed(4) : "";
+      note(p + t + cost);}},
+  {n:"state",   h:"Current session, model, thinking", hEs:"Sesión, modelo y nivel actuales", run:()=>{
+      send({type:"get_state"});                  // refresca la cabecera
+      note(`${state.sessionName || "—"}  ·  ${state.model || "—"}`
+           + `  ·  ${state.thinking || "off"}`);}},
   {n:"compact", h:"Shrink the context now",
                 hEs:"Comprimir el contexto ahora",
                 run:()=>confirmModal(T("compactQ"), esc(T("compactB")),
@@ -5159,7 +5168,7 @@ function onRpc(m){
       label:(x.text||"(empty)").slice(0,90),
       run:()=>send({type:"fork", entryId:x.entryId})})));
   if(m.command === "get_last_assistant_text")
-    return alert(d.text || "nothing yet");
+    return note(d.text || "—");           // nota en el chat, no un alert crudo
 }
 
 applyLang();
