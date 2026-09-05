@@ -4907,12 +4907,25 @@ function marqueeAll(root){
 if(document.fonts) document.fonts.ready.then(()=> marqueeAll());
 addEventListener("resize", ()=> marqueeAll());
 
-/* el teclado no encoge la ventana, solo el viewport visual */
+/* el teclado no encoge la ventana, solo el viewport visual. Al abrirse,
+   el maquetador sube y main se encoge: sin compensar, lo que asomaba en el
+   borde inferior se queda eclipsado. anchorKb ancla el contenido al borde:
+   mide cuanto faltaba al fondo y, tras el reflujo, devuelve esa misma
+   distancia. Asi lo que se veia encima del maquetador se sigue viendo */
+let kbNow = -1;   // -1: la primera llamada siempre aplica (pone --kb a 0px)
+function anchorKb(kb){
+  if(kb === kbNow) return;
+  const under = main.scrollHeight - main.scrollTop - main.clientHeight;
+  kbNow = kb;
+  document.documentElement.style.setProperty("--kb", kb + "px");
+  main.scrollTo({top: main.scrollHeight - main.clientHeight - under,
+                behavior: "instant"});   // instant: el suave llega tarde
+}
 if(window.visualViewport){
   const vv = window.visualViewport;
   const fitKeyboard = ()=>{
     const gap = Math.max(0, innerHeight - vv.height - vv.offsetTop);
-    document.documentElement.style.setProperty("--kb", Math.round(gap) + "px");
+    anchorKb(Math.round(gap));
   };
   vv.addEventListener("resize", fitKeyboard);
   vv.addEventListener("scroll", fitKeyboard);
