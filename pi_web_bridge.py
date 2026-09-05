@@ -113,6 +113,25 @@ PASSTHROUGH = {
 }
 
 
+# Instruccion efimera para las sugerencias de respuesta. El puente la pega al
+# mensaje que va a pi (NO al item que ve el usuario). pi no tiene campo aparte
+# para instrucciones de turno, asi que viaja dentro del prompt.
+SUGGEST_HINT = (
+    "\n\n[Reply normally to the message above. Then, on new final lines, "
+    "output up to 3 suggestions for what the user might send next, each on "
+    "its own line in the exact form <hint: R> where R is a short, natural "
+    "message in the user's language. Put nothing after them. If nothing fits, "
+    "omit them.]"
+)
+
+# La instruccion viaja dentro del prompt, asi que pi la guarda en disco. Al
+# reconstruir el historico hay que quitarla o la burbuja del usuario sale con
+# el bloque entero. Regex y no replace del literal: pilla versiones viejas
+# aunque cambie el cuerpo del texto.
+SUGGEST_HINT_RE = re.compile(
+    r"\n*\[Reply normally to the message above\.[\s\S]*?\]\s*$")
+
+
 # ------------------------------------------------------------------ access
 
 def good_token(given):
@@ -1014,7 +1033,7 @@ class Bridge:
             stamp = m.get("timestamp")
 
             if role == "user":
-                text = text_of(m.get("content"))
+                text = SUGGEST_HINT_RE.sub("", text_of(m.get("content")))
                 if text.strip():
                     add({"kind": "user", "text": text, "t": stamp})
 
@@ -1144,7 +1163,10 @@ class Bridge:
             if images:
                 item["images"] = images
             self.push(item)
-            cmd = {"type": "prompt", "message": text}
+            send_text = text
+            if msg.get("suggest") and text:   # sugerencias: instruccion oculta
+                send_text = text + SUGGEST_HINT
+            cmd = {"type": "prompt", "message": send_text}
             if images:
                 cmd["images"] = images       # pi acepta images en el prompt
             if self.state["running"]:

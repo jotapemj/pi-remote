@@ -790,6 +790,23 @@ footer > *{position:relative; z-index:1}
 #box.ce-blank::before{
   content:attr(data-ph); color:var(--faint); pointer-events:none;
 }
+/* cuando el marcador es una sugerencia de respuesta, se distingue */
+/* sugerencias de respuesta: filas bajo la ultima respuesta, clic = enviar */
+.suggests{ display:flex; flex-direction:column; gap:6px; margin:10px 0 2px }
+.sug{
+  display:flex; align-items:center; gap:10px; width:100%;
+  text-align:left; cursor:pointer;
+  font:400 14px/1.4 'IBM Plex Sans',system-ui,sans-serif;
+  color:var(--ink); background:var(--surface);
+  border:1px solid var(--rule); border-radius:10px; padding:9px 12px;
+  transition:border-color .15s, background .15s;
+}
+.sug:hover{ border-color:var(--amber); background:var(--raise) }
+.sug .stext{ flex:1; min-width:0 }
+.sug .sarrow{ flex:none; display:flex; opacity:.5 }
+.sug .sarrow .i{ width:16px; height:16px; fill:var(--amber) }
+.sug:hover .sarrow{ opacity:1 }
+.sug:active{ transform:translateY(1px) }
 #box[contenteditable="false"]{opacity:.6; cursor:default}
 /* bloque de texto pegado: acento del tema en negrita, se borra como unidad */
 .chip{
@@ -2137,6 +2154,7 @@ const runLabel = n => T("ranN").replace("{n}", n);
    turno; nunca en los trozos de texto entre comandos, ni mientras genera. */
 function placeActions(){
   feed.querySelectorAll(".msgacts").forEach(el => el.remove());
+  feed.querySelectorAll(".suggests").forEach(el => el.remove());
   if(state.running) return;
   const said = [...feed.querySelectorAll(".turn")].filter(t =>
     t.__item && t.__item.kind === "assistant" && !t.__item.streaming);
@@ -2151,6 +2169,26 @@ function placeActions(){
     + (it.stats ? `<button class="mact stats"`
         + ` aria-label="${esc(T("statsTitle"))}">${ico("stats")}</button>` : "");
   last.appendChild(acts);
+  placeSuggests(last);
+}
+
+/* Filas de sugerencia bajo la ultima respuesta: mismo aspecto en escritorio y
+   movil. Clic en una envia ese mensaje directamente. Solo si el toggle esta
+   activo y el modelo dejo marcadores <hint:>. */
+function placeSuggests(last){
+  if(!suggest) return;
+  const hints = parseHints(last.__item.text);
+  if(!hints.length) return;
+  const wrap = document.createElement("div");
+  wrap.className = "suggests";
+  wrap.innerHTML = hints.map(h =>
+    `<button class="sug" type="button">`
+    + `<span class="stext">${esc(h)}</span>`
+    + `<span class="sarrow">${ico("up")}</span></button>`).join("");
+  [...wrap.querySelectorAll(".sug")].forEach((b, i) => {
+    b.onclick = () => { box.value = hints[i]; submit(); };
+  });
+  last.appendChild(wrap);
 }
 
 /* Un mensaje del usuario que ocupa mas de seis lineas se puede plegar.
@@ -2233,7 +2271,7 @@ function html(it){
       + `<div class="tbody"><div class="tinn" data-body>${md(it.text || "")}</div></div></details>`;
   }
   if(it.kind === "assistant")
-    return `<div class="said${it.streaming ? " stream" : ""}" data-body>${md(it.text)}${tail(it)}</div>`;
+    return `<div class="said${it.streaming ? " stream" : ""}" data-body>${md(visibleText(it.text))}${tail(it)}</div>`;
   if(it.kind === "note")
     return `<div class="note ${it.level||""}${it.key==="compacting"?" busy":""}">`
          + ico(NOTE_ICON[it.level] || "info")
@@ -2448,8 +2486,9 @@ function paint(){
   const ro = state.readOnly === true;
   $("#send").disabled = !has || ro;
   box.contentEditable = ro ? "false" : "true";
-  box.dataset.ph = ro ? T("noToken")
-                      : (has ? T("ask") : T("pickFirst"));
+  phDefault = ro ? T("noToken")
+                 : (has ? T("ask") : T("pickFirst"));
+  applyPh();
 
   if(!has){
     title("");
@@ -3119,7 +3158,7 @@ function connect(){
         scheduleReveal(el);              // se revela de izquierda a derecha
       } else {
         const body = el.querySelector("[data-body]");
-        if(body) body.innerHTML = md(el.__item.text) + tail(el.__item);
+        if(body) body.innerHTML = md(visibleText(el.__item.text)) + tail(el.__item);
         else el.innerHTML = html(el.__item);
       }
       keepDown(was);
@@ -3135,8 +3174,9 @@ function connect(){
         produced = false; turnStart = Date.now();
       }
       paint();
-      if(wasRunning && !state.running) groupToolRun();
-      placeActions();
+      if(wasRunning && !state.running)      // fin de turno
+        groupToolRun();
+      placeActions();     // coloca (o quita) acciones y sugerencias del turno
     }
     else if(m.type === "cleared"){
       feed.innerHTML=""; nodes.clear();
@@ -3221,6 +3261,22 @@ function note(text){
 const box = $("#box"), palette = $("#palette"), plist = $("#plist");
 let sel = 0, shown = [];
 
+/* sugerencias de respuesta: el modelo propone al final hasta 3 mensajes
+   probables (marcadores <hint:> ocultos que el usuario no ve, ver visibleText/
+   parseHints y SUGGEST_HINT en el puente); se pintan como filas bajo la
+   respuesta (placeSuggests), clic = enviar. El toggle vive en Functions. */
+let suggest = (() => {
+  try { return localStorage.getItem("pi.suggest") === "1"; }
+  catch(e){ return false; }
+})();
+let phDefault = "";
+function applyPh(){ box.dataset.ph = phDefault; }
+function setSuggest(on){
+  suggest = !!on;
+  try { localStorage.setItem("pi.suggest", on ? "1" : "0"); } catch(e){}
+  placeActions();   // pinta o quita las filas de sugerencias segun el toggle
+}
+
 /* El compositor es un contenteditable: admite chips de "texto pegado" en
    linea. Se expone .value para que el resto del codigo (y los tests) lo lea
    y escriba como si fuese un textarea. El getter serializa a texto plano,
@@ -3257,7 +3313,7 @@ function slashToggle(){
   box.classList.toggle("ce-blank", empty);
   $("#field").classList.toggle("typing", !empty);
 }
-box.addEventListener("input", ()=>{ paintPalette(); slashToggle(); });
+box.addEventListener("input", ()=>{ paintPalette(); slashToggle(); applyPh(); });
 // con el prompt mas largo que el campo, el arrastre vertical scrollea el
 // interior en vez de mover el cursor; sin desborde, ni eso ni el chat
 // linea de scrol fina: se dibuja donde termina la linea de texto mas
@@ -3728,10 +3784,12 @@ function submit(){
                                          mimeType:im.mimeType}));
   if(!text && !imgs.length) return;
   box.value = ""; closePalette(); slashToggle();
+  feed.querySelectorAll(".suggests").forEach(el => el.remove());
   clearThumbs();
   if(text.startsWith("/") && !imgs.length) return runLine(text);
   const cmd = {type:"prompt", message:text};
   if(imgs.length) cmd.images = imgs;
+  if(suggest) cmd.suggest = true;      // el puente inyecta la instruccion oculta
   send(cmd);
   $("#send").classList.add("sending");
   clearTimeout(sendTimer);
@@ -3782,6 +3840,8 @@ const STR = {
       reasoning:"Reasoning",
       functions:"Functions", showThinking:"Show thinking",
       showThinkingSub:"Show the model's reasoning under each reply",
+      suggest:"Response suggestions",
+      suggestSub:"Offer a likely reply in the composer after each turn",
       movement:"Movement", movementSub:"How new text appears as it streams",
       motion_fade:"Fade", motion_instant:"Instant", image:"Image",
       output:"output", noOutput:"no output", command:"command",
@@ -3831,6 +3891,8 @@ const STR = {
       reasoning:"Razonamiento",
       functions:"Funciones", showThinking:"Mostrar pensamiento",
       showThinkingSub:"Muestra el razonamiento del modelo bajo cada respuesta",
+      suggest:"Sugerencias de respuesta",
+      suggestSub:"Propone una respuesta probable en el compositor tras cada turno",
       movement:"Movimiento", movementSub:"Cómo aparece el texto según se genera",
       motion_fade:"Fundido", motion_instant:"Directo", image:"Imagen",
       ranN:"Ejecutados {n} comandos", ranNShown:"{n} comandos",
@@ -3879,6 +3941,8 @@ const STR = {
       reasoning:"Gedankengang",
       functions:"Funktionen", showThinking:"Gedanken anzeigen",
       showThinkingSub:"Zeigt die \u00dcberlegungen des Modells unter jeder Antwort",
+      suggest:"Antwortvorschl\u00e4ge",
+      suggestSub:"Schl\u00e4gt nach jeder Runde eine m\u00f6gliche Antwort im Eingabefeld vor",
       movement:"Bewegung",
       movementSub:"Wie neuer Text erscheint, w\u00e4hrend gestreamt wird",
       motion_fade:"Einblenden", motion_instant:"Sofort", image:"Bild",
@@ -3927,6 +3991,8 @@ const STR = {
       reasoning:"Raisonnement",
       functions:"Fonctions", showThinking:"Afficher la r\u00e9flexion",
       showThinkingSub:"Montre les r\u00e9flexions du mod\u00e8le sous chaque r\u00e9ponse",
+      suggest:"Suggestions de r\u00e9ponse",
+      suggestSub:"Propose une r\u00e9ponse probable dans le champ apr\u00e8s chaque tour",
       movement:"Mouvement",
       movementSub:"Comment le nouveau texte appara\u00eet pendant le flux",
       motion_fade:"fondu", motion_instant:"instantan\u00e9", image:"image",
@@ -3975,6 +4041,8 @@ const STR = {
       reasoning:"Racioc\u00ednio",
       functions:"Fun\u00e7\u00f5es", showThinking:"mostrar o racioc\u00ednio",
       showThinkingSub:"Mostra as reflex\u00f5es do modelo sob cada resposta",
+      suggest:"Sugest\u00f5es de resposta",
+      suggestSub:"Prop\u00f5e uma resposta prov\u00e1vel no compositor ap\u00f3s cada turno",
       movement:"Movimento",
       movementSub:"Como aparece o texto novo durante o fluxo",
       motion_fade:"fundido", motion_instant:"instant\u00e2neo", image:"imagem",
@@ -4023,6 +4091,8 @@ const STR = {
       reasoning:"推理",
       functions:"功能", showThinking:"显示思考过程",
       showThinkingSub:"在每条回答下显示模型思考",
+      suggest:"回复建议",
+      suggestSub:"每轮结束后在输入框中给出可能的回复",
       movement:"动效",
       movementSub:"流式输出时新文本的出现方式",
       motion_fade:"淡入", motion_instant:"即时", image:"图片",
@@ -4521,6 +4591,32 @@ const REVEAL_FADE = 9;                  // ancho del degradado, en caracteres
 const revealing = new Set();
 let revealRAF = 0;
 
+/* Oculta el bloque <hint: ...> que el modelo pone al final (sugerencia de
+   respuesta) cuando la funcion esta activa: el usuario no lo ve. Retiene ademas
+   una cola parcial ("<", "<h", "<hint...") hasta saber si es el marcador, para
+   que no parpadee mientras se genera. Ese es el "delay" justo, sin frenar el
+   resto del texto. */
+function visibleText(t){
+  if(!t) return t || "";
+  const at = t.indexOf("<hint:");
+  if(at >= 0) return t.slice(0, at).replace(/\s+$/, "");   // completo o abierto
+  const m = t.match(/<h?i?n?t?$/);                          // cola parcial "<hint"
+  return m ? t.slice(0, t.length - m[0].length) : t;
+}
+/* Hasta 3 marcadores <hint: ...> al final de la respuesta: cada uno es una
+   sugerencia de lo que el usuario podria enviar. El modelo puede sacar menos,
+   o ninguno; se muestran los que haya. */
+function parseHints(t){
+  const out = [];
+  const re = /<hint:\s*([\s\S]*?)>/g;
+  let m;
+  while((m = re.exec(t || "")) && out.length < 3){
+    const s = m[1].trim();
+    if(s) out.push(s);
+  }
+  return out;
+}
+
 function scheduleReveal(el){
   revealing.add(el);
   if(!revealRAF) revealRAF = requestAnimationFrame(revealTick);
@@ -4534,12 +4630,13 @@ function revealTick(){
     if(!it || it.kind !== "assistant" || !it.streaming){
       revealing.delete(el); return;
     }
-    const len = (it.text || "").length;
+    const vis = visibleText(it.text || "");
+    const len = vis.length;
     if(it._front == null) it._front = 0;
     if(it._front < len)                 // persigue el final con suavizado
       it._front = Math.min(len, it._front + Math.max(0.8,
         (len - it._front) * 0.22));
-    paintSaid(el, it.text || "", it._front);
+    paintSaid(el, vis, it._front);
     if(it._front < len) more = true;
     else revealing.delete(el);
   });
@@ -4677,6 +4774,21 @@ function paintSheet(page){
       setThinking(on);
     };
     body.appendChild(card);
+
+    const scard = document.createElement("div");
+    scard.className = "fcard";
+    scard.innerHTML = `<div class="frow"><div class="ftext">`
+      + `<div class="flbl">${esc(T("suggest"))}</div>`
+      + `<div class="fsub">${esc(T("suggestSub"))}</div></div>`
+      + `<button class="sw" role="switch" aria-label="${esc(T("suggest"))}"`
+      + ` aria-checked="${suggest}"><span class="knob"></span></button>`;
+    const ssw = scard.querySelector(".sw");
+    ssw.onclick = () => {
+      const on = ssw.getAttribute("aria-checked") !== "true";
+      ssw.setAttribute("aria-checked", on ? "true" : "false");
+      setSuggest(on);
+    };
+    body.appendChild(scard);
 
     const mcard = document.createElement("div");
     mcard.className = "fcard";

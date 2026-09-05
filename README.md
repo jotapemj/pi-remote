@@ -293,7 +293,9 @@ bridge, so the page works on a tailnet with no route to the internet.
 The agent's reasoning appears as a collapsible "Thought for N seconds" block,
 closed by default. A **Functions** page in the settings menu turns it on or
 off and chooses how streamed text arrives: a left-to-right fade or all at
-once. The active model and reasoning level show in small print below the
+once. The same page can offer response suggestions: after each turn the model
+proposes up to three likely replies as rows below its answer, and a tap sends
+one. The active model and reasoning level show in small print below the
 composer.
 
 The send button lives inside the composer and becomes a stop while the agent

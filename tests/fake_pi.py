@@ -144,6 +144,19 @@ def turn(text, nimg=0):
     if "readimg" in text:
         readimg_turn()
         return
+    if "<hint:" in text:      # el puente inyecto la instruccion de sugerencia
+        out({"type": "agent_start"})
+        # el marcador se streamea como un chunk mas (el pi real lo genera token
+        # a token, no aparte): asi el cliente lo ve llegar y lo stripea
+        say(["Hecho. ", "Cuando digas, push.",
+             "\n<hint: Vale, haz el push.>",
+             "\n<hint: Espera, revisa antes.>",
+             "\n<hint: Muestrame el diff.>"],
+            "Hecho. Cuando digas, push.\n<hint: Vale, haz el push.>"
+            "\n<hint: Espera, revisa antes.>\n<hint: Muestrame el diff.>")
+        out({"type": "agent_end", "messages": [], "willRetry": False})
+        out({"type": "agent_settled"})
+        return
     if "slow" in text:
         slow_turn(text)
         return
@@ -248,6 +261,14 @@ MESSAGES = [
     {"role": "toolResult", "toolCallId": "huerfano", "toolName": "bash",
      "isError": True, "timestamp": 1756000005000,
      "content": [{"type": "text", "text": "exit 1"}]},
+    # mensaje enviado con sugerencias activas: pi guarda el prompt entero,
+    # asi que la instruccion viaja pegada. La burbuja debe salir limpia.
+    {"role": "user", "timestamp": 1756000006000, "content": [{"type": "text",
+     "text": "tercer encargo\n\n[Reply normally to the message above. Then, "
+             "on a new final line, output exactly: <hint: R> where R is a "
+             "short, natural message the user might send next, in the user's "
+             "language. Put nothing after it. If nothing fits, omit the "
+             "line.]"}]},
 ]
 
 TOKENS = 9000
