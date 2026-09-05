@@ -213,6 +213,38 @@ async def main():
                 ("y deja el cursor tras el chip", tap[1] is True),
             ]
 
+            # Gboard y el paste del sistema no pasan la imagen por el
+            # portapapeles legible: insertan un <img> crudo en la caja, sin
+            # evento 'paste'. Debe convertirse en adjunto y salir del DOM.
+            await js("box.value=''; box.dispatchEvent(new Event('input'));"
+                     " clearThumbs(); box.focus()")
+            await js("(() => { const i = document.createElement('img');"
+                     " i.src = 'data:image/png;base64,%s';"
+                     " box.appendChild(i);"
+                     " box.dispatchEvent(new Event('input')); })()" % PNG)
+            await asyncio.sleep(0.1)
+            g1 = await js("[document.querySelectorAll('#thumbs .thumb').length,"
+                          " document.querySelectorAll('#box img').length]")
+            print("  <img> crudo data:: thumbs=%s imgs_box=%s" % tuple(g1))
+            checks.append(("un <img> crudo con src data: se vuelve adjunto",
+                           g1[0] == 1 and g1[1] == 0))
+
+            # la otra forma que usan los teclados: src blob: (fetch a base64)
+            await js("clearThumbs(); box.focus()")
+            await js("(async () => { const b = Uint8Array.from(atob('%s'),"
+                     " c => c.charCodeAt(0));"
+                     " const u = URL.createObjectURL"
+                     " (new Blob([b], {type:'image/png'}));"
+                     " const i = document.createElement('img'); i.src = u;"
+                     " box.appendChild(i); box.dispatchEvent(new Event('input'));"
+                     " })()" % PNG)
+            await asyncio.sleep(0.4)
+            g2 = await js("[document.querySelectorAll('#thumbs .thumb').length,"
+                          " document.querySelectorAll('#box img').length]")
+            print("  <img> crudo blob:: thumbs=%s imgs_box=%s" % tuple(g2))
+            checks.append(("un <img> crudo con src blob: tambien es adjunto",
+                           g2[0] == 1 and g2[1] == 0))
+
             checks.append(("sin errores de consola", not p.problems))
     return checks
 

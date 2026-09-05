@@ -139,7 +139,7 @@ def same_origin(request):
 
 CSP = ("default-src 'none'; script-src 'self' 'unsafe-inline'; "
        "style-src 'self' 'unsafe-inline'; font-src 'self'; "
-       "img-src 'self' data:; connect-src 'self'; "
+       "img-src 'self' data:; connect-src 'self' blob:; "
        "manifest-src 'self'; worker-src 'self'; "
        "base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
 

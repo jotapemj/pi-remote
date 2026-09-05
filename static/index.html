@@ -365,7 +365,7 @@ main{flex:1; overflow-y:auto; padding:16px var(--gut) 8px; position:relative;
 .think .tlabel{flex:1; min-width:0}
 /* mientras razona: brillo skeleton que barre el rotulo de izquierda a derecha */
 .think .tlabel.shine{
-  background:linear-gradient(90deg, var(--dim) 35%, var(--ink) 50%, var(--dim) 65%);
+  background:linear-gradient(90deg, var(--dim) 42%, var(--ink) 50%, var(--dim) 58%);
   background-size:250% 100%; background-position:100% 0;
   -webkit-background-clip:text; background-clip:text;
   -webkit-text-fill-color:transparent; color:transparent;
@@ -3503,6 +3503,31 @@ box.addEventListener("input", () => {          // recoge el pegado marcado
     mark.remove();                             // pegado corto: se queda llano
   }
   paintPalette(); slashToggle();
+});
+/* Gboard y el paste del sistema en Android no pasan la imagen por el
+   portapapeles legible: insertan un <img> crudo dentro de la caja. Ninguna
+   otra via mete imagenes aqui, asi que cualquier <img> es un pegado: se
+   convierte en adjunto y se quita el nodo. data: directo; blob: a base64 */
+function adoptPastedImg(img){
+  const src = img.currentSrc || img.src || "";
+  const kill = () => { if(img.parentNode) img.remove(); };
+  if(src.startsWith("data:")){
+    const c = src.indexOf(",");
+    addImage({data: src.slice(c + 1), mimeType: src.slice(5, c), url: src});
+    kill();
+  } else if(src.startsWith("blob:")){
+    fetch(src).then(r => r.arrayBuffer())
+      .then(b => {
+        let s = ""; const u = new Uint8Array(b);
+        for(let i = 0; i < u.length; i += 0x8000)
+          s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
+        addImage({data: btoa(s), mimeType: "image/png", url: src});
+        kill();
+      }).catch(kill);
+  } else kill();
+}
+box.addEventListener("input", () => {
+  box.querySelectorAll("img").forEach(adoptPastedImg);
 });
 // tocar un chip no debe soltar el foco (cerraria el teclado): mantengo el
 // foco y dejo el cursor justo tras el chip
