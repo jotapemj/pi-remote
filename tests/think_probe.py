@@ -39,6 +39,13 @@ async def main():
                 ("el cuerpo va en italica", live and live[3] == "italic"),
             ]
 
+            # la bombilla va hueca mientras piensa y rellena al terminar
+            ico_live = await js("document.querySelector('.think summary .i path')"
+                               ".getAttribute('d')")
+            print("  icono vivo: hueca=%s" % ("-1H9zm" in (ico_live or "")))
+            checks.append(("mientras piensa la bombilla va hueca",
+                           ico_live is not None and "-1H9zm" in ico_live))
+
             # --- etiqueta al estilo Claude: 'Penso durante N segundos/minutos'
             async def label(secs):
                 await js("feed.innerHTML=''; nodes.clear();"
@@ -62,6 +69,13 @@ async def main():
                 ("pasa a minutos: 'durante 3 minutos'",
                  "durante 3 minutos" in (lmin or "")),
             ]
+
+            # al terminar de pensar, la bombilla pasa a rellena
+            ico_done = await js("document.querySelector('.think summary .i path')"
+                                ".getAttribute('d')")
+            print("  icono final: rellena=%s" % ("-1H9v1z" in (ico_done or "")))
+            checks.append(("al terminar la bombilla pasa a rellena",
+                           ico_done is not None and "-1H9v1z" in ico_done))
 
             # el toggle lo abre
             await js("document.querySelector('.think > summary').click()")

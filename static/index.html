@@ -1373,6 +1373,8 @@ const ICONS = {
   up:"M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z",
   done:"M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z",
   think:"M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z",
+  // bombilla hueca (lightbulb_outline): mientras piensa; rellena al terminar
+  thinkO:"M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7m2.85 11.1-.85.6V16h-4v-2.3l-.85-.6C7.8 12.16 7 10.63 7 9c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.63-.8 3.16-2.15 4.1",
   image:"M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z",
 };
 const ico = (k, cls) => ICONS[k]
@@ -2225,7 +2227,8 @@ function html(it){
     const lab = it.streaming ? T("thinking")
       : (it.secs != null ? thoughtLabel(it.secs) : T("reasoning"));
     return `<details class="think">`
-      + `<summary>${ico("think")}<span class="tlabel${it.streaming ? " shine" : ""}">${esc(lab)}</span>`
+      + `<summary>${ico(it.streaming ? "thinkO" : "think")}`
+      + `<span class="tlabel${it.streaming ? " shine" : ""}">${esc(lab)}</span>`
       + `${ico("chevron", "tw")}</summary>`
       + `<div class="tbody"><div class="tinn" data-body>${md(it.text || "")}</div></div></details>`;
   }
