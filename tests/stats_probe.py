@@ -47,6 +47,44 @@ async def from_bridge():
     return out
 
 
+async def gen_rate():
+    """El tk/s mide la VENTANA DE STREAMING (primer->ultimo token), no la cola
+    tras el ultimo token. Antes, esa cola (pi finalizando, o un turno que penso
+    y ejecuto comandos) hundia el rate a valores irreales (~2 tk/s).
+    """
+    import websockets
+    stats = None
+    with Bridge(), FakeProject() as proj:
+        async with websockets.connect(WS_URL) as ws:
+            await ws.recv()
+            await ws.send(json.dumps({"type": "open_project",
+                                      "path": proj.path}))
+            await asyncio.sleep(1.4)
+            await ws.send(json.dumps({"type": "prompt", "message": "genrate"}))
+            end = asyncio.get_event_loop().time() + 12
+            while asyncio.get_event_loop().time() < end:
+                m = json.loads(await asyncio.wait_for(ws.recv(), timeout=8))
+                s = (m.get("fields") or {}).get("stats") \
+                    or (m.get("item") or {}).get("stats")
+                if s:
+                    stats = s
+                if (m.get("type") == "state"
+                        and not m["state"].get("running") and stats):
+                    break
+    g = stats and stats.get("genTps")
+    gms = stats and stats.get("genMs")
+    print("  genrate: output=%s genMs=%s genTps=%s"
+          % (stats and stats.get("output"), gms, g))
+    # 50 tokens en ~1s de streaming + 2s de cola. Bien: ~40-55 tk/s, genMs ~1s.
+    # Con el bug (contando la cola): 50/3 ~ 17 tk/s, genMs ~3s.
+    return [
+        ("el tk/s ignora la cola tras el ultimo token",
+         isinstance(g, (int, float)) and g > 30),
+        ("el genMs es la ventana de streaming (~1s), no ~3s",
+         isinstance(gms, int) and 0 < gms < 1800),
+    ]
+
+
 ST = {"input": 12000, "output": 240, "cacheRead": 40, "reasoning": 30,
       "total": 12270, "cost": 0, "promptMs": 500, "genMs": 800,
       "genTps": 18.3, "promptTps": 2130.5}
@@ -117,7 +155,7 @@ async def in_page():
 
 
 async def main():
-    return await from_bridge() + await in_page()
+    return await from_bridge() + await gen_rate() + await in_page()
 
 
 raise SystemExit(report(asyncio.run(main())))

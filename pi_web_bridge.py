@@ -533,7 +533,8 @@ class Bridge:
         self.pending = OrderedDict()         # dialog id -> item id
         self.compacting = None               # la nota "compactando" en curso
         self.prefill_t0 = None               # cuando arranco el prefill actual
-        self.gen_first = None                # instante del primer token
+        self.gen_first = None                # instante del primer token de texto
+        self.gen_last = None                 # instante del ultimo token de texto
         self.gen_prompt_ms = None            # prefill de la respuesta actual
         self.cur_usage = {}                  # usage acumulado de la respuesta
         self.assistant_open = False          # hay una respuesta en curso
@@ -662,10 +663,14 @@ class Bridge:
 
     def build_stats(self, usage):
         """Conteos que da pi, y velocidades que mide el puente."""
-        now = time.time()
-        first = self.gen_first or now
         prompt_ms = self.gen_prompt_ms or 0
-        gen_ms = int(max(0.0, (now - first)) * 1000)
+        # el tiempo de generacion es la ventana de streaming (primer token de
+        # texto -> ultimo), NO hasta message_end. Incluir la cola (pi
+        # finalizando o preparando la siguiente llamada, o un turno que penso y
+        # ejecuto comandos) hundia el tk/s a valores irreales (2 tk/s).
+        gen_ms = 0
+        if self.gen_first and self.gen_last and self.gen_last > self.gen_first:
+            gen_ms = int((self.gen_last - self.gen_first) * 1000)
         u = usage or {}
         out = u.get("output")
         inp = u.get("input")
@@ -796,6 +801,7 @@ class Bridge:
                 self.assistant_open = True
                 self.produced = True          # el modelo empieza a responder
                 self.gen_first = None
+                self.gen_last = None
                 self.gen_prompt_ms = None
                 self.cur_usage = {}
                 self.think = None
@@ -808,11 +814,12 @@ class Bridge:
                 if self.think:            # el texto real cierra el pensamiento
                     self.close_think()
                 delta = d.get("delta", "")
+                now = time.time()
+                self.gen_last = now          # cada token de texto mueve el final
                 if self.cur is None:
-                    self.gen_first = time.time()
-                    base = self.prefill_t0 or self.gen_first
-                    self.gen_prompt_ms = int(max(0.0,
-                        (self.gen_first - base)) * 1000)
+                    self.gen_first = now
+                    base = self.prefill_t0 or now
+                    self.gen_prompt_ms = int(max(0.0, (now - base)) * 1000)
                     self.cur = self.push({"kind": "assistant",
                                           "text": delta, "streaming": True})
                 else:

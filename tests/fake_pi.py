@@ -144,6 +144,23 @@ def turn(text, nimg=0):
     if "readimg" in text:
         readimg_turn()
         return
+    if "genrate" in text:     # mide el tk/s: stream corto + cola larga tras el
+        out({"type": "agent_start"})   # ultimo token (el bug contaba la cola)
+        out({"type": "message_start",
+             "message": {"role": "assistant", "content": []}})
+        for _ in range(10):
+            out({"type": "message_update", "assistantMessageEvent":
+                 {"type": "text_delta", "contentIndex": 0, "delta": "tok "}})
+            time.sleep(0.1)            # ~1s de streaming real
+        time.sleep(2.0)               # cola: pi finaliza / prepara la siguiente
+        out({"type": "message_end", "message": {
+            "role": "assistant",
+            "content": [{"type": "text", "text": "tok " * 10}],
+            "usage": {"input": 100, "output": 50, "totalTokens": 150,
+                      "reasoning": 0, "cost": {"total": 0}}}})
+        out({"type": "agent_end", "messages": [], "willRetry": False})
+        out({"type": "agent_settled"})
+        return
     if "<hint:" in text:      # el puente inyecto la instruccion de sugerencia
         out({"type": "agent_start"})
         # el marcador se streamea como un chunk mas (el pi real lo genera token
