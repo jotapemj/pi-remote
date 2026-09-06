@@ -286,6 +286,15 @@ MESSAGES = [
              "short, natural message the user might send next, in the user's "
              "language. Put nothing after it. If nothing fits, omit the "
              "line.]"}]},
+    # mismo caso con el formato nuevo (tres hints, orden tajante)
+    {"role": "user", "timestamp": 1756000007000, "content": [{"type": "text",
+     "text": "cuarto encargo\n\n[After your reply, always end with exactly "
+             "three suggestion lines: three short, natural messages the user "
+             "might send next, in the user's language, each on its own final "
+             "line in exactly this form:\n<hint: Sounds good, go ahead.>\n"
+             "<hint: Wait, show me the diff first.>\n<hint: What about the "
+             "tests?>\nReplace the example text with suggestions that fit. "
+             "Always write all three lines. Write nothing after the third.]"}]},
 ]
 
 TOKENS = 9000

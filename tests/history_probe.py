@@ -56,8 +56,10 @@ async def main():
                  "primer encargo" in texts),
                 ("mensaje de usuario en bloques", "segundo encargo" in texts),
                 ("la burbuja del usuario llega, sin la instruccion de hint",
-                 "tercer encargo" in texts
-                 and "Reply normally" not in texts),
+                 "tercer encargo" in texts and "cuarto encargo" in texts
+                 and "Reply normally" not in texts
+                 and "After your reply" not in texts
+                 and "<hint:" not in texts),
                 ("segunda respuesta", "**ya esta**" in texts),
                 ("la llamada se cierra con su resultado",
                  bool(done) and done[0]["status"] == "done"

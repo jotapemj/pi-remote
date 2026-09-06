@@ -117,19 +117,21 @@ PASSTHROUGH = {
 # mensaje que va a pi (NO al item que ve el usuario). pi no tiene campo aparte
 # para instrucciones de turno, asi que viaja dentro del prompt.
 SUGGEST_HINT = (
-    "\n\n[Reply normally to the message above. Then, on new final lines, "
-    "output up to 3 suggestions for what the user might send next, each on "
-    "its own line in the exact form <hint: R> where R is a short, natural "
-    "message in the user's language. Put nothing after them. If nothing fits, "
-    "omit them.]"
+    "\n\n[After your reply, always end with exactly three suggestion lines: "
+    "three short, natural messages the user might send next, in the user's "
+    "language, each on its own final line in exactly this form:\n"
+    "<hint: Sounds good, go ahead.>\n"
+    "<hint: Wait, show me the diff first.>\n"
+    "<hint: What about the tests?>\n"
+    "Replace the example text with suggestions that fit. Always write all "
+    "three lines. Write nothing after the third.]"
 )
 
 # La instruccion viaja dentro del prompt, asi que pi la guarda en disco. Al
 # reconstruir el historico hay que quitarla o la burbuja del usuario sale con
-# el bloque entero. Regex y no replace del literal: pilla versiones viejas
-# aunque cambie el cuerpo del texto.
-SUGGEST_HINT_RE = re.compile(
-    r"\n*\[Reply normally to the message above\.[\s\S]*?\]\s*$")
+# el bloque entero. Regex generica (bloque final que contiene <hint:), no el
+# literal: pilla el formato nuevo y los viejos ya guardados en sesiones.
+SUGGEST_HINT_RE = re.compile(r"\n*\[[^\]]*<hint:[\s\S]*\]\s*$")
 
 
 # ------------------------------------------------------------------ access
