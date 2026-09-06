@@ -126,6 +126,23 @@ async def in_page():
                 ("apagado, no hay filas", off_n == 0),
             ]
 
+            # al activar desde la card, dialog de aviso (orden oculta + contexto)
+            await js("paintSheet('functions')")
+            await js("(() => { const c = [...document.querySelectorAll('#sheetBody .fcard')]"
+                     ".find(c => c.textContent.includes('Sugerencias'));"
+                     " const s = c && c.querySelector('.sw');"
+                     " if(s) s.click(); })()")
+            await asyncio.sleep(0.05)
+            warn = await js("[document.querySelector('#modal').classList.contains('open'),"
+                            " document.querySelector('#modal').textContent]")
+            print("  aviso: abierto=%s texto=%r" % (warn and warn[0],
+                  (warn and warn[1] or "")[:70]))
+            checks += [
+                ("al activar la card, dialog de aviso",
+                 bool(warn) and warn[0] is True and "contexto" in warn[1]),
+            ]
+            await js("document.querySelector('#modal').classList.remove('open')")
+
             # cola parcial en su propia linea no parpadea (se retiene al strea)
             await js("setSuggest(true); feed.innerHTML=''; nodes.clear();"
                      " render({id:3, kind:'assistant', streaming:true,"

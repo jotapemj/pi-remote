@@ -3896,6 +3896,7 @@ const STR = {
       reasoning:"Reasoning",
       functions:"Functions", showThinking:"Show thinking",
       suggest:"Response suggestions",
+      suggestWarn:"This feature injects an instruction into the prompt, not visible to the user, telling the agent to suggest replies for a richer experience. It increases the context in every turn.",
       notify:"Notifications",
       notifDone:"Response ready",
       notifOn:"Notifications enabled",
@@ -3951,6 +3952,7 @@ const STR = {
       reasoning:"Razonamiento",
       functions:"Funciones", showThinking:"Mostrar pensamiento",
       suggest:"Sugerencias de respuesta",
+      suggestWarn:"Esta función inyecta una orden al prompt no visible al usuario que indica al agente proponer respuestas para una experiencia más enriquecedora. Supone un incremento del contexto en cada turno.",
       notify:"Notificaciones",
       notifDone:"Respuesta lista",
       notifOn:"Notificaciones activadas",
@@ -4005,6 +4007,7 @@ const STR = {
       reasoning:"Gedankengang",
       functions:"Funktionen", showThinking:"Gedanken anzeigen",
       suggest:"Antwortvorschl\u00e4ge",
+      suggestWarn:"Diese Funktion f\u00fcgt dem Prompt eine f\u00fcr den Benutzer unsichtliche Anweisung hinzu, die dem Agenten sagt, Antwortvorschl\u00e4ge zu machen \u2013 f\u00fcr ein reichhaltigeres Erlebnis. Der Kontext w\u00e4chst in jeder Runde.",
       notify:"Benachrichtigungen",
       notifDone:"Antwort fertig",
       notifOn:"Benachrichtigungen aktiviert",
@@ -4058,6 +4061,7 @@ const STR = {
       reasoning:"Raisonnement",
       functions:"Fonctions", showThinking:"Afficher la r\u00e9flexion",
       suggest:"Suggestions de r\u00e9ponse",
+      suggestWarn:"Cette fonction injecte dans le prompt une instruction invisible pour l'utilisateur, indiquant \u00e0 l'agent de proposer des r\u00e9ponses pour une exp\u00e9rience plus enrichissante. Le contexte augmente \u00e0 chaque tour.",
       notify:"Notifications",
       notifDone:"R\u00e9ponse pr\u00eate",
       notifOn:"Notifications activ\u00e9es",
@@ -4111,6 +4115,7 @@ const STR = {
       reasoning:"Racioc\u00ednio",
       functions:"Fun\u00e7\u00f5es", showThinking:"mostrar o racioc\u00ednio",
       suggest:"Sugest\u00f5es de resposta",
+      suggestWarn:"Esta fun\u00e7\u00e3o injeta no prompt uma ordem invis\u00edvel ao utilizador que indica ao agente propor respostas para uma experi\u00eancia mais enriquecedora. O contexto aumenta em cada turno.",
       notify:"Notifica\u00e7\u00f5es",
       notifDone:"Resposta pronta",
       notifOn:"Notifica\u00e7\u00f5es ativadas",
@@ -4164,6 +4169,7 @@ const STR = {
       reasoning:"推理",
       functions:"功能", showThinking:"显示思考过程",
       suggest:"回复建议",
+      suggestWarn:"此功能会向提示词注入一条对用户不可见的指令，让代理建议回复，以获得更丰富的体验。每个回合都会增加上下文。",
       notify:"通知",
       notifDone:"回复已就绪",
       notifOn:"通知已开启",
@@ -4862,6 +4868,7 @@ function paintSheet(page){
     const ssw = scard.querySelector(".sw");
     ssw.onclick = () => {
       const on = ssw.getAttribute("aria-checked") !== "true";
+      if(on) modal(T("suggest"), "<p>" + esc(T("suggestWarn")) + "</p>");
       ssw.setAttribute("aria-checked", on ? "true" : "false");
       setSuggest(on);
     };
