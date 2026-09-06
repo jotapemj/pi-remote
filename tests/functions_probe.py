@@ -31,7 +31,7 @@ async def main():
                 " return [!!sw, sw.getAttribute('role'),"
                 "  sw.getAttribute('aria-checked'),"
                 "  c.querySelector('.flbl').textContent,"
-                "  (c.querySelector('.fsub').textContent||'').length > 0,"
+                "  !c.querySelector('.fsub'),"
                 "  getComputedStyle(sw).borderRadius];})()")
             print("  card:", json.dumps(card, ensure_ascii=True))
             checks += [
@@ -40,7 +40,7 @@ async def main():
                 ("encendido por defecto", card and card[2] == "true"),
                 ("rotulado 'Mostrar pensamiento'",
                  card and card[3] == "Mostrar pensamiento"),
-                ("con un subtitulo que explica", card and card[4] is True),
+                ("sin subtitulo: solo el titulo", card and card[4] is True),
                 ("el pulgar es redondo (pista pildora)",
                  card and card[5] not in (None, "", "0px")),
             ]
