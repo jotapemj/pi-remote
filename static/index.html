@@ -791,22 +791,23 @@ footer > *{position:relative; z-index:1}
   content:attr(data-ph); color:var(--faint); pointer-events:none;
 }
 /* cuando el marcador es una sugerencia de respuesta, se distingue */
-/* sugerencias de respuesta: filas bajo la ultima respuesta, clic = enviar */
-.suggests{ display:flex; flex-direction:column; gap:6px; margin:10px 0 2px }
+/* sugerencias de respuesta: texto plano bajo la respuesta, flecha curva a la
+   izquierda, clic = enviar. Sin bordes ni fondo; separadas entre si. */
+.suggests{ display:flex; flex-direction:column; gap:14px; margin:16px 0 4px }
 .sug{
-  display:flex; align-items:center; gap:10px; width:100%;
+  display:flex; align-items:flex-start; gap:10px; width:100%;
   text-align:left; cursor:pointer;
-  font:400 14px/1.4 'IBM Plex Sans',system-ui,sans-serif;
-  color:var(--ink); background:var(--surface);
-  border:1px solid var(--rule); border-radius:10px; padding:9px 12px;
-  transition:border-color .15s, background .15s;
+  background:none; border:0; padding:0;
+  font:400 15px/1.45 'IBM Plex Sans',system-ui,sans-serif;
+  color:var(--dim);
+  transition:color .15s;
 }
-.sug:hover{ border-color:var(--amber); background:var(--raise) }
+.sug .sarrow{ flex:none; display:flex; margin-top:1px }
+.sug .sarrow .i{ width:18px; height:18px; fill:var(--faint); transition:fill .15s }
 .sug .stext{ flex:1; min-width:0 }
-.sug .sarrow{ flex:none; display:flex; opacity:.5 }
-.sug .sarrow .i{ width:16px; height:16px; fill:var(--amber) }
-.sug:hover .sarrow{ opacity:1 }
-.sug:active{ transform:translateY(1px) }
+.sug:hover{ color:var(--ink) }
+.sug:hover .sarrow .i{ fill:var(--amber) }
+.sug:active{ opacity:.7 }
 #box[contenteditable="false"]{opacity:.6; cursor:default}
 /* bloque de texto pegado: acento del tema en negrita, se borra como unidad */
 .chip{
@@ -1388,6 +1389,8 @@ const ICONS = {
   error:"M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z",
   chevron:"M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z",
   up:"M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z",
+  // flecha curva descendente a la derecha (subdirectory_arrow_right)
+  subdir:"M19 15l-6 6-1.42-1.42L15.17 16H4V4h2v10h9.17l-3.58-3.58L13 9l6 6z",
   done:"M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z",
   think:"M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z",
   // bombilla hueca (lightbulb_outline): mientras piensa; rellena al terminar
@@ -2183,8 +2186,8 @@ function placeSuggests(last){
   wrap.className = "suggests";
   wrap.innerHTML = hints.map(h =>
     `<button class="sug" type="button">`
-    + `<span class="stext">${esc(h)}</span>`
-    + `<span class="sarrow">${ico("up")}</span></button>`).join("");
+    + `<span class="sarrow">${ico("subdir")}</span>`
+    + `<span class="stext">${esc(h)}</span></button>`).join("");
   [...wrap.querySelectorAll(".sug")].forEach((b, i) => {
     b.onclick = () => { box.value = hints[i]; submit(); };
   });
