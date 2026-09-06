@@ -3176,8 +3176,10 @@ function connect(){
         produced = false; turnStart = Date.now();
       }
       paint();
-      if(wasRunning && !state.running)      // fin de turno
+      if(wasRunning && !state.running){     // fin de turno
         groupToolRun();
+        maybeNotify();
+      }
       placeActions();     // coloca (o quita) acciones y sugerencias del turno
     }
     else if(m.type === "cleared"){
@@ -3280,6 +3282,49 @@ let suggest = (() => {
   try { return localStorage.getItem("pi.suggest") === "1"; }
   catch(e){ return false; }
 })();
+let notify = (() => {
+  try { return localStorage.getItem("pi.notify") === "1"; }
+  catch(e){ return false; }
+})();
+function setNotify(on){
+  notify = !!on;
+  try { localStorage.setItem("pi.notify", on ? "1" : "0"); } catch(e){}
+}
+/* Al activar, revisa el tipo de conexion: la API de notificaciones solo existe
+   en contexto seguro (HTTPS, p.ej. `tailscale serve`). Segun el caso avisa por
+   un dialog; si se puede, pide permiso al navegador. cb(true) si quedan on. */
+function requestNotify(cb){
+  if(!("Notification" in window) || !window.isSecureContext){
+    modal(T("notify"), "<p>" + esc(window.isSecureContext
+      ? T("notifUnsupported") : T("notifNeedHttps")) + "</p>");
+    return cb(false);
+  }
+  if(Notification.permission === "granted"){ setNotify(true); return cb(true); }
+  if(Notification.permission === "denied"){
+    modal(T("notify"), "<p>" + esc(T("notifBlocked")) + "</p>");
+    return cb(false);
+  }
+  Notification.requestPermission().then(p => {
+    const ok = p === "granted";
+    setNotify(ok);
+    if(ok) note(T("notifOn"));
+    else if(p === "denied") modal(T("notify"), "<p>" + esc(T("notifBlocked")) + "</p>");
+    cb(ok);
+  }).catch(() => cb(false));
+}
+/* Aviso local del navegador al terminar el agente, solo si la pestana no esta
+   visible (si la miras, no molesta). Cero terceros: notificacion local, no
+   push. */
+function maybeNotify(){
+  if(!notify || !("Notification" in window)) return;
+  if(Notification.permission !== "granted") return;
+  if(!document.hidden) return;
+  try {
+    const n = new Notification(state.sessionName || "pi-remote",
+      {body: T("notifDone"), tag: "pi-turn"});
+    n.onclick = () => { window.focus(); n.close(); };
+  } catch(e){}
+}
 let phDefault = "";
 function applyPh(){ box.dataset.ph = phDefault; }
 function setSuggest(on){
@@ -3851,6 +3896,12 @@ const STR = {
       reasoning:"Reasoning",
       functions:"Functions", showThinking:"Show thinking",
       suggest:"Response suggestions",
+      notify:"Notifications",
+      notifDone:"Response ready",
+      notifOn:"Notifications enabled",
+      notifNeedHttps:"Notifications need a secure connection. Open the page through the HTTPS URL (tailscale serve), not http.",
+      notifBlocked:"Notifications are blocked. Enable them for this site in the browser settings.",
+      notifUnsupported:"This browser doesn't support notifications. On iOS, install the app to the home screen first.",
       movement:"Movement",
       motion_fade:"Fade", motion_instant:"Instant", image:"Image",
       output:"output", noOutput:"no output", command:"command",
@@ -3900,6 +3951,12 @@ const STR = {
       reasoning:"Razonamiento",
       functions:"Funciones", showThinking:"Mostrar pensamiento",
       suggest:"Sugerencias de respuesta",
+      notify:"Notificaciones",
+      notifDone:"Respuesta lista",
+      notifOn:"Notificaciones activadas",
+      notifNeedHttps:"Las notificaciones necesitan conexión segura. Abre la página por la URL HTTPS (tailscale serve), no por http.",
+      notifBlocked:"Notificaciones bloqueadas. Actívalas para este sitio en los ajustes del navegador.",
+      notifUnsupported:"Este navegador no soporta notificaciones. En iOS, instala antes la app en la pantalla de inicio.",
       movement:"Movimiento",
       motion_fade:"Fundido", motion_instant:"Directo", image:"Imagen",
       ranN:"Ejecutados {n} comandos", ranNShown:"{n} comandos",
@@ -3948,6 +4005,12 @@ const STR = {
       reasoning:"Gedankengang",
       functions:"Funktionen", showThinking:"Gedanken anzeigen",
       suggest:"Antwortvorschl\u00e4ge",
+      notify:"Benachrichtigungen",
+      notifDone:"Antwort fertig",
+      notifOn:"Benachrichtigungen aktiviert",
+      notifNeedHttps:"Benachrichtigungen brauchen eine sichere Verbindung. \u00d6ffne die Seite \u00fcber die HTTPS-URL (tailscale serve), nicht \u00fcber http.",
+      notifBlocked:"Benachrichtigungen sind blockiert. Aktiviere sie f\u00fcr diese Seite in den Browsereinstellungen.",
+      notifUnsupported:"Dieser Browser unterst\u00fctzt keine Benachrichtigungen. Auf iOS zuerst die App zum Startbildschirm hinzuf\u00fcgen.",
       movement:"Bewegung",
       motion_fade:"Einblenden", motion_instant:"Sofort", image:"Bild",
       ranN:"{n} Befehle ausgef\u00fchrt", ranNShown:"{n} Befehle",
@@ -3995,6 +4058,12 @@ const STR = {
       reasoning:"Raisonnement",
       functions:"Fonctions", showThinking:"Afficher la r\u00e9flexion",
       suggest:"Suggestions de r\u00e9ponse",
+      notify:"Notifications",
+      notifDone:"R\u00e9ponse pr\u00eate",
+      notifOn:"Notifications activ\u00e9es",
+      notifNeedHttps:"Les notifications exigent une connexion s\u00e9curis\u00e9e. Ouvre la page via l'URL HTTPS (tailscale serve), pas en http.",
+      notifBlocked:"Notifications bloqu\u00e9es. Active-les pour ce site dans les r\u00e9glages du navigateur.",
+      notifUnsupported:"Ce navigateur ne g\u00e8re pas les notifications. Sur iOS, installe d'abord l'app sur l'\u00e9cran d'accueil.",
       movement:"Mouvement",
       motion_fade:"fondu", motion_instant:"instantan\u00e9", image:"image",
       ranN:"{n} commandes ex\u00e9cut\u00e9es", ranNShown:"{n} commandes",
@@ -4042,6 +4111,12 @@ const STR = {
       reasoning:"Racioc\u00ednio",
       functions:"Fun\u00e7\u00f5es", showThinking:"mostrar o racioc\u00ednio",
       suggest:"Sugest\u00f5es de resposta",
+      notify:"Notifica\u00e7\u00f5es",
+      notifDone:"Resposta pronta",
+      notifOn:"Notifica\u00e7\u00f5es ativadas",
+      notifNeedHttps:"As notifica\u00e7\u00f5es exigem liga\u00e7\u00e3o segura. Abre a p\u00e1gina pela URL HTTPS (tailscale serve), n\u00e3o por http.",
+      notifBlocked:"Notifica\u00e7\u00f5es bloqueadas. Ativa-as para este site nas defini\u00e7\u00f5es do navegador.",
+      notifUnsupported:"Este navegador n\u00e3o suporta notifica\u00e7\u00f5es. No iOS, instala primeiro a app no ecr\u00e3 inicial.",
       movement:"Movimento",
       motion_fade:"fundido", motion_instant:"instant\u00e2neo", image:"imagem",
       ranN:"{n} comandos executados", ranNShown:"{n} comandos",
@@ -4089,6 +4164,12 @@ const STR = {
       reasoning:"推理",
       functions:"功能", showThinking:"显示思考过程",
       suggest:"回复建议",
+      notify:"通知",
+      notifDone:"回复已就绪",
+      notifOn:"通知已开启",
+      notifNeedHttps:"通知需要安全连接。请通过 HTTPS 网址（tailscale serve）打开页面，而非 http。",
+      notifBlocked:"通知已被阻止。请在浏览器设置中为本站点启用。",
+      notifUnsupported:"此浏览器不支持通知。在 iOS 上，请先将应用添加到主屏幕。",
       movement:"动效",
       motion_fade:"淡入", motion_instant:"即时", image:"图片",
       ranN:"执行了 {n} 条命令", ranNShown:"{n} 条命令",
@@ -4785,6 +4866,23 @@ function paintSheet(page){
       setSuggest(on);
     };
     body.appendChild(scard);
+
+    const ncard = document.createElement("div");
+    ncard.className = "fcard";
+    const non = notify && ("Notification" in window)
+      && window.Notification.permission === "granted";
+    ncard.innerHTML = `<div class="frow"><div class="ftext">`
+      + `<div class="flbl">${esc(T("notify"))}</div></div>`
+      + `<button class="sw" role="switch" aria-label="${esc(T("notify"))}"`
+      + ` aria-checked="${non}"><span class="knob"></span></button>`;
+    const nsw = ncard.querySelector(".sw");
+    nsw.onclick = () => {
+      const turningOn = nsw.getAttribute("aria-checked") !== "true";
+      if(!turningOn){ setNotify(false);
+        nsw.setAttribute("aria-checked", "false"); return; }
+      requestNotify(ok => nsw.setAttribute("aria-checked", ok ? "true" : "false"));
+    };
+    body.appendChild(ncard);
 
     const mcard = document.createElement("div");
     mcard.className = "fcard";
