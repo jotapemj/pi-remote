@@ -4586,31 +4586,34 @@ const REVEAL_FADE = 9;                  // ancho del degradado, en caracteres
 const revealing = new Set();
 let revealRAF = 0;
 
-/* Oculta el bloque <hint: ...> que el modelo pone al final (sugerencia de
-   respuesta) cuando la funcion esta activa: el usuario no lo ve. Retiene ademas
-   una cola parcial ("<", "<h", "<hint...") hasta saber si es el marcador, para
-   que no parpadee mientras se genera. Ese es el "delay" justo, sin frenar el
-   resto del texto. */
-function visibleText(t){
-  if(!t) return t || "";
-  const at = t.indexOf("<hint:");
-  if(at >= 0) return t.slice(0, at).replace(/\s+$/, "");   // completo o abierto
-  const m = t.match(/<h?i?n?t?$/);                          // cola parcial "<hint"
-  return m ? t.slice(0, t.length - m[0].length) : t;
-}
-/* Hasta 3 marcadores <hint: ...> al final de la respuesta: cada uno es una
-   sugerencia de lo que el usuario podria enviar. El modelo puede sacar menos,
-   o ninguno; se muestran los que haya. */
-function parseHints(t){
-  const out = [];
-  const re = /<hint:\s*([\s\S]*?)>/g;
-  let m;
-  while((m = re.exec(t || "")) && out.length < 3){
-    const s = m[1].trim();
-    if(s) out.push(s);
+/* Separa el bloque final de sugerencias del texto visible. Solo cuentan como
+   sugerencias las lineas <hint: ...> AL FINAL del mensaje, cada una en su
+   linea; un <hint: en medio de la prosa (p.ej. el modelo explicando esta misma
+   feature) se queda como texto, no se oculta ni se vuelve fila. Durante el
+   streaming, oculta una ultima linea que empieza a formar el marcador, para
+   que no parpadee. Devuelve {visible, hints}. */
+function splitHints(t){
+  if(!t) return {visible: t || "", hints: []};
+  const lines = t.split("\n");
+  let i = lines.length - 1;
+  while(i >= 0 && lines[i].trim() === "") i--;   // ignora lineas vacias del final
+  const end = i;                                  // ultima linea con contenido
+  const hints = [];
+  let saw = false;
+  while(i >= 0){
+    const s = lines[i].trim();
+    const done = s.match(/^<hint:\s*([\s\S]*?)>$/);
+    if(done){ hints.unshift(done[1].trim()); saw = true; i--; }
+    // cola en construccion en su propia linea: "<", "<h", ... "<hint: algo"
+    else if(i === end && /^<(h(i(n(t(:[\s\S]*)?)?)?)?)?$/.test(s)){ saw = true; i--; }
+    else if(s === "" && saw){ i--; }               // separadora entre hints
+    else break;                                    // prosa: fin del bloque
   }
-  return out;
+  const visible = lines.slice(0, i + 1).join("\n").replace(/\s+$/, "");
+  return {visible, hints: hints.filter(Boolean).slice(0, 3)};
 }
+function visibleText(t){ return splitHints(t).visible; }
+function parseHints(t){ return splitHints(t).hints; }
 
 function scheduleReveal(el){
   revealing.add(el);

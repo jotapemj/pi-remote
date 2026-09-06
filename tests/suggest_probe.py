@@ -126,16 +126,33 @@ async def in_page():
                 ("apagado, no hay filas", off_n == 0),
             ]
 
-            # cola parcial "<hin" no parpadea (se retiene mientras strea)
+            # cola parcial en su propia linea no parpadea (se retiene al strea)
             await js("setSuggest(true); feed.innerHTML=''; nodes.clear();"
                      " render({id:3, kind:'assistant', streaming:true,"
-                     " text:'Listo <hin'})")
+                     " text:'Listo\\n<hin'})")
             await asyncio.sleep(0.05)
             part = await js("document.querySelector('.said,[data-body]')"
                             ".textContent")
             print("  parcial: mostrado=%r" % part)
             checks.append(("una cola parcial <hin no se muestra",
                            "<hin" not in part and "Listo" in part))
+
+            # colision: un <hint:> EN MEDIO de la prosa (el modelo explicando la
+            # feature) no se oculta ni genera filas. Antes cortaba el texto.
+            await js("setSuggest(true); feed.innerHTML=''; nodes.clear();"
+                     " render({id:4, kind:'assistant', streaming:false,"
+                     " text:'Cierro con tres lineas <hint: ejemplo> y sigo "
+                     "explicando aqui.'}); placeActions()")
+            await asyncio.sleep(0.05)
+            body = await js("document.querySelector('.said,[data-body]')"
+                            ".textContent")
+            rows = await js("document.querySelectorAll('.suggests .sug').length")
+            print("  colision: filas=%s body=%r" % (rows, body))
+            checks += [
+                ("un <hint:> en prosa no genera filas", rows == 0),
+                ("y no corta el texto tras el marcador",
+                 "Cierro con tres lineas" in body and "sigo explicando" in body),
+            ]
 
             checks.append(("sin errores de consola", not p.problems))
     return checks
