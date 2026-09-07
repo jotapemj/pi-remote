@@ -294,9 +294,12 @@ The agent's reasoning appears as a collapsible "Thought for N seconds" block,
 closed by default. A **Functions** page in the settings menu turns it on or
 off and chooses how streamed text arrives: a left-to-right fade or all at
 once. The same page can offer response suggestions: after each turn the model
-proposes up to three likely replies as rows below its answer, and a tap sends
-one. The active model and reasoning level show in small print below the
-composer.
+proposes three likely replies as rows below its answer, and a tap sends one.
+Enabling them shows a note: the bridge appends a hidden instruction to every
+prompt, at a small context cost per turn. It can also raise a local
+notification when the agent finishes a turn while the tab is hidden — the
+browser's own mechanism, no third parties involved. The active model and
+reasoning level show in small print below the composer.
 
 The send button lives inside the composer and becomes a stop while the agent
 works. Pressing stop before the agent has produced anything takes the message
