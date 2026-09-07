@@ -138,19 +138,55 @@ body{
 
 /* ---------- header: instrument nameplate ---------- */
 /* El telon del arranque. Tapa la cabecera mientras decide su alto:
-   sin proyecto no hay subtitulo, y con el crece 16px. */
+   sin proyecto no hay subtitulo, y con el crece 16px.
+   El titulo se dibuja letra a letra por contorno y al completarse se
+   rellena; al terminar la palabra, media pausa, fundido y de nuevo.
+   Cada letra lleva sus keyframes propios: con delays la ultima saltaria a la
+   vista. Ciclo 2.9s: trazo .22s/letra, relleno .25s, pausa .5s, fundido .4s. */
 .curtain{
   position:fixed; inset:0; z-index:60; display:grid; place-items:center;
-  background:var(--panel); color:var(--ink);
-  font:600 22px/1 var(--mono); letter-spacing:.02em;
+  background:var(--panel);
   transition:opacity .34s ease, visibility 0s linear .34s;
 }
-.curtain span{animation:breathe 2.4s ease-in-out infinite}
+.curtain svg{display:block; width:122px; height:auto;
+  animation:wordfade 2.9s linear infinite}
+.curtain path{
+  fill:var(--ink); fill-opacity:0; stroke:var(--ink); stroke-width:.7;
+  stroke-dasharray:1; stroke-dashoffset:1;
+}
+.curtain path:nth-child(1){animation:d1 2.9s linear infinite, f1 2.9s linear infinite}
+.curtain path:nth-child(2){animation:d2 2.9s linear infinite, f2 2.9s linear infinite}
+.curtain path:nth-child(3){animation:d3 2.9s linear infinite, f3 2.9s linear infinite}
+.curtain path:nth-child(4){animation:d4 2.9s linear infinite, f4 2.9s linear infinite}
+.curtain path:nth-child(5){animation:d5 2.9s linear infinite, f5 2.9s linear infinite}
+.curtain path:nth-child(6){animation:d6 2.9s linear infinite, f6 2.9s linear infinite}
+.curtain path:nth-child(7){animation:d7 2.9s linear infinite, f7 2.9s linear infinite}
+.curtain path:nth-child(8){animation:d8 2.9s linear infinite, f8 2.9s linear infinite}
+@keyframes d1{0%{stroke-dashoffset:1}7.6%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
+@keyframes d2{0%,7.6%{stroke-dashoffset:1}15.2%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
+@keyframes d3{0%,15.2%{stroke-dashoffset:1}22.8%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
+@keyframes d4{0%,22.8%{stroke-dashoffset:1}30.4%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
+@keyframes d5{0%,30.4%{stroke-dashoffset:1}38%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
+@keyframes d6{0%,38%{stroke-dashoffset:1}45.6%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
+@keyframes d7{0%,45.6%{stroke-dashoffset:1}53.2%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
+@keyframes d8{0%,53.2%{stroke-dashoffset:1}60.8%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
+@keyframes f1{0%,7.6%{fill-opacity:0}16.2%{fill-opacity:1}100%{fill-opacity:1}}
+@keyframes f2{0%,15.2%{fill-opacity:0}23.8%{fill-opacity:1}100%{fill-opacity:1}}
+@keyframes f3{0%,22.8%{fill-opacity:0}31.4%{fill-opacity:1}100%{fill-opacity:1}}
+@keyframes f4{0%,30.4%{fill-opacity:0}39%{fill-opacity:1}100%{fill-opacity:1}}
+@keyframes f5{0%,38%{fill-opacity:0}46.6%{fill-opacity:1}100%{fill-opacity:1}}
+@keyframes f6{0%,45.6%{fill-opacity:0}54.2%{fill-opacity:1}100%{fill-opacity:1}}
+@keyframes f7{0%,53.2%{fill-opacity:0}61.8%{fill-opacity:1}100%{fill-opacity:1}}
+@keyframes f8{0%,60.8%{fill-opacity:0}69.4%{fill-opacity:1}100%{fill-opacity:1}}
+@keyframes wordfade{
+  0%,86.6%{opacity:1}
+  100%{opacity:0}
+}
 .curtain.gone{opacity:0; visibility:hidden}
 @keyframes breathe{0%,100%{opacity:.45}50%{opacity:1}}
 @media (prefers-reduced-motion:reduce){
   .curtain{transition:none}
-  .curtain span{animation:none}
+  .curtain path{stroke-dashoffset:0; fill-opacity:1}   /* palabra estatica */
 }
 
 .plate{
@@ -944,59 +980,18 @@ footer > *{position:relative; z-index:1}
 }
 .usebtn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .pick small.mk{color:var(--amber)}
-/* cargar sesion: cada letra se dibuja por contorno y al completarse se
-   rellena (queda igual que el splash); al terminar la palabra, media pausa,
-   fundido y de nuevo. Cada letra lleva sus keyframes propios: con delays las
-   letras no reiniciarían a la vez y la ultima saltaria a la vista.
-   Ciclo 2.9s: trazo .22s/letra, relleno .25s, pausa .5s, fundido .4s. */
-/* pantalla completa: mientras carga no se ve nada mas */
+/* cargar sesion: el titulo respira mientras llega el historial */
 .spin{
-  position:fixed; inset:0; z-index:60; display:grid; place-items:center;
-  background:var(--panel);
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
   transition:opacity .25s ease;
 }
-.spin svg{display:block; width:122px; height:auto;
-  animation:wordfade 2.9s linear infinite}
-.spin path{
-  fill:var(--ink); fill-opacity:0; stroke:var(--ink); stroke-width:.7;
-  stroke-dasharray:1; stroke-dashoffset:1;
+.spin span{
+  color:var(--ink); font:600 22px/1 var(--mono); letter-spacing:.02em;
+  animation:breathe 2.4s ease-in-out infinite;
 }
-.spin path:nth-child(1){animation:d1 2.9s linear infinite, f1 2.9s linear infinite}
-.spin path:nth-child(2){animation:d2 2.9s linear infinite, f2 2.9s linear infinite}
-.spin path:nth-child(3){animation:d3 2.9s linear infinite, f3 2.9s linear infinite}
-.spin path:nth-child(4){animation:d4 2.9s linear infinite, f4 2.9s linear infinite}
-.spin path:nth-child(5){animation:d5 2.9s linear infinite, f5 2.9s linear infinite}
-.spin path:nth-child(6){animation:d6 2.9s linear infinite, f6 2.9s linear infinite}
-.spin path:nth-child(7){animation:d7 2.9s linear infinite, f7 2.9s linear infinite}
-.spin path:nth-child(8){animation:d8 2.9s linear infinite, f8 2.9s linear infinite}
-@keyframes d1{0%{stroke-dashoffset:1}7.6%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
-@keyframes d2{0%,7.6%{stroke-dashoffset:1}15.2%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
-@keyframes d3{0%,15.2%{stroke-dashoffset:1}22.8%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
-@keyframes d4{0%,22.8%{stroke-dashoffset:1}30.4%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
-@keyframes d5{0%,30.4%{stroke-dashoffset:1}38%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
-@keyframes d6{0%,38%{stroke-dashoffset:1}45.6%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
-@keyframes d7{0%,45.6%{stroke-dashoffset:1}53.2%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
-@keyframes d8{0%,53.2%{stroke-dashoffset:1}60.8%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
-@keyframes f1{0%,7.6%{fill-opacity:0}16.2%{fill-opacity:1}100%{fill-opacity:1}}
-@keyframes f2{0%,15.2%{fill-opacity:0}23.8%{fill-opacity:1}100%{fill-opacity:1}}
-@keyframes f3{0%,22.8%{fill-opacity:0}31.4%{fill-opacity:1}100%{fill-opacity:1}}
-@keyframes f4{0%,30.4%{fill-opacity:0}39%{fill-opacity:1}100%{fill-opacity:1}}
-@keyframes f5{0%,38%{fill-opacity:0}46.6%{fill-opacity:1}100%{fill-opacity:1}}
-@keyframes f6{0%,45.6%{fill-opacity:0}54.2%{fill-opacity:1}100%{fill-opacity:1}}
-@keyframes f7{0%,53.2%{fill-opacity:0}61.8%{fill-opacity:1}100%{fill-opacity:1}}
-@keyframes f8{0%,60.8%{fill-opacity:0}69.4%{fill-opacity:1}100%{fill-opacity:1}}
-@keyframes wordfade{
-  0%,86.6%{opacity:1}
-  100%{opacity:0}
-}
-/* si el chat ya llego, saltar al texto completo y fundir */
-.spin.done path{animation:none; stroke-dashoffset:0; fill-opacity:1}
 .spin.out{opacity:0}
-/* mientras carga la sesion solo se ve la animacion */
-#readout,.entry,#cmeta{transition:opacity .25s ease}
-body.loading #feed{visibility:hidden}
-body.loading #readout,body.loading .entry,body.loading #cmeta,
-body.loading #godown{opacity:0; pointer-events:none}
+/* la tarjeta de estado vacio cede el sitio al titulo */
+main:has(#spin) .empty{display:none}
 @keyframes turn{to{transform:translate(-50%,-50%) rotate(360deg)}}
 
 .empty{
@@ -1299,13 +1294,12 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
 }
 @media (prefers-reduced-motion:reduce){
   *{animation:none!important;transition:none!important;scroll-behavior:auto}
-  .spin path{stroke-dashoffset:0; fill-opacity:1}   /* palabra estatica */
 }
 </style>
 </head>
 <body>
 
-<div class="curtain" id="curtain"><span>pi-remote</span></div>
+<div class="curtain" id="curtain"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 122.32 28.6" width="122" height="29" aria-hidden="true"> <path pathLength="1" d="M1.52 11.2H4.33V13.2H4.49Q4.95 12.17 5.75 11.55Q6.56 10.93 7.88 10.93Q8.84 10.93 9.65 11.3Q10.45 11.66 11.02 12.4Q11.59 13.13 11.9 14.26Q12.21 15.38 12.21 16.87Q12.21 18.37 11.9 19.49Q11.59 20.61 11.02 21.35Q10.45 22.09 9.65 22.45Q8.84 22.81 7.88 22.81Q6.56 22.81 5.75 22.2Q4.95 21.58 4.49 20.55H4.33V26.95H1.52ZM6.69 20.57Q7.92 20.57 8.59 19.82Q9.26 19.07 9.26 17.78V15.97Q9.26 14.67 8.59 13.93Q7.92 13.18 6.69 13.18Q5.72 13.18 5.03 13.65Q4.33 14.12 4.33 15.09V18.66Q4.33 19.62 5.03 20.1Q5.72 20.57 6.69 20.57Z"/> <path pathLength="1" d="M20.94 9.44Q19.95 9.44 19.55 9.02Q19.14 8.6 19.14 8.01V7.48Q19.14 6.89 19.55 6.47Q19.95 6.05 20.94 6.05Q21.93 6.05 22.34 6.47Q22.75 6.89 22.75 7.48V8.01Q22.75 8.6 22.34 9.02Q21.93 9.44 20.94 9.44ZM15.8 20.33H19.54V13.42H15.8V11.2H22.35V20.33H25.83V22.55H15.8Z"/> <path pathLength="1" d="M42.57 20.33H45.39V13.42H42.57V11.2H48.2V14.3H48.38Q48.53 13.71 48.81 13.14Q49.08 12.58 49.51 12.15Q49.94 11.73 50.56 11.46Q51.17 11.2 52.03 11.2H53.26V13.84H50.93Q49.65 13.84 48.93 14.59Q48.2 15.33 48.2 16.5V20.33H52.14V22.55H42.57Z"/> <path pathLength="1" d="M61.42 22.81Q60.06 22.81 59 22.4Q57.95 21.98 57.23 21.21Q56.52 20.44 56.14 19.35Q55.77 18.26 55.77 16.9Q55.77 15.51 56.15 14.41Q56.54 13.31 57.24 12.54Q57.95 11.77 58.95 11.35Q59.95 10.93 61.2 10.93Q62.44 10.93 63.43 11.34Q64.42 11.75 65.11 12.5Q65.8 13.24 66.18 14.3Q66.55 15.36 66.55 16.63V17.56H58.59V17.84Q58.59 19.07 59.36 19.83Q60.13 20.59 61.51 20.59Q62.57 20.59 63.33 20.16Q64.09 19.73 64.59 19.03L66.2 20.64Q65.58 21.54 64.41 22.18Q63.23 22.81 61.42 22.81ZM61.23 13Q60.04 13 59.31 13.75Q58.59 14.5 58.59 15.73V15.88H63.73V15.69Q63.73 14.45 63.06 13.73Q62.39 13 61.23 13Z"/> <path pathLength="1" d="M69.01 22.55V11.2H71.35V12.76H71.48Q71.74 12.01 72.24 11.47Q72.73 10.93 73.63 10.93Q74.49 10.93 75 11.43Q75.5 11.92 75.66 12.83H75.77Q76.05 12.06 76.61 11.49Q77.18 10.93 78.21 10.93Q79.46 10.93 80.01 11.84Q80.56 12.74 80.56 14.5V22.55H78.25V14.83Q78.25 13.84 77.98 13.44Q77.7 13.05 77.15 13.05Q76.65 13.05 76.31 13.38Q75.97 13.71 75.97 14.39V22.55H73.63V14.83Q73.63 13.84 73.37 13.44Q73.11 13.05 72.56 13.05Q72.03 13.05 71.69 13.38Q71.35 13.71 71.35 14.39V22.55Z"/> <path pathLength="1" d="M88.44 22.81Q87.14 22.81 86.12 22.4Q85.1 21.98 84.38 21.21Q83.67 20.44 83.28 19.34Q82.9 18.24 82.9 16.87Q82.9 15.51 83.28 14.41Q83.67 13.31 84.38 12.54Q85.1 11.77 86.12 11.35Q87.14 10.93 88.44 10.93Q89.72 10.93 90.75 11.35Q91.78 11.77 92.5 12.54Q93.21 13.31 93.6 14.41Q93.98 15.51 93.98 16.87Q93.98 18.24 93.6 19.34Q93.21 20.44 92.5 21.21Q91.78 21.98 90.75 22.4Q89.72 22.81 88.44 22.81ZM88.44 20.66Q89.65 20.66 90.35 19.92Q91.06 19.18 91.06 17.75V15.99Q91.06 14.56 90.35 13.83Q89.65 13.09 88.44 13.09Q87.23 13.09 86.53 13.83Q85.82 14.56 85.82 15.99V17.75Q85.82 19.18 86.53 19.92Q87.23 20.66 88.44 20.66Z"/> <path pathLength="1" d="M102.85 22.55Q101.22 22.55 100.45 21.69Q99.68 20.83 99.68 19.47V13.42H96.38V11.2H98.63Q99.31 11.2 99.59 10.92Q99.88 10.65 99.88 9.94V7.19H102.5V11.2H107.12V13.42H102.5V20.33H107.12V22.55Z"/> <path pathLength="1" d="M115.98 22.81Q114.62 22.81 113.56 22.4Q112.51 21.98 111.79 21.21Q111.08 20.44 110.7 19.35Q110.33 18.26 110.33 16.9Q110.33 15.51 110.71 14.41Q111.1 13.31 111.8 12.54Q112.51 11.77 113.51 11.35Q114.51 10.93 115.76 10.93Q117 10.93 117.99 11.34Q118.98 11.75 119.67 12.5Q120.36 13.24 120.74 14.3Q121.11 15.36 121.11 16.63V17.56H113.15V17.84Q113.15 19.07 113.92 19.83Q114.69 20.59 116.07 20.59Q117.13 20.59 117.89 20.16Q118.65 19.73 119.15 19.03L120.76 20.64Q120.14 21.54 118.96 22.18Q117.79 22.81 115.98 22.81ZM115.79 13Q114.6 13 113.87 13.75Q113.15 14.5 113.15 15.73V15.88H118.29V15.69Q118.29 14.45 117.62 13.73Q116.95 13 115.79 13Z"/> </svg></div>
 
 <div class="stack" id="stack">
 <header class="plate">
@@ -2634,26 +2628,21 @@ function paintWarning(){
 }
 /* el historial tarda un instante en llegar: sin esto la pantalla
    se queda en blanco y parece que no hay nada */
-// "pi remote" con sus trazados reales (IBM Plex Mono 600), un path por letra
-const SPIN_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 122.32 28.6" width="122" height="29" aria-hidden="true"> <path pathLength="1" d="M1.52 11.2H4.33V13.2H4.49Q4.95 12.17 5.75 11.55Q6.56 10.93 7.88 10.93Q8.84 10.93 9.65 11.3Q10.45 11.66 11.02 12.4Q11.59 13.13 11.9 14.26Q12.21 15.38 12.21 16.87Q12.21 18.37 11.9 19.49Q11.59 20.61 11.02 21.35Q10.45 22.09 9.65 22.45Q8.84 22.81 7.88 22.81Q6.56 22.81 5.75 22.2Q4.95 21.58 4.49 20.55H4.33V26.95H1.52ZM6.69 20.57Q7.92 20.57 8.59 19.82Q9.26 19.07 9.26 17.78V15.97Q9.26 14.67 8.59 13.93Q7.92 13.18 6.69 13.18Q5.72 13.18 5.03 13.65Q4.33 14.12 4.33 15.09V18.66Q4.33 19.62 5.03 20.1Q5.72 20.57 6.69 20.57Z"/> <path pathLength="1" d="M20.94 9.44Q19.95 9.44 19.55 9.02Q19.14 8.6 19.14 8.01V7.48Q19.14 6.89 19.55 6.47Q19.95 6.05 20.94 6.05Q21.93 6.05 22.34 6.47Q22.75 6.89 22.75 7.48V8.01Q22.75 8.6 22.34 9.02Q21.93 9.44 20.94 9.44ZM15.8 20.33H19.54V13.42H15.8V11.2H22.35V20.33H25.83V22.55H15.8Z"/> <path pathLength="1" d="M42.57 20.33H45.39V13.42H42.57V11.2H48.2V14.3H48.38Q48.53 13.71 48.81 13.14Q49.08 12.58 49.51 12.15Q49.94 11.73 50.56 11.46Q51.17 11.2 52.03 11.2H53.26V13.84H50.93Q49.65 13.84 48.93 14.59Q48.2 15.33 48.2 16.5V20.33H52.14V22.55H42.57Z"/> <path pathLength="1" d="M61.42 22.81Q60.06 22.81 59 22.4Q57.95 21.98 57.23 21.21Q56.52 20.44 56.14 19.35Q55.77 18.26 55.77 16.9Q55.77 15.51 56.15 14.41Q56.54 13.31 57.24 12.54Q57.95 11.77 58.95 11.35Q59.95 10.93 61.2 10.93Q62.44 10.93 63.43 11.34Q64.42 11.75 65.11 12.5Q65.8 13.24 66.18 14.3Q66.55 15.36 66.55 16.63V17.56H58.59V17.84Q58.59 19.07 59.36 19.83Q60.13 20.59 61.51 20.59Q62.57 20.59 63.33 20.16Q64.09 19.73 64.59 19.03L66.2 20.64Q65.58 21.54 64.41 22.18Q63.23 22.81 61.42 22.81ZM61.23 13Q60.04 13 59.31 13.75Q58.59 14.5 58.59 15.73V15.88H63.73V15.69Q63.73 14.45 63.06 13.73Q62.39 13 61.23 13Z"/> <path pathLength="1" d="M69.01 22.55V11.2H71.35V12.76H71.48Q71.74 12.01 72.24 11.47Q72.73 10.93 73.63 10.93Q74.49 10.93 75 11.43Q75.5 11.92 75.66 12.83H75.77Q76.05 12.06 76.61 11.49Q77.18 10.93 78.21 10.93Q79.46 10.93 80.01 11.84Q80.56 12.74 80.56 14.5V22.55H78.25V14.83Q78.25 13.84 77.98 13.44Q77.7 13.05 77.15 13.05Q76.65 13.05 76.31 13.38Q75.97 13.71 75.97 14.39V22.55H73.63V14.83Q73.63 13.84 73.37 13.44Q73.11 13.05 72.56 13.05Q72.03 13.05 71.69 13.38Q71.35 13.71 71.35 14.39V22.55Z"/> <path pathLength="1" d="M88.44 22.81Q87.14 22.81 86.12 22.4Q85.1 21.98 84.38 21.21Q83.67 20.44 83.28 19.34Q82.9 18.24 82.9 16.87Q82.9 15.51 83.28 14.41Q83.67 13.31 84.38 12.54Q85.1 11.77 86.12 11.35Q87.14 10.93 88.44 10.93Q89.72 10.93 90.75 11.35Q91.78 11.77 92.5 12.54Q93.21 13.31 93.6 14.41Q93.98 15.51 93.98 16.87Q93.98 18.24 93.6 19.34Q93.21 20.44 92.5 21.21Q91.78 21.98 90.75 22.4Q89.72 22.81 88.44 22.81ZM88.44 20.66Q89.65 20.66 90.35 19.92Q91.06 19.18 91.06 17.75V15.99Q91.06 14.56 90.35 13.83Q89.65 13.09 88.44 13.09Q87.23 13.09 86.53 13.83Q85.82 14.56 85.82 15.99V17.75Q85.82 19.18 86.53 19.92Q87.23 20.66 88.44 20.66Z"/> <path pathLength="1" d="M102.85 22.55Q101.22 22.55 100.45 21.69Q99.68 20.83 99.68 19.47V13.42H96.38V11.2H98.63Q99.31 11.2 99.59 10.92Q99.88 10.65 99.88 9.94V7.19H102.5V11.2H107.12V13.42H102.5V20.33H107.12V22.55Z"/> <path pathLength="1" d="M115.98 22.81Q114.62 22.81 113.56 22.4Q112.51 21.98 111.79 21.21Q111.08 20.44 110.7 19.35Q110.33 18.26 110.33 16.9Q110.33 15.51 110.71 14.41Q111.1 13.31 111.8 12.54Q112.51 11.77 113.51 11.35Q114.51 10.93 115.76 10.93Q117 10.93 117.99 11.34Q118.98 11.75 119.67 12.5Q120.36 13.24 120.74 14.3Q121.11 15.36 121.11 16.63V17.56H113.15V17.84Q113.15 19.07 113.92 19.83Q114.69 20.59 116.07 20.59Q117.13 20.59 117.89 20.16Q118.65 19.73 119.15 19.03L120.76 20.64Q120.14 21.54 118.96 22.18Q117.79 22.81 115.98 22.81ZM115.79 13Q114.6 13 113.87 13.75Q113.15 14.5 113.15 15.73V15.88H118.29V15.69Q118.29 14.45 117.62 13.73Q116.95 13 115.79 13Z"/> </svg>';
 let spinTimer = null;
 function spinner(on){
   clearTimeout(spinTimer);
-  document.body.classList.toggle("loading", on);   // solo la animacion
   let el = $("#spin");
   if(!on){
     if(!el) return;
-    el.classList.add("done","out");   // salta al texto completo y funde
+    el.classList.add("out");
     setTimeout(()=>{ if(el.parentNode) el.remove(); }, 260);
     return;
   }
   if(el) return;
   el = document.createElement("div");
   el.id = "spin"; el.className = "spin";
-  el.innerHTML = SPIN_SVG;
-  // en body, no en main: el mask-image de main crea contexto de
-  // apilamiento y atraparia al velo dentro del area de chat
-  document.body.appendChild(el);
+  el.innerHTML = "<span>pi remote</span>";
+  main.appendChild(el);
   spinTimer = setTimeout(()=> spinner(false), 8000);   // por si nunca llega
 }
 
