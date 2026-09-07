@@ -2763,7 +2763,9 @@ function menuModal(title, rows){
 function projMenu(r){
   menuModal(r.name, [
     {icon:"add", label:T("newSession"), run:()=>{
-      closeRail(); send({type:"open_project", path:r.path}); }},
+      closeRail();
+      if(r.path === state.cwd) send({type:"new_session"});   // pi vive
+      else send({type:"open_project", path:r.path}); }},
     {icon:"remove", bad:true, label:T("removeProject"), run:()=>
       confirmModal(T("removeQ"), esc(T("removeB")),
                    ()=>send({type:"forget_project", path:r.path}))},
@@ -2812,7 +2814,9 @@ function fillSubs(group, path){
   inner.innerHTML = "";
   inner.appendChild(pickBtn({
     cls: "sess new", icon: "add", label: T("newSession"),
-    run: () => { closeRail(); send({type:"open_project", path}); }}));
+    run: () => { closeRail();
+      if(path === state.cwd) send({type:"new_session"});   // pi vive
+      else send({type:"open_project", path}); }}));
 
   const cached = sessCache[path];
   const note = txt => {

@@ -213,6 +213,14 @@ async def main():
                      spin_mid[0], spin_mid[2], spin_off[0], spin_off[1],
                      spin_off[2]))
 
+            # new_session sobre el pi vivo: limpiado y snapshot, sin relanzar
+            await p.js("send({type:'new_session'})")
+            await asyncio.sleep(0.6)
+            ns = await p.js("[!!$('#spin'),"
+                            " document.body.classList.contains('loading'),"
+                            " $('#feed').children.length]")
+            print("  new_session: spinner=%s loading=%s items=%s" % tuple(ns))
+
             # los desplegables de las herramientas
             det = """(() => {
               const d = document.querySelector('.tool');
@@ -244,6 +252,8 @@ async def main():
                 ("y se va desvaneciendo",
                  spin_mid[1] is True and 0 <= (spin_mid[0] or 0) < 1),
                 ("sin dejar rastro", spin_off[0] is False),
+                ("new_session refresca sin relanzar pi",
+                 ns[0] is False and ns[1] is False and ns[2] > 0),
                 ("el edit terminado nace plegado", before[0] is False),
                 ("el desplegable se abre animando",
                  mid[2] is True and mid[1].endswith("px")
