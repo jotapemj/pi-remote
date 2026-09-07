@@ -188,20 +188,30 @@ async def main():
 
             # el spinner mientras llega el historial
             await p.js("spinner(true)")
-            await asyncio.sleep(0.2)
+            await asyncio.sleep(0.35)
             spin_on = await p.js("[!!$('#spin'),"
-                                 " getComputedStyle($('#spin')).animationName]")
+                                 " getComputedStyle($('#spin path')).animationName,"
+                                 " $('#spin').querySelectorAll('path').length,"
+                                 " document.body.classList.contains('loading'),"
+                                 " getComputedStyle($('#feed')).visibility,"
+                                 " getComputedStyle($('.entry')).opacity,"
+                                 " getComputedStyle($('#spin')).position]")
             await p.js("spinner(false)")
             await asyncio.sleep(0.1)
             spin_mid = await p.js("$('#spin') ? [Number(getComputedStyle("
                                   "$('#spin')).opacity),"
-                                  " $('#spin').classList.contains('out')]"
-                                  " : [null, null]")
+                                  " $('#spin').classList.contains('out'),"
+                                  " getComputedStyle($('#spin path')).fillOpacity]"
+                                  " : [null, null, null]")
             await asyncio.sleep(0.4)
-            spin_off = await p.js("!!$('#spin')")
-            print("  spinner: aparece=%s gira=%r | al irse opacidad=%s"
-                  " | queda=%s" % (spin_on[0], spin_on[1], spin_mid[0],
-                                   spin_off))
+            spin_off = await p.js("[!!$('#spin'),"
+                                  " getComputedStyle($('.entry')).opacity,"
+                                  " getComputedStyle($('#feed')).visibility]")
+            print("  spinner: aparece=%s dibuja=%r letras=%s oculto=%s | al irse"
+                  " opacidad=%s relleno=%s | queda=%s panel=%s feed=%s"
+                  % (spin_on[0], spin_on[1], spin_on[2], spin_on[3:5],
+                     spin_mid[0], spin_mid[2], spin_off[0], spin_off[1],
+                     spin_off[2]))
 
             # los desplegables de las herramientas
             det = """(() => {
@@ -221,11 +231,19 @@ async def main():
                      after[0], after[1]))
 
             checks += [
-                ("el spinner sale y gira",
-                 spin_on[0] is True and spin_on[1] == "turn"),
+                ("el spinner dibuja el titulo letra a letra",
+                 spin_on[0] is True and spin_on[1] == "d1, f1"
+                 and spin_on[2] == 8),
+                ("al llegar el chat salta al texto completo",
+                 spin_mid[2] == "1"),
+                ("mientras carga solo se ve la animacion, a pantalla completa",
+                 spin_on[3] is True and spin_on[4] == "hidden"
+                 and spin_on[5] == "0" and spin_on[6] == "fixed"),
+                ("al llegar el chat vuelve el panel",
+                 spin_off[1] == "1" and spin_off[2] == "visible"),
                 ("y se va desvaneciendo",
                  spin_mid[1] is True and 0 <= (spin_mid[0] or 0) < 1),
-                ("sin dejar rastro", spin_off is False),
+                ("sin dejar rastro", spin_off[0] is False),
                 ("el edit terminado nace plegado", before[0] is False),
                 ("el desplegable se abre animando",
                  mid[2] is True and mid[1].endswith("px")
