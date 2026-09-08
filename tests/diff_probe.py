@@ -211,6 +211,17 @@ async def main():
                      spin_on[4], spin_mid[0], spin_off))
             print("  splash: letras=%s dibuja=%r" % (cur[0], cur[1]))
 
+            # arranque en frio: el telon deja ver el ciclo entero antes de irse
+            await p.js("curtainT0 = performance.now() - 1000;"
+                       " booted = false;"
+                       " $('#curtain').classList.remove('gone');"
+                       " boot();")
+            wait0 = await p.js("$('#curtain').classList.contains('gone')")
+            await asyncio.sleep(2.2)
+            wait1 = await p.js("$('#curtain').classList.contains('gone')")
+            print("  splash: a los 0s ido=%s a los 2.2s ido=%s"
+                  % (wait0, wait1))
+
             # new_session sobre el pi vivo: limpiado y snapshot, sin relanzar
             await p.js("send({type:'new_session'})")
             await asyncio.sleep(0.6)
@@ -241,6 +252,8 @@ async def main():
                  and spin_on[4] == "visible"),
                 ("el splash dibuja el titulo letra a letra",
                  cur[0] == 8 and cur[1] == "d1, f1"),
+                ("en arranque en frio se ve el ciclo entero del splash",
+                 wait0 is False and wait1 is True),
                 ("y se va desvaneciendo",
                  spin_mid[1] is True and 0 <= (spin_mid[0] or 0) < 1),
                 ("sin dejar rastro", spin_off is False),

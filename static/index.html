@@ -3117,12 +3117,18 @@ function secs(){
 
 /* El telon se va cuando ya hay algo que ensenar, o a los cuatro
    segundos aunque no lo haya: mejor la interfaz con su aviso de
-   reconexion que una pantalla que parece colgada. */
+   reconexion que una pantalla que parece colgada. En arranque en frio
+   deja ver el ciclo entero del dibujo (2.9s) antes de irse; si el
+   snapshot llega despues, se va al llegar aunque sea a mitad de bucle. */
 let booted = false;
+let curtainT0 = performance.now();
 function boot(){
   if(booted) return;
   booted = true;
-  requestAnimationFrame(()=> $("#curtain").classList.add("gone"));
+  const rm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const wait = rm ? 0 : Math.max(0, curtainT0 + 2900 - performance.now());
+  setTimeout(()=> requestAnimationFrame(()=>
+    $("#curtain").classList.add("gone")), wait);
 }
 setTimeout(boot, 4000);
 
