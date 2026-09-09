@@ -133,6 +133,19 @@ SUGGEST_HINT = (
 # literal: pilla el formato nuevo y los viejos ya guardados en sesiones.
 SUGGEST_HINT_RE = re.compile(r"\n*\[[^\]]*<hint:[\s\S]*\]\s*$")
 
+# Resumen al parar: cuando el usuario detiene un turno en curso con la funcion
+# activa, en vez de matar el turno (abort) lo redirigimos (steer) con esta
+# instruccion fija. Al ser el MISMO turno, el modelo conserva lo que estaba
+# haciendo y puede contarlo. La respuesta es texto normal de asistente:
+# parte fija de confirmacion + "estaba" + lo que hacia, en una linea.
+STOP_SUMMARY = (
+    "The user just stopped you. Reply with a single short line of plain "
+    "text, in the user's language: a fixed confirmation first ('Vale, paro', "
+    "'Parado', 'Detenido' or whatever fits the language), then 'estaba' (or "
+    "its equivalent) plus what you were doing right before the stop. No "
+    "preamble, no markdown, nothing else."
+)
+
 
 # ------------------------------------------------------------------ access
 
@@ -1221,6 +1234,14 @@ class Bridge:
             return
 
         if t == "abort":
+            # resumen al parar: si esta activo y el turno ya genero algo que
+            # resumir, no matamos el turno; lo redirigimos con un steer para
+            # que diga en una linea que hacia. Mismo turno = conserva contexto.
+            if msg.get("summary") and self.state.get("running") \
+                    and self.produced:
+                self.stop_summary = True
+                self.send_pi({"type": "steer", "message": STOP_SUMMARY})
+                return
             self.send_pi({"type": "abort"})
             # deshacer el envio: solo si el modelo no empezo nada todavia
             if (msg.get("undo") and self.state.get("running")
