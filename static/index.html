@@ -140,28 +140,28 @@ body{
 /* El telon del arranque. Tapa la cabecera mientras decide su alto:
    sin proyecto no hay subtitulo, y con el crece 16px.
    El titulo se dibuja letra a letra por contorno y al completarse se
-   rellena; al terminar la palabra, media pausa, fundido y de nuevo.
-   Cada letra lleva sus keyframes propios: con delays la ultima saltaria a la
-   vista. Ciclo 2.9s: trazo .22s/letra, relleno .25s, pausa .5s, fundido .4s. */
+   rellena, UNA sola vez (sin bucle); luego la palabra respira (.lit) hasta
+   que se puede entrar, y el telon se va. Cada letra lleva sus keyframes
+   propios: con delays la ultima saltaria a la vista. El dibujo dura ~2s
+   (trazo .22s/letra, relleno .25s), y queda fijo con forwards. */
 .curtain{
   position:fixed; inset:0; z-index:60; display:grid; place-items:center;
   background:var(--panel);
   transition:opacity .34s ease, visibility 0s linear .34s;
 }
-.curtain svg{display:block; width:122px; height:auto;
-  animation:wordfade 2.9s linear infinite}
+.curtain svg{display:block; width:200px; height:auto}
 .curtain path{
   fill:var(--ink); fill-opacity:0; stroke:var(--ink); stroke-width:.7;
   stroke-dasharray:1; stroke-dashoffset:1;
 }
-.curtain path:nth-child(1){animation:d1 2.9s linear infinite, f1 2.9s linear infinite}
-.curtain path:nth-child(2){animation:d2 2.9s linear infinite, f2 2.9s linear infinite}
-.curtain path:nth-child(3){animation:d3 2.9s linear infinite, f3 2.9s linear infinite}
-.curtain path:nth-child(4){animation:d4 2.9s linear infinite, f4 2.9s linear infinite}
-.curtain path:nth-child(5){animation:d5 2.9s linear infinite, f5 2.9s linear infinite}
-.curtain path:nth-child(6){animation:d6 2.9s linear infinite, f6 2.9s linear infinite}
-.curtain path:nth-child(7){animation:d7 2.9s linear infinite, f7 2.9s linear infinite}
-.curtain path:nth-child(8){animation:d8 2.9s linear infinite, f8 2.9s linear infinite}
+.curtain path:nth-child(1){animation:d1 2.9s linear forwards, f1 2.9s linear forwards}
+.curtain path:nth-child(2){animation:d2 2.9s linear forwards, f2 2.9s linear forwards}
+.curtain path:nth-child(3){animation:d3 2.9s linear forwards, f3 2.9s linear forwards}
+.curtain path:nth-child(4){animation:d4 2.9s linear forwards, f4 2.9s linear forwards}
+.curtain path:nth-child(5){animation:d5 2.9s linear forwards, f5 2.9s linear forwards}
+.curtain path:nth-child(6){animation:d6 2.9s linear forwards, f6 2.9s linear forwards}
+.curtain path:nth-child(7){animation:d7 2.9s linear forwards, f7 2.9s linear forwards}
+.curtain path:nth-child(8){animation:d8 2.9s linear forwards, f8 2.9s linear forwards}
 @keyframes d1{0%{stroke-dashoffset:1}7.6%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
 @keyframes d2{0%,7.6%{stroke-dashoffset:1}15.2%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
 @keyframes d3{0%,15.2%{stroke-dashoffset:1}22.8%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
@@ -170,23 +170,27 @@ body{
 @keyframes d6{0%,38%{stroke-dashoffset:1}45.6%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
 @keyframes d7{0%,45.6%{stroke-dashoffset:1}53.2%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
 @keyframes d8{0%,53.2%{stroke-dashoffset:1}60.8%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
-@keyframes f1{0%,7.6%{fill-opacity:0}16.2%{fill-opacity:1}100%{fill-opacity:1}}
-@keyframes f2{0%,15.2%{fill-opacity:0}23.8%{fill-opacity:1}100%{fill-opacity:1}}
-@keyframes f3{0%,22.8%{fill-opacity:0}31.4%{fill-opacity:1}100%{fill-opacity:1}}
-@keyframes f4{0%,30.4%{fill-opacity:0}39%{fill-opacity:1}100%{fill-opacity:1}}
-@keyframes f5{0%,38%{fill-opacity:0}46.6%{fill-opacity:1}100%{fill-opacity:1}}
-@keyframes f6{0%,45.6%{fill-opacity:0}54.2%{fill-opacity:1}100%{fill-opacity:1}}
-@keyframes f7{0%,53.2%{fill-opacity:0}61.8%{fill-opacity:1}100%{fill-opacity:1}}
-@keyframes f8{0%,60.8%{fill-opacity:0}69.4%{fill-opacity:1}100%{fill-opacity:1}}
-@keyframes wordfade{
-  0%,86.6%{opacity:1}
-  100%{opacity:0}
-}
+/* el trazo se apaga PRONTO, mientras la letra aun entra tenue (relleno ~45%):
+   asi no se ve encoger. Cuando la letra ya brilla, el grosor ya es el final
+   (relleno puro, mismo peso que el breathe, sin engordar por la arista). */
+@keyframes f1{0%,7.6%{fill-opacity:0;stroke-width:.7}11.5%{stroke-width:0}16.2%,100%{fill-opacity:1;stroke-width:0}}
+@keyframes f2{0%,15.2%{fill-opacity:0;stroke-width:.7}19.1%{stroke-width:0}23.8%,100%{fill-opacity:1;stroke-width:0}}
+@keyframes f3{0%,22.8%{fill-opacity:0;stroke-width:.7}26.7%{stroke-width:0}31.4%,100%{fill-opacity:1;stroke-width:0}}
+@keyframes f4{0%,30.4%{fill-opacity:0;stroke-width:.7}34.3%{stroke-width:0}39%,100%{fill-opacity:1;stroke-width:0}}
+@keyframes f5{0%,38%{fill-opacity:0;stroke-width:.7}41.9%{stroke-width:0}46.6%,100%{fill-opacity:1;stroke-width:0}}
+@keyframes f6{0%,45.6%{fill-opacity:0;stroke-width:.7}49.5%{stroke-width:0}54.2%,100%{fill-opacity:1;stroke-width:0}}
+@keyframes f7{0%,53.2%{fill-opacity:0;stroke-width:.7}57.1%{stroke-width:0}61.8%,100%{fill-opacity:1;stroke-width:0}}
+@keyframes f8{0%,60.8%{fill-opacity:0;stroke-width:.7}64.7%{stroke-width:0}69.4%,100%{fill-opacity:1;stroke-width:0}}
 .curtain.gone{opacity:0; visibility:hidden}
+/* rellenado el titulo (una vez), respira hasta que se puede entrar. El
+   -1.2s arranca en la fase 50% (opacidad 1): asi no salta desde el estatico. */
+.curtain.lit svg{animation:breathe 2.4s ease-in-out -1.2s infinite}
 @keyframes breathe{0%,100%{opacity:.45}50%{opacity:1}}
 @media (prefers-reduced-motion:reduce){
+  .curtain, .curtain svg, .curtain path{animation:none}
   .curtain{transition:none}
-  .curtain path{stroke-dashoffset:0; fill-opacity:1}   /* palabra estatica */
+  /* palabra estatica: relleno puro, sin trazo (mismo peso que el breathe) */
+  .curtain path{stroke-dashoffset:0; fill-opacity:1; stroke-width:0}
 }
 
 .plate{
@@ -3115,21 +3119,31 @@ function secs(){
   }
 }
 
-/* El telon se va cuando ya hay algo que ensenar, o a los cuatro
-   segundos aunque no lo haya: mejor la interfaz con su aviso de
-   reconexion que una pantalla que parece colgada. En arranque en frio
-   deja ver el ciclo entero del dibujo (2.9s) antes de irse; si el
-   snapshot llega despues, se va al llegar aunque sea a mitad de bucle. */
-let booted = false;
-let curtainT0 = performance.now();
+/* El telon rellena el titulo UNA vez; despues respira hasta que hay algo
+   que ensenar (snapshot) o hasta el tope de 4s, y entonces transiciona a la
+   interfaz. El dibujo se ve siempre entero: la salida espera a que termine.
+   Mejor la interfaz con su aviso de reconexion que una pantalla colgada. */
+let booted = false;    // snapshot o tope de 4s: ya se puede entrar
+let drawn = false;     // el relleno (una sola vez) termino
+const DRAW_MS = 2050;  // trazo + relleno de las 8 letras (~69% de los 2.9s)
+const RM_CURTAIN = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function leaveCurtain(){                    // transicion final a la ui
+  requestAnimationFrame(()=> $("#curtain").classList.add("gone"));
+}
+function drawDone(){
+  if(drawn) return;
+  drawn = true;
+  if(booted) leaveCurtain();                // ya listos: fuera directo
+  else if(!RM_CURTAIN) $("#curtain").classList.add("lit");  // si no, respira
+}
 function boot(){
   if(booted) return;
   booted = true;
-  const rm = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const wait = rm ? 0 : Math.max(0, curtainT0 + 2900 - performance.now());
-  setTimeout(()=> requestAnimationFrame(()=>
-    $("#curtain").classList.add("gone")), wait);
+  if(drawn) leaveCurtain();                 // dibujo hecho (respirando) -> fuera
+  // si aun dibuja, drawDone() saldra al terminar
 }
+setTimeout(drawDone, RM_CURTAIN ? 0 : DRAW_MS);
 setTimeout(boot, 4000);
 
 
