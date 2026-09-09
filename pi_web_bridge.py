@@ -1239,7 +1239,6 @@ class Bridge:
             # que diga en una linea que hacia. Mismo turno = conserva contexto.
             if msg.get("summary") and self.state.get("running") \
                     and self.produced:
-                self.stop_summary = True
                 self.send_pi({"type": "steer", "message": STOP_SUMMARY})
                 return
             self.send_pi({"type": "abort"})
