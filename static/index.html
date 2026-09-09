@@ -14,7 +14,7 @@
 <script id="boot">
 /* pick the theme before first paint, or the wrong one flashes on load */
 try{
-  var p = localStorage.getItem("pi.theme") || "auto";
+  var p = localStorage.getItem("pi.theme") || "light";
   document.documentElement.dataset.theme = p !== "auto" ? p
     : (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
 }catch(e){}
@@ -4632,8 +4632,8 @@ const SIZES = [13, 14, 15, 16, 17, 18, 19, 20];
 const SYS = matchMedia("(prefers-color-scheme: light)");
 
 function themePref(){
-  try { return localStorage.getItem("pi.theme") || "auto"; }
-  catch(e){ return "auto"; }
+  try { return localStorage.getItem("pi.theme") || "light"; }
+  catch(e){ return "light"; }
 }
 function sizeStep(){
   try {
