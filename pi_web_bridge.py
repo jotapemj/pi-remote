@@ -313,6 +313,110 @@ def list_sessions(cwd, limit=20):
              "mtime": int(f.stat().st_mtime)} for f in files[:limit]]
 
 
+TAIL_WIN = 1_000_000   # el rename suele ir al final; una ventana de sobra
+HEAD_WIN = 65_536
+
+
+def quick_label(path):
+    """Etiqueta sin pase completo, para listas y busqueda.
+
+    El arbol sigue usando `session_label` (pase entero): aqui no se puede
+    pagar ese coste por decenas de ficheros. Prioridad igual: la ultima
+    `session_info` de una ventana del final, si no el nombre de creacion o
+    el primer mensaje de usuario, si no el nombre del fichero.
+    """
+    try:
+        with open(path, "rb") as fh:
+            size = fh.seek(0, 2)
+            if size > TAIL_WIN:
+                fh.seek(size - TAIL_WIN)
+                fh.readline()        # no quedarse en media linea
+            tail = fh.read(TAIL_WIN).decode("utf-8", "replace")
+        for line in tail.splitlines():
+            if "session_info" not in line:
+                continue
+            try:
+                e = json.loads(line)
+            except ValueError:
+                continue
+            if e.get("type") == "session_info" and (e.get("name") or "").strip():
+                return e["name"].strip()
+    except OSError:
+        pass
+    try:
+        with open(path, "rb") as fh:
+            head = fh.read(HEAD_WIN).decode("utf-8", "replace")
+        for line in head.splitlines()[:40]:
+            if not line.strip():
+                continue
+            try:
+                e = json.loads(line)
+            except ValueError:
+                continue
+            t = e.get("type")
+            if t == "session" and e.get("name"):
+                return e["name"]
+            if t == "message":
+                msg = e.get("message") or {}
+                if msg.get("role") != "user":
+                    continue
+                c = msg.get("content")
+                if isinstance(c, str):
+                    return c[:60]
+                for blk in c or []:
+                    if blk.get("type") == "text":
+                        return blk["text"][:60]
+    except OSError:
+        pass
+    return Path(path).stem[:60]
+
+
+def _file_has(path, needle):
+    """Grep por bytes en trozos de 1 MB con solape: la palabra puede
+    atravesar un borde."""
+    keep = b""
+    try:
+        with open(path, "rb") as fh:
+            while True:
+                chunk = fh.read(1_000_000)
+                if not chunk:
+                    return False
+                if needle in (keep + chunk).lower():
+                    return True
+                keep = chunk[-(len(needle) + 1024):]
+    except OSError:
+        return False
+
+
+def search_sessions(cwds, q, cap=30):
+    """Conversaciones de los proyectos conocidos, de mas a menos nueva.
+
+    `q` vacio = las mas recientes. Con texto, grep por bytes sobre el
+    fichero entero: nombre y contenido, sin parsear JSON.
+    """
+    files = []
+    for cwd in cwds:
+        d = session_dir(cwd)
+        if d.is_dir():
+            for f in d.glob("*.jsonl"):
+                files.append((cwd, f))
+    files.sort(key=lambda t: t[1].stat().st_mtime, reverse=True)
+    needle = q.strip().lower().encode("utf-8")
+    out = []
+    for cwd, f in files:
+        if needle and not _file_has(f, needle):
+            continue
+        try:
+            out.append({"path": str(f), "cwd": cwd,
+                        "label": quick_label(f),
+                        "mtime": int(f.stat().st_mtime)})
+        except OSError:
+            continue
+        if len(out) >= cap:
+            break
+    return out
+
+
 def edit_diff(args):
     """Las lineas que cambia una llamada a `edit`.
 
@@ -1405,6 +1509,17 @@ async def sessions(path: str = Query(""), token: str = Query("")):
     if not cwd or not Path(cwd).is_dir():
         return {"dir": "", "sessions": []}
     return {"dir": str(session_dir(cwd)), "sessions": list_sessions(cwd)}
+
+
+@app.get("/api/search")
+async def search(q: str = Query(""), token: str = Query("")):
+    """Conversations across the known projects. Empty q = the newest ones."""
+    if not good_token(token):
+        return JSONResponse({"error": "bad token"}, status_code=403)
+    cwds = [c["path"] for c in read_recent()]
+    if bridge.cwd and bridge.cwd not in cwds:
+        cwds.append(bridge.cwd)
+    return {"q": q, "results": search_sessions(cwds, q)}
 
 
 @app.get("/api/browse")

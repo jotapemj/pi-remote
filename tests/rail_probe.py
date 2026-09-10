@@ -1,10 +1,13 @@
-"""Acordeon de proyectos, sesiones anidadas y pulsacion larga.
+"""Barra lateral: chats recientes arriba, proyectos debajo, acordeon de
+sesiones anidadas y pulsacion larga.
 
 Cuenta sesiones, nunca imprime sus etiquetas. Sin prompts."""
 import asyncio
 import json
 
-from harness import Bridge, FakeProject, Page, ROOT, URL, report
+import websockets
+
+from harness import Bridge, FakeProject, Page, ROOT, URL, WS_URL, report
 
 # dos proyectos de mentira: uno vacio y otro con sesiones creadas aqui
 SEED = """
@@ -37,6 +40,19 @@ async def main():
                                                 sessions=3) as b:
         A, B = a.path, b.path
         with Bridge():
+            # el puente tambien tiene que conocer los proyectos: /api/search
+            # barre su propio estado, no el que pinta la pagina
+            async with websockets.connect(WS_URL) as ctl:
+                await ctl.recv()
+                for P in (A, B):
+                    await ctl.send(json.dumps(
+                        {"type": "open_project", "path": P}))
+                    for _ in range(60):
+                        m = json.loads(await asyncio.wait_for(
+                            ctl.recv(), 15))
+                        if m["type"] == "state" and \
+                                m["state"].get("cwd", "").lower() == P.lower():
+                            break
             async with Page(port=9306) as p:
                 js, cmd = p.js, p.cmd
                 await p.go()
@@ -45,6 +61,40 @@ async def main():
                 await asyncio.sleep(0.4)
 
                 checks = []
+                # ---- chats recientes: hasta cuatro, de mas a menos nuevo ----
+                for _ in range(40):
+                    n = await js("$('#chats').querySelectorAll('.sess').length")
+                    if n == 3:
+                        break
+                    await asyncio.sleep(0.2)
+                lay = await js("""(() => {
+                  const r = el =>
+                    [...document.querySelectorAll('#rail > *')].indexOf(el);
+                  return [r($('#chats')) < r($('#recents')),
+                          r($('#recents')) < r($('#addBtn')),
+                          !$('#chatHead').hidden, !$('#projHead').hidden];
+                })()""")
+                print("  disposicion: chats<proyectos<anadir", lay)
+                checks += [
+                    ("los cuatro ultimos chats van arriba",
+                     n == 3 and lay[2]),
+                    ("proyectos debajo, anadir proyecto al final",
+                     lay[0] and lay[1] and lay[3]),
+                ]
+
+                await js("window.__sent.length = 0; closeRail();"
+                         "$('#chats').querySelector('.sess').click()")
+                got = await js("[window.__sent,"
+                               " $('#rail').classList.contains('on')]")
+                sent = got[0]
+                checks += [
+                    ("tocar un chat abre su proyecto y sesion",
+                     len(sent) == 1
+                     and sent[0]["type"] == "open_project"
+                     and bool(sent[0].get("session"))),
+                    ("y cierra la barra", got[1] is False),
+                ]
+
                 cerrado = await js(GROUP % 0)
                 print("  plegado      :", cerrado[:3], "filas", cerrado[3])
                 checks.append(("empieza plegado",

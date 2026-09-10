@@ -196,6 +196,10 @@ folder — a trashed or moved one falls back to a fresh session.
      de ellos desplegado mostrando "sesión nueva" en ámbar y sus sesiones
      con fecha. Usa nombres genéricos, no los de tus proyectos reales. -->
 
+The rail shows the four newest conversations across all known projects,
+newest first — tapping one opens exactly that session. Below them, the
+**projects** section keeps the folders, in the order they were added.
+
 - **Tap a project** to unfold its sessions. Tap a session to open exactly that
   one; tap *new session* to start a fresh one in that folder.
 - **Hold a project or a session** for a dialog with its actions.

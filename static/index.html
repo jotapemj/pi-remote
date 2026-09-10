@@ -1356,9 +1356,11 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
   <div class="railtop"><span>pi remote</span>
     <button class="foldb" id="foldBtn" aria-label="fold"></button>
   </div>
-  <button class="addp" id="addBtn"><span data-t="addProject"></span></button>
-  <div class="shead" id="recentHead" data-t="recent"></div>
+  <div class="shead" id="chatHead" data-t="recent"></div>
+  <div id="chats"></div>
+  <div class="shead" id="projHead" data-t="projects"></div>
   <div id="recents"></div>
+  <button class="addp" id="addBtn"><span data-t="addProject"></span></button>
 </aside>
 <div class="grip" id="grip"></div>
 
@@ -2578,6 +2580,7 @@ function paint(){
   }
   emptyState(has);
   paintRail();
+  maybeChats();
   paintWarning();
   marqueeAll($("#title").parentNode);
 
@@ -2823,9 +2826,36 @@ function sessMenu(projPath, x){
   ]);
 }
 
+let chatsKey = null;                 // solo repintar cuando cambia el conjunto
+async function loadChats(){
+  let d;
+  try {
+    d = await (await fetch("/api/search?token=" + encodeURIComponent(TOKEN)))
+      .json();
+  } catch(e){ return; }
+  const list = $("#chats");
+  list.innerHTML = "";
+  (d.results || []).slice(0, 4).forEach(x=>{
+    const b = pickBtn({
+      cls:"sess", icon:"session", label:x.label,
+      hint:new Date(x.mtime*1000).toLocaleString(),
+      run: () => { closeRail();
+        send({type:"open_project", path:x.cwd, session:x.path}); }});
+    longPress(b, () => sessMenu(x.cwd, x));
+    list.appendChild(b);
+  });
+  $("#chatHead").hidden = !(d.results || []).length;
+}
+function maybeChats(){
+  const k = JSON.stringify((state.recent || []).map(r=>r.path)) + state.cwd;
+  if(k === chatsKey) return;
+  chatsKey = k;
+  loadChats();
+}
+
 function paintRail(){
   const list = $("#recents"), rec = state.recent || [];
-  $("#recentHead").hidden = !rec.length;
+  $("#projHead").hidden = !rec.length;
   list.innerHTML = "";
   rec.forEach(r=>{
     const group = document.createElement("div");
@@ -4002,7 +4032,7 @@ function stopSending(){ clearTimeout(sendTimer);
 const LANGS = ["en", "es", "de", "fr", "pt", "zh"];
 const STR = {
   en:{menu:"menu", send:"send", stop:"stop", addProject:"Add project",
-      recent:"recent", appearance:"Appearance", language:"Language",
+      recent:"recent", projects:"Projects", appearance:"Appearance", language:"Language",
       help:"Help", about:"About pi-remote", donate:"Donate", ok:"OK",
       auto:"auto", light:"light", dark:"dark",
       noProject:"no project", noProjectHint:"Tap to choose a folder",
@@ -4057,7 +4087,7 @@ const STR = {
       tps:"tok/s", tks:"tokens"},
   es:{menu:"men\u00fa", send:"enviar", stop:"parar",
       addProject:"A\u00f1adir proyecto",
-      recent:"recientes", appearance:"Apariencia", language:"Idioma",
+      recent:"recientes", projects:"Proyectos", appearance:"Apariencia", language:"Idioma",
       help:"Ayuda", about:"Acerca de pi-remote", donate:"Donar", ok:"Aceptar",
       auto:"auto", light:"claro", dark:"oscuro",
       noProject:"sin proyecto", noProjectHint:"Toca para elegir carpeta",
@@ -4113,7 +4143,7 @@ const STR = {
       stTotal:"Total", stCost:"Coste", tps:"tok/s", tks:"tokens"},
   de:{menu:"Men\u00fc", send:"senden", stop:"stopp",
       addProject:"Projekt hinzuf\u00fcgen",
-      recent:"zuletzt verwendet", appearance:"Erscheinungsbild",
+      recent:"zuletzt verwendet", projects:"Projekte", appearance:"Erscheinungsbild",
       language:"Sprache", help:"Hilfe", about:"\u00dcber pi-remote",
       donate:"Spenden", ok:"OK", auto:"auto", light:"hell", dark:"dunkel",
       noProject:"kein Projekt", noProjectHint:"Tippen, um einen Ordner zu w\u00e4hlen",
@@ -4170,7 +4200,7 @@ const STR = {
       stReason:"Gedankengang", stTotal:"Gesamt", stCost:"Kosten",
       tps:"Tok/s", tks:"Tokens"},
   fr:{menu:"menu", send:"envoyer", stop:"arr\u00eater",
-      addProject:"ajouter un projet", recent:"r\u00e9cents", appearance:"Apparence",
+      addProject:"ajouter un projet", recent:"r\u00e9cents", projects:"Projets", appearance:"Apparence",
       language:"Langue", help:"Aide", about:"\u00c0 propos de pi-remote",
       donate:"Faire un don", ok:"OK", auto:"auto", light:"clair", dark:"sombre",
       noProject:"aucun projet", noProjectHint:"Touchez pour choisir un dossier",
@@ -4226,7 +4256,7 @@ const STR = {
       stReason:"Raisonnement", stTotal:"Total", stCost:"Co\u00fbt",
       tps:"t/s", tks:"jetons"},
   pt:{menu:"menu", send:"enviar", stop:"parar",
-      addProject:"adicionar projeto", recent:"recentes", appearance:"apar\u00eancia",
+      addProject:"adicionar projeto", recent:"recentes", projects:"Projetos", appearance:"apar\u00eancia",
       language:"idioma", help:"ajuda", about:"sobre o pi-remote",
       donate:"doar", ok:"OK", auto:"auto", light:"clara", dark:"escura",
       noProject:"sem projeto", noProjectHint:"toque para escolher uma pasta",
@@ -4282,7 +4312,7 @@ const STR = {
       stReason:"Racioc\u00ednio", stTotal:"Total", stCost:"Custo",
       tps:"t/s", tks:"tokens"},
   zh:{menu:"菜单", send:"发送", stop:"停止",
-      addProject:"添加项目", recent:"最近使用", appearance:"外观",
+      addProject:"添加项目", recent:"最近使用", projects:"项目", appearance:"外观",
       language:"语言", help:"帮助", about:"关于 pi-remote",
       donate:"捐赠", ok:"确定", auto:"自动", light:"浅色", dark:"深色",
       noProject:"无项目", noProjectHint:"点按选择文件夹",
