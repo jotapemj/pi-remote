@@ -39,6 +39,7 @@ async def main():
             tools = [i for i in hist if i["kind"] == "tool"]
             done = [t for t in tools if t.get("callId") == "h1"]
             orphan = [t for t in tools if t.get("status") == "error"]
+            cut = [t for t in tools if t.get("callId") == "cortado"]
             ids = [i["id"] for i in hist]
 
             return report([
@@ -66,6 +67,8 @@ async def main():
                  and "com.android" in done[0]["output"]),
                 ("un resultado sin llamada sale igual",
                  bool(orphan) and orphan[0]["name"] == "bash"),
+                ("un comando cortado queda stale, no running",
+                 bool(cut) and cut[0]["status"] == "stale"),
                 ("la nota del proyecto cierra", kinds[-1] == "note"),
                 ("sin ids repetidos", len(ids) == len(set(ids))),
             ])

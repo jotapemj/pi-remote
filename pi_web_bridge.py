@@ -1127,6 +1127,11 @@ class Bridge:
             self.log.append(note)
         for item in waiting:                # y pi sigue bloqueado en estos
             self.log.append(item)
+        # el historial es pasado: un tool que quedo "running" es huerfano
+        # (el comando se corto y siguieron mas turnos) -> stale, no parpadea
+        for item in self.log:
+            if item.get("kind") == "tool" and item.get("status") == "running":
+                item["status"] = "stale"
         self.emit(self.snapshot())
 
     # ---- guardrails dialogs

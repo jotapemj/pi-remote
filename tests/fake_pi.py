@@ -324,6 +324,11 @@ MESSAGES = [
      "content": [{"type": "text", "text": "plugins { id 'com.android...' }"}]},
     {"role": "assistant", "timestamp": 1756000003000, "content": [
         {"type": "text", "text": "Listo, **ya esta**."}]},
+    # un comando que se corto: la llamada nunca recibio resultado y el turno
+    # siguio. En historial debe salir stale (no "running", no parpadeo).
+    {"role": "assistant", "timestamp": 1756000003500, "content": [
+        {"type": "toolCall", "id": "cortado", "name": "bash",
+         "arguments": {"command": "sleep 999"}}]},
     {"role": "user", "content": [{"type": "text", "text": "segundo encargo"}],
      "timestamp": 1756000004000},
     {"role": "toolResult", "toolCallId": "huerfano", "toolName": "bash",
