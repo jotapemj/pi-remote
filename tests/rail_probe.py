@@ -95,6 +95,67 @@ async def main():
                     ("y cierra la barra", got[1] is False),
                 ]
 
+                # ---- vista de busqueda: pantalla completa sobre el rail ----
+                await js("openSearch()")
+                await asyncio.sleep(0.6)
+                s0 = await js("""(() => {
+                  const v = $('#searchView');
+                  return [v.classList.contains('on'),
+                          $('#rail').classList.contains('on'),
+                          $('#searchInput').placeholder,
+                          $('#searchList').querySelectorAll('.srow').length];
+                })()""")
+                print("  busqueda     :", s0)
+                checks += [
+                    ("la busqueda abre y el rail se cierra",
+                     s0[0] is True and s0[1] is False),
+                    ("el hint dice buscar conversaciones",
+                     s0[2] == "Buscar conversaciones"),
+                    ("vacia lista las recientes", s0[3] >= 3),
+                ]
+
+                await js("$('#searchX').click()")
+                await asyncio.sleep(0.4)
+                closed = await js("$('#searchView').classList.contains('on')")
+                checks.append(("la X con el texto vacio cierra la vista",
+                               closed is False))
+
+                await js("openSearch()")
+                await asyncio.sleep(0.6)
+                await js("$('#searchInput').value='prueba 2';"
+                         " $('#searchInput')"
+                         ".dispatchEvent(new Event('input'))")
+                await asyncio.sleep(1.0)     # debounce + fetch
+                r1 = await js("""(() => {
+                  const rows = [...$('#searchList').querySelectorAll('.srow')];
+                  return [rows.length, rows.map(r=>r.textContent)];
+                })()""")
+                checks.append(("la consulta filtra por contenido",
+                               r1[0] == 1 and "prueba 2" in r1[1][0]))
+
+                await js("$('#searchX').click()")
+                await asyncio.sleep(1.0)     # borra y vuelve a listar
+                r2 = await js("""(() => [$('#searchInput').value,
+                  $('#searchList').querySelectorAll('.srow').length])()""")
+                checks.append(("la X con texto borra el texto",
+                               r2[0] == "" and r2[1] >= 3))
+
+                await js("$('#searchInput').value='prueba 2';"
+                         " $('#searchInput')"
+                         ".dispatchEvent(new Event('input'))")
+                await asyncio.sleep(1.0)
+                await js("window.__sent.length = 0;"
+                         " $('#searchList').querySelector('.srow').click()")
+                sent2 = await js("""(() => [window.__sent,
+                  $('#searchView').classList.contains('on')])()""")
+                checks += [
+                    ("tocar un resultado abre la sesion",
+                     len(sent2[0]) == 1
+                     and sent2[0][0]["type"] == "open_project"
+                     and bool(sent2[0][0].get("session"))),
+                    ("y cierra la vista", sent2[1] is False),
+                ]
+
                 cerrado = await js(GROUP % 0)
                 print("  plegado      :", cerrado[:3], "filas", cerrado[3])
                 checks.append(("empieza plegado",

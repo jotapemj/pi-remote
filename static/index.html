@@ -1049,6 +1049,50 @@ main:has(#spin) .empty{display:none}
   font:600 13px/1 var(--sans); margin-bottom:5px;
 }
 .addp svg{width:17px;height:17px;flex:none}
+.addp.ghost{
+  background:transparent; color:var(--amber); border:1px solid var(--rule);
+  margin-top:8px;
+}
+.addp.ghost:hover{background:var(--surface)}
+/* ---------- buscar conversacion: pantalla completa sobre el rail ---------- */
+.searchview{
+  position:fixed; inset:0; z-index:40; background:var(--panel);
+  display:flex; flex-direction:column;
+  transform:translateY(102%); visibility:hidden;
+  transition:transform .26s cubic-bezier(.2,.8,.2,1),
+             visibility 0s linear .26s;
+}
+.searchview.on{transform:none; visibility:visible;
+  transition:transform .26s cubic-bezier(.2,.8,.2,1)}
+.sbar2{
+  display:flex; align-items:center; gap:10px; flex:none;
+  padding:calc(10px + env(safe-area-inset-top)) 14px 11px;
+  border-bottom:1px solid var(--rule);
+}
+.sbar2 .sic{width:20px;height:20px;color:var(--faint);flex:none}
+.sbar2 input{
+  flex:1; min-width:0; background:none; border:none; outline:none;
+  color:var(--ink); font:400 15px/1.3 var(--sans);
+}
+.sbar2 input::placeholder{color:var(--faint)}
+.xb{
+  background:none; border:none; cursor:pointer; padding:6px; flex:none;
+  color:var(--faint); display:flex; border-radius:8px;
+}
+.xb:hover{background:var(--surface); color:var(--ink)}
+.xb svg{width:20px;height:20px}
+#searchList{
+  flex:1; overflow-y:auto; padding:2px 14px calc(18px + env(safe-area-inset-bottom));
+}
+.srow{
+  display:flex; align-items:baseline; gap:10px; width:100%; text-align:left;
+  background:none; border:none; cursor:pointer;
+  padding:13px 2px; border-bottom:1px solid var(--rule);
+  font:400 14.5px/1.3 var(--sans); color:var(--ink);
+}
+.srow span{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;
+  white-space:nowrap}
+.srow small{flex:none; font:400 11px/1 var(--mono); color:var(--faint)}
 .proj{
   display:flex; align-items:center; gap:10px; width:100%; text-align:left;
   background:none; border:none; border-radius:var(--r-tool);
@@ -1361,8 +1405,20 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
   <div class="shead" id="projHead" data-t="projects"></div>
   <div id="recents"></div>
   <button class="addp" id="addBtn"><span data-t="addProject"></span></button>
+  <button class="addp ghost" id="searchBtn"><span data-t="searchConv"></span></button>
 </aside>
 <div class="grip" id="grip"></div>
+
+<div class="searchview" id="searchView">
+  <div class="sbar2">
+    <span class="sic" id="searchIco"></span>
+    <input id="searchInput" type="text" autocomplete="off"
+           autocapitalize="off" spellcheck="false" data-t-ph="searchHint">
+    <button class="xb" id="searchX" aria-label="close"></button>
+  </div>
+  <div class="shead" data-t="recent"></div>
+  <div id="searchList"></div>
+</div>
 
 <div class="sheet" id="sheet"><div class="card">
   <div class="grab"></div>
@@ -2853,6 +2909,56 @@ function maybeChats(){
   loadChats();
 }
 
+/* ---------- buscar conversacion: pantalla completa sobre el rail ---------- */
+let searchT = null, searchBusy = 0;
+function searchRow(x){
+  const b = document.createElement("button");
+  b.className = "srow";
+  b.innerHTML = `<span>${esc(x.label)}</span>`
+    + `<small>${new Date(x.mtime*1000).toLocaleDateString()}</small>`;
+  b.onclick = () => { closeSearch();
+    send({type:"open_project", path:x.cwd, session:x.path}); };
+  longPress(b, () => sessMenu(x.cwd, x));
+  return b;
+}
+async function doSearch(){
+  const q = $("#searchInput").value.trim();
+  const n = ++searchBusy;
+  let d;
+  try {
+    d = await (await fetch("/api/search?token=" + encodeURIComponent(TOKEN)
+      + "&q=" + encodeURIComponent(q))).json();
+  } catch(e){ return; }
+  if(n !== searchBusy) return;           // ya llego una consulta mas nueva
+  const list = $("#searchList");
+  list.innerHTML = "";
+  (d.results || []).forEach(x => list.appendChild(searchRow(x)));
+}
+function openSearch(){
+  closeRail();
+  $("#searchView").classList.add("on");
+  $("#searchInput").value = "";
+  doSearch();
+  setTimeout(()=> $("#searchInput").focus(), 280);   // al terminar el slide
+}
+function closeSearch(){
+  $("#searchView").classList.remove("on");
+  $("#searchInput").blur();
+}
+$("#searchBtn").insertAdjacentHTML("afterbegin", ico("search"));
+$("#searchIco").innerHTML = ico("search");
+$("#searchX").innerHTML = ico("close");
+$("#searchBtn").onclick = openSearch;
+$("#searchX").onclick = () => {
+  const i = $("#searchInput");
+  if(i.value){ i.value = ""; doSearch(); }   // con texto: lo borra
+  else closeSearch();                        // vacio: cierra la vista
+};
+$("#searchInput").addEventListener("input", () => {
+  clearTimeout(searchT);
+  searchT = setTimeout(doSearch, 250);       // no pedir por tecla
+});
+
 function paintRail(){
   const list = $("#recents"), rec = state.recent || [];
   $("#projHead").hidden = !rec.length;
@@ -4032,7 +4138,8 @@ function stopSending(){ clearTimeout(sendTimer);
 const LANGS = ["en", "es", "de", "fr", "pt", "zh"];
 const STR = {
   en:{menu:"menu", send:"send", stop:"stop", addProject:"Add project",
-      recent:"recent", projects:"Projects", appearance:"Appearance", language:"Language",
+      recent:"recent", projects:"Projects", searchConv:"Search conversations",
+      searchHint:"Search conversations", appearance:"Appearance", language:"Language",
       help:"Help", about:"About pi-remote", donate:"Donate", ok:"OK",
       auto:"auto", light:"light", dark:"dark",
       noProject:"no project", noProjectHint:"Tap to choose a folder",
@@ -4087,7 +4194,9 @@ const STR = {
       tps:"tok/s", tks:"tokens"},
   es:{menu:"men\u00fa", send:"enviar", stop:"parar",
       addProject:"A\u00f1adir proyecto",
-      recent:"recientes", projects:"Proyectos", appearance:"Apariencia", language:"Idioma",
+      recent:"recientes", projects:"Proyectos",
+      searchConv:"Buscar conversación", searchHint:"Buscar conversaciones",
+      appearance:"Apariencia", language:"Idioma",
       help:"Ayuda", about:"Acerca de pi-remote", donate:"Donar", ok:"Aceptar",
       auto:"auto", light:"claro", dark:"oscuro",
       noProject:"sin proyecto", noProjectHint:"Toca para elegir carpeta",
@@ -4143,7 +4252,9 @@ const STR = {
       stTotal:"Total", stCost:"Coste", tps:"tok/s", tks:"tokens"},
   de:{menu:"Men\u00fc", send:"senden", stop:"stopp",
       addProject:"Projekt hinzuf\u00fcgen",
-      recent:"zuletzt verwendet", projects:"Projekte", appearance:"Erscheinungsbild",
+      recent:"zuletzt verwendet", projects:"Projekte",
+      searchConv:"Unterhaltungen suchen", searchHint:"Unterhaltungen suchen",
+      appearance:"Erscheinungsbild",
       language:"Sprache", help:"Hilfe", about:"\u00dcber pi-remote",
       donate:"Spenden", ok:"OK", auto:"auto", light:"hell", dark:"dunkel",
       noProject:"kein Projekt", noProjectHint:"Tippen, um einen Ordner zu w\u00e4hlen",
@@ -4200,7 +4311,9 @@ const STR = {
       stReason:"Gedankengang", stTotal:"Gesamt", stCost:"Kosten",
       tps:"Tok/s", tks:"Tokens"},
   fr:{menu:"menu", send:"envoyer", stop:"arr\u00eater",
-      addProject:"ajouter un projet", recent:"r\u00e9cents", projects:"Projets", appearance:"Apparence",
+      addProject:"ajouter un projet", recent:"r\u00e9cents", projects:"Projets",
+      searchConv:"Rechercher une conversation",
+      searchHint:"Rechercher des conversations", appearance:"Apparence",
       language:"Langue", help:"Aide", about:"\u00c0 propos de pi-remote",
       donate:"Faire un don", ok:"OK", auto:"auto", light:"clair", dark:"sombre",
       noProject:"aucun projet", noProjectHint:"Touchez pour choisir un dossier",
@@ -4256,7 +4369,9 @@ const STR = {
       stReason:"Raisonnement", stTotal:"Total", stCost:"Co\u00fbt",
       tps:"t/s", tks:"jetons"},
   pt:{menu:"menu", send:"enviar", stop:"parar",
-      addProject:"adicionar projeto", recent:"recentes", projects:"Projetos", appearance:"apar\u00eancia",
+      addProject:"adicionar projeto", recent:"recentes", projects:"Projetos",
+      searchConv:"Pesquisar conversa", searchHint:"Pesquisar conversas",
+      appearance:"apar\u00eancia",
       language:"idioma", help:"ajuda", about:"sobre o pi-remote",
       donate:"doar", ok:"OK", auto:"auto", light:"clara", dark:"escura",
       noProject:"sem projeto", noProjectHint:"toque para escolher uma pasta",
@@ -4312,7 +4427,8 @@ const STR = {
       stReason:"Racioc\u00ednio", stTotal:"Total", stCost:"Custo",
       tps:"t/s", tks:"tokens"},
   zh:{menu:"菜单", send:"发送", stop:"停止",
-      addProject:"添加项目", recent:"最近使用", projects:"项目", appearance:"外观",
+      addProject:"添加项目", recent:"最近使用", projects:"项目",
+      searchConv:"搜索对话", searchHint:"搜索对话", appearance:"外观",
       language:"语言", help:"帮助", about:"关于 pi-remote",
       donate:"捐赠", ok:"确定", auto:"自动", light:"浅色", dark:"深色",
       noProject:"无项目", noProjectHint:"点按选择文件夹",
@@ -4390,6 +4506,9 @@ function applyLang(){
   document.documentElement.lang = lang();
   document.querySelectorAll("[data-t]").forEach(el=>{
     el.textContent = T(el.dataset.t);
+  });
+  document.querySelectorAll("[data-t-ph]").forEach(el=>{
+    el.placeholder = T(el.dataset.tPh);
   });
   $("#modalOk").textContent = T("ok");
   const wspan = $("#warnbar").querySelector("span");
@@ -5378,6 +5497,8 @@ addEventListener("keydown", e => {
   if($("#modal").classList.contains("open")) return closeModal();
   if($("#statsheet").classList.contains("open"))
     return $("#statsheet").classList.remove("open");
+  if($("#searchView").classList.contains("on"))
+    return closeSearch();
   if(!WIDE.matches && $("#rail").classList.contains("on"))
     return closeRail();
   if($("#sheet").classList.contains("open") && sheetPage !== "root")

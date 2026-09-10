@@ -200,6 +200,11 @@ The rail shows the four newest conversations across all known projects,
 newest first — tapping one opens exactly that session. Below them, the
 **projects** section keeps the folders, in the order they were added.
 
+**Search conversations** (magnifier button under *add project*) opens a full
+screen with a search box: empty it lists the newest conversations, and any
+text filters by name or content across the known projects. The X clears the
+text — or closes the view when the text is already empty.
+
 - **Tap a project** to unfold its sessions. Tap a session to open exactly that
   one; tap *new session* to start a fresh one in that folder.
 - **Hold a project or a session** for a dialog with its actions.
