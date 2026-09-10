@@ -44,11 +44,11 @@ checks = [
      and '<span class="cursor">' not in h),
     ("la toolbar usa la fuente de los proyectos (sans)",
      ".plate h1{\n  font:600 15px/1.2 var(--sans)" in css),
-    ("movement: revelado izquierda-derecha y segmentado",
+    ("movement: revelado por caracter con interruptor",
      "function scheduleReveal" in h and "function fadeTail" in h
-     and ".seg button" in css),
-    ("la card Movement ofrece Fundido y Directo",
-     'T("movement")' in h and 'motion_fade:' in h and 'motion_instant:' in h),
+     and "setMotion(" in h),   # ya no es segmentado: es un switch on/off
+    ("la card Movement es un interruptor fade/instant",
+     'T("movement")' in h and '"fade" : "instant"' in h),
     ("hechos y fallidos nacen plegados; solo corriendo abre",
      'const open = !done ?' in h),
     ("el pensamiento no lleva boton de copiar",
@@ -92,7 +92,7 @@ checks = [
     ("un snapshot no anima 40 filas", ".nofx .turn{animation:none}" in css),
     ("enviar y parar comparten boton",
      'class="ic go"' in body and 'class="ic halt"' in body
-     and ".send.halting{" in css),
+     and ".send.halting" in css),   # el selector puede ir agrupado con summing
     ("nombre de carpeta, no la ruta entera",
      "CWD.split(/[\\\\/]/)" in h),
     ("version en un solo sitio",

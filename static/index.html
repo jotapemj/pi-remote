@@ -134,6 +134,12 @@ body{
   -webkit-font-smoothing:antialiased;
   display:flex; flex-direction:column;
   padding-top:env(safe-area-inset-top);
+  -webkit-user-select:none; user-select:none;   /* cromo no seleccionable */
+}
+/* pero el contenido si: mensajes, razonamiento, codigo, notas, compositor */
+.said, .utext, .tinn, .note, pre, code,
+#box, input, textarea, [contenteditable]{
+  -webkit-user-select:text; user-select:text;
 }
 
 /* ---------- header: instrument nameplate ---------- */
@@ -356,7 +362,7 @@ main{flex:1; overflow-y:auto; padding:16px var(--gut) 8px; position:relative;
 .copyb:hover{opacity:1;color:var(--ink);border-color:var(--faint)}
 .copyb .i{width:16px;height:16px}
 .copyb.done{color:var(--mint);border-color:var(--mint);opacity:1}
-@keyframes blink{50%{opacity:0}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
 
 /* ---------- grupo de herramientas ---------- */
 .toolgroup{margin:9px 0}
@@ -455,22 +461,10 @@ html.hide-think .think-turn{display:none}
 /* movement: el texto se revela de izquierda a derecha (fade por caracter,
    la opacidad la pone el motor de revelado en JS sobre spans .rv) */
 .said .rv{will-change:opacity}
-/* segmentado de dos opciones dentro de una fcard */
-.seg{display:flex; gap:6px; margin-top:12px}
-.seg button{
-  flex:1; padding:9px 8px; border-radius:8px; cursor:pointer;
-  background:var(--rule); border:1px solid transparent; color:var(--dim);
-  font:600 12px/1.2 var(--sans);
-  transition:background .18s, color .18s, border-color .18s;
-}
-.seg button[aria-pressed="true"]{
-  background:var(--raise); border-color:var(--amber); color:var(--ink);
-}
-.seg button:focus-visible{outline:2px solid var(--amber); outline-offset:2px}
 .tool .dot{width:6px;height:6px;border-radius:50%;background:var(--amber);flex:none}
 .tool[data-s="done"] .dot{background:var(--mint)}
 .tool[data-s="error"] .dot{background:var(--coral)}
-.tool[data-s="running"] .dot{animation:blink 1.1s steps(2) infinite}
+.tool[data-s="running"] .dot{animation:blink 1.3s ease-in-out infinite}
 /* se quedo a medias: pi se fue sin decir como acabo */
 .tool[data-s="stale"] .dot{
   width:7px; height:7px; background:var(--panel);
@@ -683,7 +677,7 @@ footer > *{position:relative; z-index:1}
   position:absolute; left:50%; bottom:calc(100% + 12px); z-index:14;
   width:40px; height:40px; border-radius:50%; cursor:pointer;
   background:var(--surface); border:1px solid var(--rule); color:var(--ink);
-  box-shadow:var(--cast); display:flex; align-items:center;
+  box-shadow:0 3px 10px rgba(0,0,0,.28); display:flex; align-items:center;
   justify-content:center;
   opacity:0; visibility:hidden; transform:translateX(-50%) scale(.7);
   transition:opacity .2s ease,
@@ -1097,7 +1091,9 @@ main:has(#spin) .empty{display:none}
 .sess.new{color:var(--amber);font-weight:600}
 .sess.new .i{color:var(--amber)}
 .subs .none{padding:8px 12px 10px 30px;color:var(--faint);
-  font:400 11.5px/1.4 var(--mono)}
+  font:400 12px/1.4 var(--sans)}
+/* al terminar de cargar, las sesiones entran con un fundido suave */
+@keyframes subsIn{from{opacity:0}to{opacity:1}}
 
 /* ---------- modal dialogs ---------- */
 .modal{
@@ -1131,7 +1127,7 @@ main:has(#spin) .empty{display:none}
 .ok{
   flex:1; background:var(--amber); color:var(--on-amber);
   border:1px solid transparent; border-radius:var(--r-tool);
-  padding:12px; cursor:pointer; font:600 13px/1 var(--mono);
+  padding:12px; cursor:pointer; font:600 13px/1 var(--sans);
 }
 .ok:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 .ok.alt{background:var(--raise);color:var(--dim);border-color:var(--rule)}
@@ -2173,6 +2169,18 @@ function render(item){
   if(item.kind === "ask") wireAsk(el, item);
   if(item.kind === "user") markFoldable(el);
   el.classList.toggle("think-turn", item.kind === "thinking");
+  // la nota de "carpeta abierta" es un aviso pasajero: se va con fade
+  if(item.kind === "note" && item.key === "project" && !el.dataset.seen){
+    el.dataset.seen = "1";
+    setTimeout(()=>{
+      el.style.transition = "opacity .6s cubic-bezier(.4,0,.2,1)";
+      // rAF para que el transition ya este aplicado antes de bajar la opacidad:
+      // sin esto, a veces desaparecia de golpe en vez de fundirse
+      requestAnimationFrame(()=>{ el.style.opacity = "0"; });
+      setTimeout(()=>{ if(el.parentNode){ el.remove(); nodes.delete(item.id); } },
+                 680);
+    }, 3500);
+  }
   keepDown(was);
   return el;
 }
@@ -2758,7 +2766,11 @@ async function loadSubs(path){
   delete loadingSubs[path];
   sessCache[path] = list;
   const g = groupOf(path);
-  if(g && openProj === path) fillSubs(g, path);
+  if(g && openProj === path){
+    fillSubs(g, path);
+    const inner = g.querySelector(".subs > div");   // funde al mostrar
+    if(inner) inner.style.animation = "subsIn .3s ease";
+  }
 }
 
 async function toggleProj(path){
@@ -3439,8 +3451,13 @@ function maybeNotify(){
   if(Notification.permission !== "granted") return;
   if(!document.hidden) return;
   try {
-    const n = new Notification(state.sessionName || "pi-remote",
-      {body: T("notifDone"), tag: "pi-turn"});
+    // titulo fijo, cuerpo = la ultima respuesta del agente (lo que quepa)
+    const t = [...feed.children].reverse()
+      .find(el => el.__item && el.__item.kind === "assistant");
+    let body = t ? visibleText(t.__item.text || "").trim() : "";
+    if(!body) body = T("notifDone");
+    if(body.length > 220) body = body.slice(0, 219).trimEnd() + "…";
+    const n = new Notification("pi remote", {body: body, tag: "pi-turn"});
     n.onclick = () => { window.focus(); n.close(); };
   } catch(e){}
 }
@@ -4019,9 +4036,9 @@ const STR = {
       thinking:"Thinking\u2026", thoughtFor:"Thought for {n} {u}",
       secOne:"second", secMany:"seconds", minOne:"minute", minMany:"minutes",
       reasoning:"Reasoning",
-      functions:"Functions", showThinking:"Show thinking",
+      functions:"Functions", showThinking:"Show reasoning",
       suggest:"Response suggestions",
-      stopsum:"Summary on stop",
+      stopsum:"Summary on agent stop",
       stopsumWarn:"Asks the agent, in the background, for a one-line summary of what it was doing until the user stopped it. It increases the context.",
       suggestWarn:"This feature injects an instruction into the prompt, not visible to the user, telling the agent to suggest replies for a richer experience. It increases the context in every turn.",
       notify:"Notifications",
@@ -4030,7 +4047,7 @@ const STR = {
       notifNeedHttps:"Notifications need a secure connection. Open the page through the HTTPS URL (tailscale serve), not http.",
       notifBlocked:"Notifications are blocked. Enable them for this site in the browser settings.",
       notifUnsupported:"This browser doesn't support notifications. On iOS, install the app to the home screen first.",
-      movement:"Movement",
+      movement:"Smooth generation",
       motion_fade:"Fade", motion_instant:"Instant", image:"Image",
       output:"output", noOutput:"no output", command:"command",
       pasted:"Pasted text {n} lines", prefilling:"prefilling",
@@ -4077,9 +4094,9 @@ const STR = {
       thinking:"Pensando\u2026", thoughtFor:"Pens\u00f3 durante {n} {u}",
       secOne:"segundo", secMany:"segundos", minOne:"minuto", minMany:"minutos",
       reasoning:"Razonamiento",
-      functions:"Funciones", showThinking:"Mostrar pensamiento",
+      functions:"Funciones", showThinking:"Mostrar razonamiento",
       suggest:"Sugerencias de respuesta",
-      stopsum:"Resumen al parar",
+      stopsum:"Resumen al detener agente",
       stopsumWarn:"Pide en segundo plano un resumen en una línea de lo que el agente estaba haciendo hasta que el usuario lo detuvo. Aumenta el contexto.",
       suggestWarn:"Esta función inyecta una orden al prompt no visible al usuario que indica al agente proponer respuestas para una experiencia más enriquecedora. Supone un incremento del contexto en cada turno.",
       notify:"Notificaciones",
@@ -4088,7 +4105,7 @@ const STR = {
       notifNeedHttps:"Las notificaciones necesitan conexión segura. Abre la página por la URL HTTPS (tailscale serve), no por http.",
       notifBlocked:"Notificaciones bloqueadas. Actívalas para este sitio en los ajustes del navegador.",
       notifUnsupported:"Este navegador no soporta notificaciones. En iOS, instala antes la app en la pantalla de inicio.",
-      movement:"Movimiento",
+      movement:"Generación suave",
       motion_fade:"Fundido", motion_instant:"Directo", image:"Imagen",
       ranN:"Ejecutados {n} comandos", ranNShown:"{n} comandos",
       statsTitle:"Estad\u00edsticas de respuesta", stGen:"Generaci\u00f3n",
@@ -4134,9 +4151,9 @@ const STR = {
       thinking:"Denkt\u2026", thoughtFor:"{n} {u} nachgedacht",
       secOne:"Sekunde", secMany:"Sekunden", minOne:"Minute", minMany:"Minuten",
       reasoning:"Gedankengang",
-      functions:"Funktionen", showThinking:"Gedanken anzeigen",
+      functions:"Funktionen", showThinking:"Argumentation zeigen",
       suggest:"Antwortvorschl\u00e4ge",
-      stopsum:"Zusammenfassung beim Stopp",
+      stopsum:"Zusammenfassung beim Stoppen des Agenten",
       stopsumWarn:"Fordert im Hintergrund eine einzeilige Zusammenfassung dessen an, was der Agent gerade tat, bis der Benutzer ihn stoppte. Das erh\u00f6ht den Kontext.",
       suggestWarn:"Diese Funktion f\u00fcgt dem Prompt eine f\u00fcr den Benutzer unsichtliche Anweisung hinzu, die dem Agenten sagt, Antwortvorschl\u00e4ge zu machen \u2013 f\u00fcr ein reichhaltigeres Erlebnis. Der Kontext w\u00e4chst in jeder Runde.",
       notify:"Benachrichtigungen",
@@ -4145,7 +4162,7 @@ const STR = {
       notifNeedHttps:"Benachrichtigungen brauchen eine sichere Verbindung. \u00d6ffne die Seite \u00fcber die HTTPS-URL (tailscale serve), nicht \u00fcber http.",
       notifBlocked:"Benachrichtigungen sind blockiert. Aktiviere sie f\u00fcr diese Seite in den Browsereinstellungen.",
       notifUnsupported:"Dieser Browser unterst\u00fctzt keine Benachrichtigungen. Auf iOS zuerst die App zum Startbildschirm hinzuf\u00fcgen.",
-      movement:"Bewegung",
+      movement:"Sanfte Generierung",
       motion_fade:"Einblenden", motion_instant:"Sofort", image:"Bild",
       ranN:"{n} Befehle ausgef\u00fchrt", ranNShown:"{n} Befehle",
       statsTitle:"Antwort-Statistik", stGen:"Generierung",
@@ -4190,9 +4207,9 @@ const STR = {
       thinking:"R\u00e9flexion\u2026", thoughtFor:"r\u00e9fl\u00e9chi pendant {n} {u}",
       secOne:"seconde", secMany:"secondes", minOne:"minute", minMany:"minutes",
       reasoning:"Raisonnement",
-      functions:"Fonctions", showThinking:"Afficher la r\u00e9flexion",
+      functions:"Fonctions", showThinking:"Afficher le raisonnement",
       suggest:"Suggestions de r\u00e9ponse",
-      stopsum:"R\u00e9sum\u00e9 \u00e0 l'arr\u00eat",
+      stopsum:"Résumé à l'arrêt de l'agent",
       stopsumWarn:"Demande en arri\u00e8re-plan un r\u00e9sum\u00e9 en une ligne de ce que l'agent faisait jusqu'\u00e0 ce que l'utilisateur l'arr\u00eate. Le contexte augmente.",
       suggestWarn:"Cette fonction injecte dans le prompt une instruction invisible pour l'utilisateur, indiquant \u00e0 l'agent de proposer des r\u00e9ponses pour une exp\u00e9rience plus enrichissante. Le contexte augmente \u00e0 chaque tour.",
       notify:"Notifications",
@@ -4201,7 +4218,7 @@ const STR = {
       notifNeedHttps:"Les notifications exigent une connexion s\u00e9curis\u00e9e. Ouvre la page via l'URL HTTPS (tailscale serve), pas en http.",
       notifBlocked:"Notifications bloqu\u00e9es. Active-les pour ce site dans les r\u00e9glages du navigateur.",
       notifUnsupported:"Ce navigateur ne g\u00e8re pas les notifications. Sur iOS, installe d'abord l'app sur l'\u00e9cran d'accueil.",
-      movement:"Mouvement",
+      movement:"Génération fluide",
       motion_fade:"fondu", motion_instant:"instantan\u00e9", image:"image",
       ranN:"{n} commandes ex\u00e9cut\u00e9es", ranNShown:"{n} commandes",
       statsTitle:"Statistiques de la r\u00e9ponse", stGen:"G\u00e9n\u00e9ration",
@@ -4246,9 +4263,9 @@ const STR = {
       thinking:"A pensar\u2026", thoughtFor:"pensou durante {n} {u}",
       secOne:"segundo", secMany:"segundos", minOne:"minuto", minMany:"minutos",
       reasoning:"Racioc\u00ednio",
-      functions:"Fun\u00e7\u00f5es", showThinking:"mostrar o racioc\u00ednio",
+      functions:"Fun\u00e7\u00f5es", showThinking:"Mostrar raciocínio",
       suggest:"Sugest\u00f5es de resposta",
-      stopsum:"Resumo ao parar",
+      stopsum:"Resumo ao parar o agente",
       stopsumWarn:"Pede em segundo plano um resumo numa linha do que o agente estava a fazer até o utilizador o parar. Aumenta o contexto.",
       suggestWarn:"Esta fun\u00e7\u00e3o injeta no prompt uma ordem invis\u00edvel ao utilizador que indica ao agente propor respostas para uma experi\u00eancia mais enriquecedora. O contexto aumenta em cada turno.",
       notify:"Notifica\u00e7\u00f5es",
@@ -4257,7 +4274,7 @@ const STR = {
       notifNeedHttps:"As notifica\u00e7\u00f5es exigem liga\u00e7\u00e3o segura. Abre a p\u00e1gina pela URL HTTPS (tailscale serve), n\u00e3o por http.",
       notifBlocked:"Notifica\u00e7\u00f5es bloqueadas. Ativa-as para este site nas defini\u00e7\u00f5es do navegador.",
       notifUnsupported:"Este navegador n\u00e3o suporta notifica\u00e7\u00f5es. No iOS, instala primeiro a app no ecr\u00e3 inicial.",
-      movement:"Movimento",
+      movement:"Geração suave",
       motion_fade:"fundido", motion_instant:"instant\u00e2neo", image:"imagem",
       ranN:"{n} comandos executados", ranNShown:"{n} comandos",
       statsTitle:"Estat\u00edsticas da resposta", stGen:"Gera\u00e7\u00e3o",
@@ -4302,9 +4319,9 @@ const STR = {
       thinking:"思考中…", thoughtFor:"思考了 {n} {u}",
       secOne:"秒", secMany:"秒", minOne:"分钟", minMany:"分钟",
       reasoning:"推理",
-      functions:"功能", showThinking:"显示思考过程",
+      functions:"功能", showThinking:"显示推理",
       suggest:"回复建议",
-      stopsum:"停止时摘要",
+      stopsum:"停止代理时摘要",
       stopsumWarn:"在后台请求代理用一行总结用户停止它之前它正在做的事。这会增加上下文。",
       suggestWarn:"此功能会向提示词注入一条对用户不可见的指令，让代理建议回复，以获得更丰富的体验。每个回合都会增加上下文。",
       notify:"通知",
@@ -4313,7 +4330,7 @@ const STR = {
       notifNeedHttps:"通知需要安全连接。请通过 HTTPS 网址（tailscale serve）打开页面，而非 http。",
       notifBlocked:"通知已被阻止。请在浏览器设置中为本站点启用。",
       notifUnsupported:"此浏览器不支持通知。在 iOS 上，请先将应用添加到主屏幕。",
-      movement:"动效",
+      movement:"平滑生成",
       motion_fade:"淡入", motion_instant:"即时", image:"图片",
       ranN:"执行了 {n} 条命令", ranNShown:"{n} 条命令",
       statsTitle:"回答统计", stGen:"生成",
@@ -5045,16 +5062,16 @@ function paintSheet(page){
 
     const mcard = document.createElement("div");
     mcard.className = "fcard";
-    const seg = m => `<button data-m="${m}" aria-pressed="${motion === m}">`
-      + `${esc(T("motion_" + m))}</button>`;
     mcard.innerHTML = `<div class="frow"><div class="ftext">`
-      + `<div class="flbl">${esc(T("movement"))}</div></div></div>`
-      + `<div class="seg">${seg("fade")}${seg("instant")}</div>`;
-    mcard.querySelectorAll(".seg button").forEach(b => b.onclick = () => {
-      setMotion(b.dataset.m);
-      mcard.querySelectorAll(".seg button").forEach(x =>
-        x.setAttribute("aria-pressed", x.dataset.m === motion));
-    });
+      + `<div class="flbl">${esc(T("movement"))}</div></div>`
+      + `<button class="sw" role="switch" aria-label="${esc(T("movement"))}"`
+      + ` aria-checked="${motion === "fade"}"><span class="knob"></span></button>`;
+    const msw = mcard.querySelector(".sw");
+    msw.onclick = () => {                 // on = fundido suave, off = directo
+      const on = msw.getAttribute("aria-checked") !== "true";
+      msw.setAttribute("aria-checked", on ? "true" : "false");
+      setMotion(on ? "fade" : "instant");
+    };
     body.appendChild(mcard);
     return;
   }

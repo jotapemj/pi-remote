@@ -38,8 +38,8 @@ async def main():
                 ("hay una card con el switch", card and card[0] is True),
                 ("es un switch accesible (role=switch)", card and card[1] == "switch"),
                 ("encendido por defecto", card and card[2] == "true"),
-                ("rotulado 'Mostrar pensamiento'",
-                 card and card[3] == "Mostrar pensamiento"),
+                ("rotulado 'Mostrar razonamiento'",
+                 card and card[3] == "Mostrar razonamiento"),
                 ("sin subtitulo: solo el titulo", card and card[4] is True),
                 ("el pulgar es redondo (pista pildora)",
                  card and card[5] not in (None, "", "0px")),
@@ -88,31 +88,26 @@ async def main():
                 ("encendido: se recuerda en local (1)", on[2] == "1"),
             ]
 
-            # --- la segunda card: Movement, con dos formas de mostrar el texto
+            # --- la card Movement: ahora un interruptor (on=fundido, off=directo)
             await js("paintSheet('functions')")
-            mv = await js("(() => {"
-                " const segs = document.querySelectorAll('#sheetBody .seg button');"
-                " if(segs.length !== 2) return null;"
-                " const lab = document.querySelectorAll('#sheetBody .fcard .flbl');"
-                " return [segs.length,"
-                "  [...lab].some(l => l.textContent === 'Movimiento'),"
-                "  segs[0].textContent, segs[0].getAttribute('aria-pressed'),"
-                "  segs[1].textContent, segs[1].getAttribute('aria-pressed'),"
-                "  document.documentElement.classList.contains('motion-fade')];})()")
+            find = ("[...document.querySelectorAll('#sheetBody .fcard')]"
+                    ".find(c => { const l = c.querySelector('.flbl');"
+                    " return l && l.textContent === 'Generación suave'; })")
+            mv = await js("(() => { const c = %s; if(!c) return null;"
+                          " const sw = c.querySelector('.sw');"
+                          " return [!!sw, sw && sw.getAttribute('aria-checked'),"
+                          "  document.documentElement.classList"
+                          ".contains('motion-fade')];})()" % find)
             print("  movement:", json.dumps(mv, ensure_ascii=True))
             checks += [
-                ("hay un segmentado de dos formas", mv and mv[0] == 2),
-                ("la card se llama 'Movimiento'", mv and mv[1] is True),
-                ("por defecto 'Fundido' y esta activo",
-                 mv and mv[2] == "Fundido" and mv[3] == "true"),
-                ("la otra es 'Directo' y esta suelta",
-                 mv and mv[4] == "Directo" and mv[5] == "false"),
-                ("arranca en modo fundido", mv and mv[6] is True),
+                ("la card 'Generación suave' es un interruptor",
+                 mv and mv[0] is True),
+                ("por defecto encendido (fundido)", mv and mv[1] == "true"),
+                ("arranca en modo fundido", mv and mv[2] is True),
             ]
 
-            # pasar a Directo: cambia la clase raiz y se recuerda
-            await js("[...document.querySelectorAll('#sheetBody .seg button')]"
-                     ".find(b => b.dataset.m === 'instant').click()")
+            # apagar -> directo: cambia la clase raiz y se recuerda
+            await js("%s.querySelector('.sw').click()" % find)
             await asyncio.sleep(0.05)
             di = await js("[document.documentElement.classList"
                           ".contains('motion-instant'),"
@@ -127,9 +122,8 @@ async def main():
                 ("directo: se recuerda en local", di[2] == "instant"),
             ]
 
-            # volver a Fundido
-            await js("[...document.querySelectorAll('#sheetBody .seg button')]"
-                     ".find(b => b.dataset.m === 'fade').click()")
+            # encender de nuevo -> vuelve a fundido
+            await js("%s.querySelector('.sw').click()" % find)
             await asyncio.sleep(0.05)
             fa = await js("[document.documentElement.classList"
                           ".contains('motion-fade'),"
