@@ -2549,7 +2549,17 @@ function paint(){
     $("#sub").classList.remove("on");   // se desvanece
     $("#cmeta").textContent = "";
   } else {
-    title(state.sessionName || T("unnamed"));
+    if(sessLoading){
+      if(state.sessionName) resolveTitle();               // llego: fade-in
+      else $("#title").firstElementChild.classList.add("out");  // en blanco
+    } else if(state.sessionName){
+      title(state.sessionName);
+    } else {
+      // sesion sin nombre (RPC sin /name): en blanco, nunca "sin titulo"
+      const el = $("#title").firstElementChild;
+      if(el.textContent) el.textContent = "";
+      el.classList.remove("out");
+    }
     $("#sub").firstElementChild.textContent =
       CWD.split(/[\\/]/).filter(Boolean).pop() || CWD;
     $("#sub").classList.add("on");
@@ -2621,6 +2631,20 @@ function title(name){
   if(!el.textContent) return done();     // primera vez: sin fundido
   el.classList.add("out");
   setTimeout(done, 220);
+}
+/* llego el nombre (o se agoto la gracia): el titulo estaba en blanco (.out,
+   opacidad 0) mientras cargaba; ponemos el nombre y lo fundimos a la vista.
+   Evita el flash de "sesion sin titulo". */
+function resolveTitle(){
+  clearTimeout(titleGrace);
+  sessLoading = false;
+  const el = $("#title").firstElementChild;
+  // nunca "sesion sin titulo": si aun no hay nombre, en blanco (el nombre
+  // entrara luego con fade). El subtitulo ya muestra la carpeta.
+  el.textContent = state.sessionName || "";
+  el.classList.add("out");                                 // parte invisible
+  requestAnimationFrame(()=> el.classList.remove("out"));  // y funde a la vista
+  marqueeAll($("#title").parentNode);
 }
 /* el aviso sale una vez por navegador: dejarlo fijo lo vuelve invisible.
    El estado del acceso se puede consultar siempre en "acerca de". */
@@ -3096,6 +3120,8 @@ function thinking(){
    avisa: se infiere. Certero al cambiar de sesion o compactar; por tiempo
    cuando llama.cpp se reinicio y la reingesta tarda. */
 let produced = false, coldNext = false, turnStart = 0;
+let sessLoading = false;   // cambiando de sesion: el titulo va en skeleton
+let titleGrace = null;     // espera de gracia por el nombre antes de rendirse
 const PREFILL_MS = 1500;
 function prefilling(){
   return state.running && !state.waiting && !produced
@@ -3180,6 +3206,8 @@ function connect(){
   ws.onmessage = e => {
     const m = JSON.parse(e.data);
     if(m.type === "snapshot"){
+      // no forzamos fuera el skeleton: paint() lo funde cuando llega el nombre
+      // (o la espera de gracia lo resuelve), evitando el flash de "sin titulo"
       // al reconectar se conserva donde estabas leyendo
       const stay = main.scrollTop, wasDown = atBottom();
       feed.classList.add("nofx");
@@ -3263,6 +3291,10 @@ function connect(){
       barShown = false;
       coldNext = true; produced = false;   // sesion nueva: caché fria -> prefill
       if(state.cwd) delete sessCache[state.cwd];   // pudo nacer una sesion
+      state.sessionName = null;        // el nombre viejo es basura: en blanco
+      sessLoading = true;              // hasta que llegue el nuevo, sin flash
+      clearTimeout(titleGrace);        // gracia: si no llega nombre, resuelve
+      titleGrace = setTimeout(()=>{ if(sessLoading) resolveTitle(); }, 4000);
       spinner(true);
       paint();
     }
