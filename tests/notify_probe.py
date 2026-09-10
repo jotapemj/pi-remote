@@ -55,17 +55,35 @@ async def main():
             checks.append(("permiso concedido activa",
                            c2[0] is True and c2[1] is True))
 
-            # caso 3: fin de turno con pestana oculta -> notifica
-            await js("window.__n=null;"
+            # caso 3: fin de turno con pestana oculta -> notifica con la respuesta
+            await js("feed.innerHTML=''; nodes.clear();"
+                     " render({id:70, kind:'assistant',"
+                     "         text:'Hecho, todo verde.', streaming:false});"
+                     " window.__n=null;"
                      " Object.defineProperty(document,'hidden',"
                      "{value:true,configurable:true});"
                      " maybeNotify()")
             await asyncio.sleep(0.05)
             n3 = await js("window.__n && [window.__n.t, window.__n.o.body]")
             print("  oculta: %s" % (n3,))
-            checks.append(("con la pestana oculta, notifica al terminar",
-                           bool(n3) and n3[0] == "mi sesion"
-                           and "lista" in n3[1].lower()))
+            checks += [
+                ("con la pestana oculta, notifica al terminar", bool(n3)),
+                ("titulo fijo 'pi remote'", bool(n3) and n3[0] == "pi remote"),
+                ("el cuerpo es la respuesta del agente",
+                 bool(n3) and "Hecho, todo verde" in n3[1]),
+            ]
+
+            # caso 3b: respuesta larga -> se recorta con elipsis
+            await js("feed.innerHTML=''; nodes.clear();"
+                     " render({id:71, kind:'assistant',"
+                     "         text:'x'.repeat(500), streaming:false});"
+                     " window.__n=null; maybeNotify()")
+            await asyncio.sleep(0.05)
+            n3b = await js("window.__n && window.__n.o.body")
+            print("  larga: len=%s" % (n3b and len(n3b)))
+            checks.append(("la respuesta larga se recorta",
+                           bool(n3b) and len(n3b) <= 221
+                           and n3b.endswith("…")))
 
             # caso 4: pestana visible -> NO notifica
             await js("window.__n=null;"
