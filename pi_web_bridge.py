@@ -510,11 +510,13 @@ def last_session(cwd):
 
 
 def remember(cwd):
-    """Put cwd at the head of the recents and write them back."""
-    paths = [c["path"] for c in read_recent()
-             if c["path"].lower() != cwd.lower()]
-    paths.insert(0, cwd)
-    return write_state(cwd, paths[:RECENT_CAP])
+    """Keep the recents in the order they were added: a folder already in the
+    list keeps its place; a new one goes to the end. Abrir un proyecto ya no lo
+    sube arriba."""
+    paths = [c["path"] for c in read_recent()]
+    if not any(p.lower() == cwd.lower() for p in paths):
+        paths.append(cwd)
+    return write_state(cwd, paths[-RECENT_CAP:])
 
 
 def forget(cwd, current):

@@ -1,4 +1,4 @@
-"""Proyectos recientes: orden por uso, sin duplicados, y quitarlos."""
+"""Proyectos recientes: orden de anadido (estable), sin duplicados, y quitarlos."""
 import asyncio
 import json
 
@@ -68,7 +68,9 @@ async def main():
                 ("arranca sin nada",
                  snap["cwd"] == "" and snap["state"]["recent"] == []),
                 ("recuerda los dos", len(dos) == 2),
-                ("el ultimo usado va primero", reorder[0] == dos[1]),
+                # antes subia el reabierto al frente; ahora se mantiene el
+                # orden en que se anadieron (peticion de JP)
+                ("reabrir no reordena la lista", reorder == dos),
                 ("sin duplicados", len(reorder) == len(set(reorder))),
                 ("el proyecto abierto no se puede quitar",
                  keep is None or len(keep) == 2),
