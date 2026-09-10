@@ -4,6 +4,8 @@ sesiones anidadas y pulsacion larga.
 Cuenta sesiones, nunca imprime sus etiquetas. Sin prompts."""
 import asyncio
 import json
+import os
+import time
 
 import websockets
 
@@ -53,6 +55,17 @@ async def main():
                         if m["type"] == "state" and \
                                 m["state"].get("cwd", "").lower() == P.lower():
                             break
+            # una sesion cuyo CONTENIDO contiene "zorro raro" pero cuyo
+            # nombre no: la busqueda por nombre no la debe ver
+            extra = b.sess_dir / "2026-01-09_zorro.jsonl"
+            extra.write_text(
+                '{"type": "session", "name": "sesion sin marca"}\n'
+                '{"type": "message", "message": {"role": "user", '
+                '"content": "hablemos del zorro raro"}}\n',
+                encoding="utf-8")
+            fut = time.time() + 5
+            os.utime(extra, (fut, fut))   # que sea la mas nueva
+
             async with Page(port=9306) as p:
                 js, cmd = p.js, p.cmd
                 await p.go()
@@ -64,7 +77,7 @@ async def main():
                 # ---- chats recientes: hasta cuatro, de mas a menos nuevo ----
                 for _ in range(40):
                     n = await js("$('#chats').querySelectorAll('.sess').length")
-                    if n == 3:
+                    if n == 4:
                         break
                     await asyncio.sleep(0.2)
                 lay = await js("""(() => {
@@ -80,7 +93,7 @@ async def main():
                     ("los botones permanecen arriba",
                      lay[0] and lay[1]),
                     ("recientes debajo, proyectos al final",
-                     n == 3 and lay[2] and lay[3] and lay[4]),
+                     n == 4 and lay[2] and lay[3] and lay[4]),
                 ]
 
                 await js("window.__sent.length = 0; closeRail();"
@@ -104,7 +117,8 @@ async def main():
                   return [v.classList.contains('on'),
                           $('#rail').classList.contains('on'),
                           $('#searchInput').placeholder,
-                          $('#searchList').querySelectorAll('.srow').length];
+                          $('#searchList').querySelectorAll('.srow').length,
+                          !!v.querySelector('.shead')];
                 })()""")
                 print("  busqueda     :", s0)
                 checks += [
@@ -112,7 +126,9 @@ async def main():
                      s0[0] is True and s0[1] is False),
                     ("el hint dice buscar conversaciones",
                      s0[2] == "Buscar conversaciones"),
-                    ("vacia lista las recientes", s0[3] >= 3),
+                    ("vacia lista todas las sesiones", s0[3] >= 4),
+                    ("sin header de recientes en la vista",
+                     s0[4] is False),
                 ]
 
                 await js("$('#searchX').click()")
@@ -131,15 +147,23 @@ async def main():
                   const rows = [...$('#searchList').querySelectorAll('.srow')];
                   return [rows.length, rows.map(r=>r.textContent)];
                 })()""")
-                checks.append(("la consulta filtra por contenido",
+                checks.append(("la consulta filtra por nombre de sesion",
                                r1[0] == 1 and "prueba 2" in r1[1][0]))
+
+                await js("$('#searchInput').value='zorro';"
+                         " $('#searchInput')"
+                         ".dispatchEvent(new Event('input'))")
+                await asyncio.sleep(1.0)
+                z = await js("$('#searchList').querySelectorAll('.srow').length")
+                checks.append(("el contenido no cuenta, solo el nombre",
+                               z == 0))
 
                 await js("$('#searchX').click()")
                 await asyncio.sleep(1.0)     # borra y vuelve a listar
                 r2 = await js("""(() => [$('#searchInput').value,
                   $('#searchList').querySelectorAll('.srow').length])()""")
                 checks.append(("la X con texto borra el texto",
-                               r2[0] == "" and r2[1] >= 3))
+                               r2[0] == "" and r2[1] >= 4))
 
                 await js("$('#searchInput').value='prueba 2';"
                          " $('#searchInput')"

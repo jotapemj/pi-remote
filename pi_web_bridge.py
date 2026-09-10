@@ -371,28 +371,15 @@ def quick_label(path):
     return Path(path).stem[:60]
 
 
-def _file_has(path, needle):
-    """Grep por bytes en trozos de 1 MB con solape: la palabra puede
-    atravesar un borde."""
-    keep = b""
-    try:
-        with open(path, "rb") as fh:
-            while True:
-                chunk = fh.read(1_000_000)
-                if not chunk:
-                    return False
-                if needle in (keep + chunk).lower():
-                    return True
-                keep = chunk[-(len(needle) + 1024):]
-    except OSError:
-        return False
+_LABELS = {}   # (path -> (mtime, etiqueta)): la busqueda filtra por tecla
 
 
 def search_sessions(cwds, q, cap=30):
     """Conversaciones de los proyectos conocidos, de mas a menos nueva.
 
-    `q` vacio = las mas recientes. Con texto, grep por bytes sobre el
-    fichero entero: nombre y contenido, sin parsear JSON.
+    `q` vacio = todas. Con texto, filtro sobre el NOMBRE de sesion
+    (`quick_label`), no sobre el contenido: la busqueda es del arbol,
+    no un grep del disco.
     """
     files = []
     for cwd in cwds:
@@ -401,17 +388,21 @@ def search_sessions(cwds, q, cap=30):
             for f in d.glob("*.jsonl"):
                 files.append((cwd, f))
     files.sort(key=lambda t: t[1].stat().st_mtime, reverse=True)
-    needle = q.strip().lower().encode("utf-8")
+    needle = q.strip().lower()
     out = []
     for cwd, f in files:
-        if needle and not _file_has(f, needle):
-            continue
         try:
-            out.append({"path": str(f), "cwd": cwd,
-                        "label": quick_label(f),
-                        "mtime": int(f.stat().st_mtime)})
+            mt = f.stat().st_mtime
         except OSError:
             continue
+        hit = _LABELS.get(str(f))
+        label = hit[1] if hit and hit[0] == mt else quick_label(f)
+        if hit is None or hit[0] != mt:
+            _LABELS[str(f)] = (mt, label)
+        if needle and needle not in label.lower():
+            continue
+        out.append({"path": str(f), "cwd": cwd, "label": label,
+                    "mtime": int(mt)})
         if len(out) >= cap:
             break
     return out
