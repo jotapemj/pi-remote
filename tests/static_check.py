@@ -23,7 +23,7 @@ checks = [
     ("Jotapeveloper 2026", "Jotapeveloper 2026" in h),
     ("licencias de terceros",
      all(x in h for x in ("FastAPI", "BSD-3-Clause", "SIL Open Font License"))),
-    ("paypal preparado", 'const PAYPAL = ""' in h),
+    ("paypal activo", 'const PAYPAL = "https://www.paypal.com/donate/' in h),
     ("los rotulos van en la sans, no en la mono",
      all(("%s{" % sel) not in css.replace(" ", "") or
          "var(--mono)" not in css.split(sel + "{")[1].split("}")[0]
