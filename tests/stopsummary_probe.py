@@ -1,8 +1,9 @@
 """Resumen al parar: con la funcion activa, parar un turno pensante manda
-{abort, summary} y el puente redirige el turno con un steer (no lo mata); el
-boton de enviar queda en aro (summing) hasta que el agente responde, y la
-respuesta llega como texto normal de asistente: confirmacion fija + "estaba"
-+ lo que hacia. Apagada, parar es un abort normal, sin resumen.
+{abort, summary}. El puente ABORTA el turno (lo interrumpe de verdad; no lo
+deja terminar) y, al asentarse, pide el resumen con un prompt aparte. El boton
+queda en aro (summing, guiado por state.summarizing del puente) desde el abort
+hasta que llega el resumen, que es texto normal de asistente: confirmacion fija
++ "estaba" + lo que hacia. Apagada, parar es un abort normal, sin resumen.
 Se mide extremo a extremo contra fake_pi.
 """
 import asyncio
@@ -44,45 +45,50 @@ async def main():
             await js("stopsum = false; $('#send').click()")   # abort normal
             await until(p, "state.running === false")
             await asyncio.sleep(0.3)
-            off_sum = await js("document.querySelectorAll('.said.stopsum')"
-                               ".length")
-            print("  OFF: pensó=%s resúmenes=%s" % (off_ok, off_sum))
+            off_sum = await js("[...document.querySelectorAll('.said')]"
+                               ".some(e => e.textContent.includes('Estaba'))")
+            print("  OFF: pensó=%s resumen=%s" % (off_ok, off_sum))
             checks += [
                 ("el turno pensante arranca", off_ok),
-                ("apagado, parar no genera resumen", off_sum == 0),
+                ("apagado, parar no genera resumen", off_sum is False),
             ]
 
-            # --- ON: parar con la funcion -> steer -> respuesta normal ---
+            # --- ON: parar con la funcion -> abort + resumen aparte ---
             on_ok = await think_start(p)
             before = await js("document.querySelectorAll('.blk-you').length")
-            await js("stopsum = true; $('#send').click()")    # pide el resumen
-            ring = await js("$('#send').classList.contains('summing')")
+            await js("stopsum = true; $('#send').click()")
+            # el aro llega tras el round-trip: el puente marca state.summarizing
+            ring = await until(p, "$('#send').classList.contains('summing')",
+                               timeout=3)
             got = await until(p, "[...document.querySelectorAll('.said')]"
                               ".some(e => e.textContent.includes('Estaba'))")
-            await until(p, "state.running === false")
+            ring_off = await until(p, "!$('#send')"
+                                   ".classList.contains('summing')", timeout=5)
             await asyncio.sleep(0.2)
-            ring_off = await js("$('#send').classList.contains('summing')")
+            # la generacion original se corto: nunca llego su 'Listo.'
+            finished = await js("[...document.querySelectorAll('.said')]"
+                                ".some(e => e.textContent.trim() === 'Listo.')")
             special = await js("document.querySelectorAll('.said.stopsum')"
                                ".length")
             txt = await js("[...document.querySelectorAll('.said')]"
                            ".map(e => e.textContent)"
-                           ".filter(t => t.includes('Estaba'))"
-                           ".pop() || null")
+                           ".filter(t => t.includes('Estaba')).pop() || null")
             after = await js("document.querySelectorAll('.blk-you').length")
-            print("  ON: pensó=%s aro=%s->%s especial=%s users %s->%s"
-                  " texto=%r" % (on_ok, ring, ring_off, special,
+            print("  ON: pensó=%s aro=%s->%s cortó=%s especial=%s users %s->%s"
+                  " texto=%r" % (on_ok, ring, ring_off, not finished, special,
                                  before, after, txt))
             checks += [
                 ("el turno pensante arranca (on)", on_ok),
-                ("el boton queda en aro mientras llega la respuesta", ring),
+                ("el boton entra en aro al parar", ring),
+                ("la generacion se interrumpe (no termina)", not finished),
                 ("aparece la respuesta al parar", got),
                 ("la respuesta trae confirmacion + estaba",
                  bool(txt) and "Vale, paro" in txt
                  and "Estaba revisando" in txt),
                 ("es texto normal de asistente, sin estilo especial",
                  special == 0),
-                ("el aro se quita al terminar", ring_off is False),
-                ("el steer no anade burbuja de usuario", after == before),
+                ("el aro se quita al terminar", ring_off),
+                ("el resumen no anade burbuja de usuario", after == before),
             ]
 
             checks.append(("sin errores de consola", not p.problems))

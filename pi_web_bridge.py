@@ -133,17 +133,17 @@ SUGGEST_HINT = (
 # literal: pilla el formato nuevo y los viejos ya guardados en sesiones.
 SUGGEST_HINT_RE = re.compile(r"\n*\[[^\]]*<hint:[\s\S]*\]\s*$")
 
-# Resumen al parar: cuando el usuario detiene un turno en curso con la funcion
-# activa, en vez de matar el turno (abort) lo redirigimos (steer) con esta
-# instruccion fija. Al ser el MISMO turno, el modelo conserva lo que estaba
-# haciendo y puede contarlo. La respuesta es texto normal de asistente:
-# parte fija de confirmacion + "estaba" + lo que hacia, en una linea.
+# Resumen al parar: cuando el usuario detiene un turno con la funcion activa,
+# lo ABORTAMOS (interrumpe de verdad; steer solo encola en pi y contesta al
+# acabar). Al asentarse el turno, mandamos este prompt para que resuma en una
+# linea que hacia. Le realimentamos lo ultimo que llevaba (summary_ctx) para no
+# depender de que pi conserve el turno abortado. Respuesta = texto de asistente.
 STOP_SUMMARY = (
-    "The user just stopped you. Reply with a single short line of plain "
-    "text, in the user's language: a fixed confirmation first ('Vale, paro', "
-    "'Parado', 'Detenido' or whatever fits the language), then 'estaba' (or "
-    "its equivalent) plus what you were doing right before the stop. No "
-    "preamble, no markdown, nothing else."
+    "You were just interrupted by the user. Reply with a single short line "
+    "of plain text, in the user's language: a brief confirmation first "
+    "('Vale, paro.' / 'Parado.' / 'Detenido.', or whatever fits the "
+    "language), then 'estaba' (or its equivalent) plus what you were doing "
+    "right before the interruption. No preamble, no markdown, nothing else."
 )
 
 
@@ -541,7 +541,7 @@ class Bridge:
             "sessionName": None, "model": None, "thinking": None,
             "context": None, "queue": {"steering": [], "followUp": []},
             "alive": True, "cwd": "", "waiting": False, "recent": [],
-            "sessionFile": None,
+            "sessionFile": None, "summarizing": False,
             # como servicio nadie lee la consola: el aviso va a la pantalla
             "readOnly": READ_ONLY, "tokenMade": TOKEN_MADE, "version": VERSION,
         }
@@ -555,6 +555,8 @@ class Bridge:
         self.assistant_open = False          # hay una respuesta en curso
         self.produced = False                # el turno ya genero algo
         self.cur = None                      # assistant item being streamed
+        self.summary_pending = False         # tras el abort, toca pedir el resumen
+        self.summary_ctx = ""                # lo que hacia, para realimentarlo
 
         self.proc = None                     # no project, no agent
         self.cwd = ""
@@ -753,6 +755,18 @@ class Bridge:
                 return it
         return None
 
+    def last_activity(self):
+        """La cola de lo que el agente llevaba hecho en el turno (razonamiento
+        o texto), para realimentar el resumen tras abortar, por si pi no
+        conserva el turno cortado."""
+        parts = []
+        if self.think and self.think.get("text"):
+            parts.append(self.think["text"])
+        if self.cur and self.cur.get("text"):
+            parts.append(self.cur["text"])
+        txt = "  ".join(p.strip() for p in parts if p and p.strip())
+        return txt[-400:]        # solo la cola: lo ultimo que hacia
+
     def note(self, level, key, text, **args):
         """Send the key so the browser can say it in its own language.
         `text` travels too, as the fallback for an unknown key."""
@@ -913,6 +927,19 @@ class Bridge:
         elif t == "agent_settled":
             self.state.update(running=False, tool=None)
             self.settle_tools()      # el turno acabo: nada sigue en marcha
+            if self.summary_pending:
+                # el turno abortado ya asento: pedimos el resumen (prompt nuevo,
+                # pi ya esta libre). Sigue "summarizing" hasta que llegue.
+                self.summary_pending = False
+                prompt = STOP_SUMMARY
+                if self.summary_ctx:
+                    prompt += ("\n\nYou had just been working on:\n«"
+                               + self.summary_ctx + "»")
+                self.push_state()
+                self.send_pi({"type": "prompt", "message": prompt})
+                return
+            if self.state.get("summarizing"):
+                self.state["summarizing"] = False   # el resumen ya llego
             self.push_state()
             self.send_pi({"type": "get_session_stats"})
 
@@ -1234,12 +1261,17 @@ class Bridge:
             return
 
         if t == "abort":
-            # resumen al parar: si esta activo y el turno ya genero algo que
-            # resumir, no matamos el turno; lo redirigimos con un steer para
-            # que diga en una linea que hacia. Mismo turno = conserva contexto.
+            # resumen al parar: si esta activo y el turno ya genero algo, lo
+            # ABORTAMOS (interrumpe de verdad) y al asentarse pedimos el
+            # resumen. Guardamos lo que llevaba hecho para realimentarlo. El
+            # aro del boton se guia por state["summarizing"] hasta que llega.
             if msg.get("summary") and self.state.get("running") \
                     and self.produced:
-                self.send_pi({"type": "steer", "message": STOP_SUMMARY})
+                self.summary_ctx = self.last_activity()
+                self.summary_pending = True
+                self.state["summarizing"] = True
+                self.push_state()
+                self.send_pi({"type": "abort"})
                 return
             self.send_pi({"type": "abort"})
             # deshacer el envio: solo si el modelo no empezo nada todavia

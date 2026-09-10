@@ -88,13 +88,12 @@ def think_turn():
 
 
 ABORT = threading.Event()
-STEER = threading.Event()          # llego un steer a mitad de turno
 
 
 def stoppable_turn():
-    """Piensa despacio (~3 s). Si llega un steer (resumen al parar), corta el
-    pensamiento y suelta la respuesta: confirmacion fija + estaba + lo que
-    hacia, en una linea. Si llega abort, para sin generar."""
+    """Piensa despacio (~3 s). Si llega abort, para EN SECO sin generar texto
+    (agent_settled y fuera): asi el puente puede pedir el resumen aparte. Si
+    termina el pensamiento, cierra con 'Listo.'."""
     out({"type": "agent_start"})
     out({"type": "message_start",
          "message": {"role": "assistant", "content": []}})
@@ -103,10 +102,8 @@ def stoppable_turn():
     full = ""
     for _ in range(60):
         if ABORT.is_set():
-            out({"type": "agent_settled"})
+            out({"type": "agent_settled"})       # interrumpido: sin texto
             return
-        if STEER.is_set():
-            break
         c = "reviso. "
         full += c
         out({"type": "message_update", "usage": {},
@@ -116,22 +113,24 @@ def stoppable_turn():
     out({"type": "message_update", "usage": {},
          "assistantMessageEvent": {"type": "thinking_end",
                                    "contentIndex": 0, "content": full}})
-    if STEER.is_set():                       # resumen al parar: confirmacion + estaba
-        chunks = ["Vale, paro. Estaba revisando la configuracion del proyecto."]
-        text = "".join(chunks)
-    else:
-        chunks = ["Listo."]
-        text = "Listo."
-    for c in chunks:
-        out({"type": "message_update", "usage": {},
-             "assistantMessageEvent": {"type": "text_delta",
-                                       "contentIndex": 1, "delta": c}})
-        time.sleep(0.05)
+    out({"type": "message_update", "usage": {},
+         "assistantMessageEvent": {"type": "text_delta",
+                                   "contentIndex": 1, "delta": "Listo."}})
     out({"type": "message_end", "message": {
         "role": "assistant",
         "content": [{"type": "thinking", "thinking": full},
-                    {"type": "text", "text": text}],
+                    {"type": "text", "text": "Listo."}],
         "usage": USAGE}})
+    out({"type": "agent_end", "messages": [], "willRetry": False})
+    out({"type": "agent_settled"})
+
+
+def summary_turn():
+    """El resumen al parar: el puente lo pide con un prompt tras abortar. Una
+    sola linea: confirmacion + estaba + lo que hacia."""
+    out({"type": "agent_start"})
+    say(["Vale, paro. Estaba revisando la configuracion del proyecto."],
+        "Vale, paro. Estaba revisando la configuracion del proyecto.")
     out({"type": "agent_end", "messages": [], "willRetry": False})
     out({"type": "agent_settled"})
 
@@ -225,6 +224,9 @@ def turn(text, nimg=0):
         return
     if "stopme" in text:
         stoppable_turn()
+        return
+    if "interrupted" in text:        # el puente pide el resumen tras abortar
+        summary_turn()
         return
     if "multi" in text:
         multi_turn()
@@ -362,13 +364,9 @@ for line in sys.stdin:
     t = cmd.get("type")
     if t == "prompt":
         ABORT.clear()
-        STEER.clear()
         nimg = len(cmd.get("images") or [])
         threading.Thread(target=turn, args=(cmd.get("message", ""), nimg),
                          daemon=True).start()
-    elif t == "steer":
-        STEER.set()               # el turno en curso (si mira) lo recoge
-        out({"type": "response", "command": "steer", "success": True})
     elif t == "extension_ui_response":
         out({"type": "response", "command": "ui", "success": True})
         threading.Thread(target=finish, daemon=True).start()

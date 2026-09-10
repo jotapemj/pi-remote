@@ -885,7 +885,7 @@ footer > *{position:relative; z-index:1}
 }
 /* aparece con el texto y al trabajar; si no, se esconde en la caja */
 .field.typing .send, .field.busy .send, .field.hasimg .send,
-.send.sending, .send.halting{
+.send.sending, .send.halting, .send.summing{
   opacity:1; transform:translateY(-50%); pointer-events:auto;
 }
 /* enviar y parar comparten sitio y se cruzan con un fundido */
@@ -896,7 +896,7 @@ footer > *{position:relative; z-index:1}
 .send.halting .go{opacity:0}
 .send.halting .halt{opacity:1}
 /* esperando el resumen al parar: mismo fondo apagado, aro en vez de cuadrado */
-.send.summing .halt{opacity:0}
+.send.summing .go,.send.summing .halt{opacity:0}
 .send.summing .wait{opacity:1}
 /* enviando: un aro que gira hasta que el mensaje aparece en el chat */
 .send.sending .go,.send.sending .halt{opacity:0}
@@ -904,11 +904,15 @@ footer > *{position:relative; z-index:1}
 .send .wait{align-items:center; justify-content:center}
 .sspin{
   width:18px; height:18px; border-radius:50%;
-  border:2.5px solid #ffffff55; border-top-color:#fff;
-  animation:turn .8s linear infinite;
+  /* aro fino (grosor de los iconos) en color de texto, que adapta al tema;
+     keyframe propio: 'turn' arrastra el translate de .spin y descentraba el aro */
+  border:2px solid color-mix(in srgb, currentColor 26%, transparent);
+  border-top-color:currentColor;
+  animation:bspin .8s linear infinite;
 }
-/* al parar, un cuadrado claro sobre fondo apagado */
-.send.halting{
+@keyframes bspin{to{transform:rotate(360deg)}}
+/* al parar (y esperando el resumen), cuadrado/aro claro sobre fondo apagado */
+.send.halting, .send.summing{
   background:var(--raise); color:var(--ink);
   box-shadow:inset 0 0 0 1px var(--dim);
 }
@@ -2585,9 +2589,10 @@ function paint(){
     requestAnimationFrame(()=> jumpTo(main.scrollHeight));
   }
   if(!(busy || barShown)) $("#readout").classList.remove("show");
-  if(!busy) sumWait = false;   // el agente paro: fuera del aro
   $("#send").classList.toggle("halting", busy);
-  $("#send").classList.toggle("summing", busy && sumWait);
+  // el aro del resumen lo manda el puente: vive desde el abort hasta que
+  // llega el resumen, cruzando el hueco en que el agente no esta ocupado
+  $("#send").classList.toggle("summing", !!state.summarizing);
   $("#field").classList.toggle("busy", busy);
   if(busy) stopSending();
   if(busy && !tick) tick = setInterval(secs, 1000);
@@ -3368,7 +3373,6 @@ function setStopsum(on){
   stopsum = !!on;
   try { localStorage.setItem("pi.stopsum", on ? "1" : "0"); } catch(e){}
 }
-let sumWait = false;   // esperando el resumen al parar: boton en aro
 function setNotify(on){
   notify = !!on;
   try { localStorage.setItem("pi.notify", on ? "1" : "0"); } catch(e){}
@@ -3915,12 +3919,10 @@ box.addEventListener("keydown", e=>{
 $("#send").onclick = () => {
   if($("#send").classList.contains("halting")){
     // resumen al parar: si esta activo y el agente trabaja, pide el resumen;
-    // el boton queda en aro hasta que el agente responda. Si no, abort normal
-    // (que puede deshacer el envio)
-    if(stopsum && state.running){
-      sumWait = true; paint();
+    // el puente aborta e informa con state.summarizing, y el boton queda en aro
+    // hasta que llega. Si no, abort normal (que puede deshacer el envio)
+    if(stopsum && state.running)
       return send({type:"abort", summary:true});
-    }
     return send({type:"abort", undo:true});   // el puente decide si deshace
   }
   submit();
