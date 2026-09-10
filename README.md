@@ -286,7 +286,8 @@ guardrails: it is your hand, not the agent's.
 
 ## Look and language
 
-Two themes and six languages (English, Spanish, German, French, Portuguese,
+Four themes — light, dark, klaude and klaude-light, plus an auto that follows
+the system — and six languages (English, Spanish, German, French, Portuguese,
 Simplified Chinese), picked from the menu and remembered per browser. Fonts, icons and everything else are served by the
 bridge, so the page works on a tailnet with no route to the internet.
 
@@ -294,11 +295,13 @@ The agent's reasoning appears as a collapsible "Thought for N seconds" block,
 closed by default. A **Functions** page in the settings menu turns it on or
 off and chooses how streamed text arrives: a left-to-right fade or all at
 once. The same page can offer response suggestions: after each turn the model
-proposes three likely replies as rows below its answer, and a tap sends one.
-Enabling them shows a note: the bridge appends a hidden instruction to every
-prompt, at a small context cost per turn. It can also raise a local
-notification when the agent finishes a turn while the tab is hidden — the
-browser's own mechanism, no third parties involved. The active model and
+proposes three likely replies as plain lines under its answer, and a tap sends
+one. Enabling them shows a note: the bridge appends a hidden instruction to
+every prompt, at a small context cost per turn. It can also raise a local
+notification — with the last reply as its body — when the agent finishes a
+turn while the tab is hidden: the browser's own mechanism, no third parties
+involved. And *summary on stop*: with it enabled, stopping a working turn
+asks the agent for one line — what it was doing — instead of just killing it. The active model and
 reasoning level show in small print below the composer.
 
 The send button lives inside the composer and becomes a stop while the agent
@@ -362,7 +365,7 @@ python tests/run.py            # everything, about four minutes
 python tests/run.py rail       # just the ones matching "rail"
 ```
 
-Thirty checks: the page is driven in a real headless Chrome through the
+Forty-one probes: the page is driven in a real headless Chrome through the
 DevTools protocol, which is how the animation, contrast, layout and security
 checks are measured rather than assumed. Chrome or Edge is found
 automatically; point `CHROME` at it otherwise.
