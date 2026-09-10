@@ -171,6 +171,76 @@ async def in_page():
                  "Cierro con tres lineas" in body and "sigo explicando" in body),
             ]
 
+            # formas XML al final: etiqueta cerrada <hint>...</hint>
+            await js("setSuggest(true); feed.innerHTML=''; nodes.clear();"
+                     " render({id:5, kind:'assistant', streaming:false,"
+                     " text:'Listo.\\n"
+                     "<hint>Una cosa</hint>\\n"
+                     "<hint>Otra cosa</hint>\\n"
+                     "<hint>Tercera cosa</hint>'}); placeActions()")
+            await asyncio.sleep(0.05)
+            shown = await js("document.querySelector('.said,[data-body]')"
+                             ".textContent")
+            rows = await js("[...document.querySelectorAll("
+                            "'.suggests .sug .stext')].map(n=>n.textContent)")
+            print("  xml cerrado: filas=%s body=%r" % (rows, shown))
+            checks += [
+                ("etiquetas cerradas al final dan 3 filas",
+                 rows == ["Una cosa", "Otra cosa", "Tercera cosa"]),
+                ("y el cuerpo no muestra las etiquetas",
+                 "<hint" not in shown and "</hint>" not in shown
+                 and "Listo." in shown),
+            ]
+
+            # abierta sin cierre (el modelo se olvida del </hint>) + canonica
+            await js("setSuggest(true); feed.innerHTML=''; nodes.clear();"
+                     " render({id:6, kind:'assistant', streaming:false,"
+                     " text:'Hecho.\\n"
+                     "<hint>Sin cierre uno\\n"
+                     "<hint: con dos puntos>'}); placeActions()")
+            await asyncio.sleep(0.05)
+            shown = await js("document.querySelector('.said,[data-body]')"
+                             ".textContent")
+            rows = await js("[...document.querySelectorAll("
+                            "'.suggests .sug .stext')].map(n=>n.textContent)")
+            print("  mixto: filas=%s body=%r" % (rows, shown))
+            checks += [
+                ("abierta sin cierre + canonica dan 2 filas",
+                 rows == ["Sin cierre uno", "con dos puntos"]),
+                ("y el cuerpo queda limpio",
+                 "Hecho." in shown and "<hint" not in shown),
+            ]
+
+            # colision: etiqueta cerrada EN MEDIO de la prosa se ve como texto
+            await js("setSuggest(true); feed.innerHTML=''; nodes.clear();"
+                     " render({id:7, kind:'assistant', streaming:false,"
+                     " text:'Uso <hint>etiqueta</hint> para marcar y sigo.'});"
+                     " placeActions()")
+            await asyncio.sleep(0.05)
+            body = await js("document.querySelector('.said,[data-body]')"
+                            ".textContent")
+            rows = await js("document.querySelectorAll('.suggests .sug').length")
+            print("  colision xml: filas=%s body=%r" % (rows, body))
+            checks += [
+                ("etiqueta cerrada en prosa no genera filas", rows == 0),
+                ("y se ve como texto",
+                 "Uso <hint>etiqueta</hint> para marcar" in body),
+            ]
+
+            # streaming: cola parcial con forma XML se retiene, no parpadea
+            await js("setSuggest(true); feed.innerHTML=''; nodes.clear();"
+                     " render({id:8, kind:'assistant', streaming:true,"
+                     " text:'Listo\\n<hint>haz'})")
+            await asyncio.sleep(0.05)
+            part = await js("document.querySelector('.said,[data-body]')"
+                            ".textContent")
+            rows = await js("document.querySelectorAll('.suggests .sug').length")
+            print("  parcial xml: mostrado=%r filas=%s" % (part, rows))
+            checks += [
+                ("una cola parcial <hint>haz no se muestra ni da filas",
+                 "<hint" not in part and "Listo" in part and rows == 0),
+            ]
+
             checks.append(("sin errores de consola", not p.problems))
     return checks
 

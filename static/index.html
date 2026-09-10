@@ -2296,7 +2296,7 @@ function placeActions(){
    activo y el modelo dejo marcadores <hint:>. */
 function placeSuggests(last){
   if(!suggest) return;
-  const hints = parseHints(last.__item.text);
+  const hints = parseHints(last.__item.text, last.__item.streaming);
   if(!hints.length) return;
   const wrap = document.createElement("div");
   wrap.className = "suggests";
@@ -2391,7 +2391,7 @@ function html(it){
   }
   if(it.kind === "assistant")
     return `<div class="said${it.streaming ? " stream" : ""}" data-body>`
-      + `${md(visibleText(it.text))}${tail(it)}</div>`;
+      + `${md(visibleText(it.text, it.streaming))}${tail(it)}</div>`;
   if(it.kind === "note")
     return `<div class="note ${it.level||""}${it.key==="compacting"?" busy":""}">`
          + ico(NOTE_ICON[it.level] || "info")
@@ -3412,7 +3412,7 @@ function connect(){
         scheduleReveal(el);              // se revela de izquierda a derecha
       } else {
         const body = el.querySelector("[data-body]");
-        if(body) body.innerHTML = md(visibleText(el.__item.text)) + tail(el.__item);
+        if(body) body.innerHTML = md(visibleText(el.__item.text, el.__item.streaming)) + tail(el.__item);
         else el.innerHTML = html(el.__item);
       }
       keepDown(was);
@@ -4977,12 +4977,16 @@ const revealing = new Set();
 let revealRAF = 0;
 
 /* Separa el bloque final de sugerencias del texto visible. Solo cuentan como
-   sugerencias las lineas <hint: ...> AL FINAL del mensaje, cada una en su
-   linea; un <hint: en medio de la prosa (p.ej. el modelo explicando esta misma
-   feature) se queda como texto, no se oculta ni se vuelve fila. Durante el
-   streaming, oculta una ultima linea que empieza a formar el marcador, para
-   que no parpadee. Devuelve {visible, hints}. */
-function splitHints(t){
+   sugerencias las lineas AL FINAL del mensaje que forman un marcador, cada una
+   en su linea; tres formas: canonica <hint: ...>, etiqueta cerrada
+   <hint>...</hint> y abierta sin cierre <hint>... (por si el modelo se olvida
+   del cierre; durante el streaming se trata como cola en construccion y no
+   cuenta hasta que el mensaje termina). Un marcador en medio de la prosa
+   (p.ej. el modelo explicando esta misma feature) se queda como texto, no se
+   oculta ni se vuelve fila. Durante el streaming, oculta la ultima linea que
+   empieza a formar el marcador, para que no parpadee.
+   Devuelve {visible, hints}. */
+function splitHints(t, streaming){
   if(!t) return {visible: t || "", hints: []};
   const lines = t.split("\n");
   let i = lines.length - 1;
@@ -4992,18 +4996,22 @@ function splitHints(t){
   let saw = false;
   while(i >= 0){
     const s = lines[i].trim();
-    const done = s.match(/^<hint:\s*([\s\S]*?)>$/);
+    // la cerrada antes que la abierta: <hint>x</hint> no capture "x</hint>"
+    const done = s.match(/^<hint:\s*([\s\S]*?)>$/)
+      || s.match(/^<hint>\s*([\s\S]*?)<\/hint>\s*$/)
+      || (!streaming && s.match(/^<hint>([\s\S]*)$/));
     if(done){ hints.unshift(done[1].trim()); saw = true; i--; }
-    // cola en construccion en su propia linea: "<", "<h", ... "<hint: algo"
-    else if(i === end && /^<(h(i(n(t(:[\s\S]*)?)?)?)?)?$/.test(s)){ saw = true; i--; }
+    // cola en construccion en su propia linea: "<", "<h", ... "<hint: algo",
+    // "<hint>", "<hint>algo"
+    else if(i === end && /^<(h(i(n(t((:[\s\S]*)?|>([\s\S]*)?)?)?)?)?)?$/.test(s)){ saw = true; i--; }
     else if(s === "" && saw){ i--; }               // separadora entre hints
     else break;                                    // prosa: fin del bloque
   }
   const visible = lines.slice(0, i + 1).join("\n").replace(/\s+$/, "");
   return {visible, hints: hints.filter(Boolean).slice(0, 3)};
 }
-function visibleText(t){ return splitHints(t).visible; }
-function parseHints(t){ return splitHints(t).hints; }
+function visibleText(t, streaming){ return splitHints(t, streaming).visible; }
+function parseHints(t, streaming){ return splitHints(t, streaming).hints; }
 
 function scheduleReveal(el){
   revealing.add(el);
@@ -5018,7 +5026,7 @@ function revealTick(){
     if(!it || it.kind !== "assistant" || !it.streaming){
       revealing.delete(el); return;
     }
-    const vis = visibleText(it.text || "");
+    const vis = visibleText(it.text || "", true);
     const len = vis.length;
     if(it._front == null) it._front = 0;
     if(it._front < len)                 // persigue el final con suavizado
