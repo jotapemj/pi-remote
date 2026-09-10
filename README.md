@@ -196,9 +196,10 @@ folder — a trashed or moved one falls back to a fresh session.
      de ellos desplegado mostrando "sesión nueva" en ámbar y sus sesiones
      con fecha. Usa nombres genéricos, no los de tus proyectos reales. -->
 
-The rail shows the four newest conversations across all known projects,
-newest first — tapping one opens exactly that session. Below them, the
-**projects** section keeps the folders, in the order they were added.
+Under the two buttons, the **recents** section lists the four most recently
+used sessions across all known projects, by last modification — tapping one
+opens exactly that session. Below, the **projects** section keeps the
+folders, in the order they were added.
 
 **Search conversations** (magnifier button under *add project*) opens a full
 screen with a search box: empty it lists the newest conversations, and any

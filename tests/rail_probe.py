@@ -70,16 +70,17 @@ async def main():
                 lay = await js("""(() => {
                   const r = el =>
                     [...document.querySelectorAll('#rail > *')].indexOf(el);
-                  return [r($('#chats')) < r($('#recents')),
-                          r($('#recents')) < r($('#addBtn')),
+                  return [r($('#addBtn')) < r($('#chats')),
+                          r($('#searchBtn')) < r($('#chats')),
+                          r($('#chats')) < r($('#recents')),
                           !$('#chatHead').hidden, !$('#projHead').hidden];
                 })()""")
-                print("  disposicion: chats<proyectos<anadir", lay)
+                print("  disposicion: botones<chats<proyectos", lay)
                 checks += [
-                    ("los cuatro ultimos chats van arriba",
-                     n == 3 and lay[2]),
-                    ("proyectos debajo, anadir proyecto al final",
-                     lay[0] and lay[1] and lay[3]),
+                    ("los botones permanecen arriba",
+                     lay[0] and lay[1]),
+                    ("recientes debajo, proyectos al final",
+                     n == 3 and lay[2] and lay[3] and lay[4]),
                 ]
 
                 await js("window.__sent.length = 0; closeRail();"
