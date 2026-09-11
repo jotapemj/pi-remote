@@ -1067,7 +1067,7 @@ class Bridge:
             if self.restart_pending:
                 # el turno asento: la ultima respuesta ya esta en disco
                 self.restart_pending = False
-                self.fire_restart()
+                self.begin_restart()
             self.push_state()
             self.send_pi({"type": "get_session_stats"})
 
@@ -1418,14 +1418,16 @@ class Bridge:
             return
 
         if t == "restart":
-            # la tarea corre fuera de nuestro arbol: sobrevive a nuestra
-            # muerte. Si el agente va en turno, esperamos a que asiente
-            # para que la ultima respuesta llegue entera antes del kill.
-            self.note("info", "restarting", "restarting the bridge...")
+            # la tarea corre fuera de nuestro arbol: sobrevive a nuestra muerte.
+            # Con un turno en curso, avisamos y esperamos a que asiente (la
+            # ultima respuesta llega entera); sin turno, reiniciamos ya.
             if self.state.get("running"):
+                self.note("info", "restart_wait",
+                          "waiting for the turn to finish before restarting"
+                          " pi remote")
                 self.restart_pending = True
             else:
-                self.fire_restart()
+                self.begin_restart()
             return
 
         if t in PASSTHROUGH:
@@ -1434,6 +1436,13 @@ class Bridge:
 
         self.emit({"type": "rpc", "command": t,
                    "data": {"error": "command not allowed"}})
+
+    def begin_restart(self):
+        # aviso "reiniciando" y, tras 2 s, se dispara el reinicio real. El
+        # cliente usa esos 2 s para bajar el telon con fundido antes del corte;
+        # la tarea mata sin gracia (--grace 0) y relanza.
+        self.note("info", "restarting", "restarting pi remote…")
+        threading.Timer(2.0, self.fire_restart).start()
 
     def fire_restart(self):
         try:

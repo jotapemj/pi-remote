@@ -302,6 +302,13 @@ body{
   /* palabra estatica: relleno puro, sin trazo (mismo peso que el breathe) */
   .curtain path{stroke-dashoffset:0; fill-opacity:1; stroke-width:0}
 }
+/* subtitulo del telon al reiniciar (bajo el titulo que respira) */
+.curtsub{
+  position:absolute; left:0; right:0; top:calc(50% + 62px); padding:0 24px;
+  text-align:center; font:600 13px/1.5 var(--sans); color:var(--dim);
+  opacity:0; transition:opacity .34s ease;
+}
+.curtain.restarting .curtsub{opacity:1}
 
 .plate{
   display:flex; align-items:center; gap:10px;
@@ -3508,6 +3515,33 @@ function boot(){
 setTimeout(drawDone, RM_CURTAIN ? 0 : DRAW_MS);
 setTimeout(boot, 4000);
 
+/* Telon de reinicio: al llegar la nota "restarting", tras 2 s baja el mismo
+   telon del splash (el titulo respirando) con un subtitulo, y se retira con
+   fundido cuando el puente vuelve (snapshot). Si el socket cae antes de los
+   2 s, se muestra ya. Un tope lo retira si el puente no volviera. */
+let restartMode = false, restartT = null, restartSafety = null;
+function showRestartCurtain(){
+  const c = $("#curtain");
+  let sub = $("#curtsub");
+  if(!sub){ sub = document.createElement("div"); sub.id = "curtsub";
+            sub.className = "curtsub"; c.appendChild(sub); }
+  sub.textContent = (NOTES[lang()] || NOTES.en).restarting || "";
+  c.classList.remove("gone");
+  c.classList.add("lit", "restarting");
+}
+function endRestartCurtain(){
+  clearTimeout(restartT); clearTimeout(restartSafety);
+  restartMode = false;
+  $("#curtain").classList.add("gone");
+  $("#curtain").classList.remove("restarting");
+}
+function beginRestartOverlay(){
+  if(restartMode) return;
+  restartMode = true;
+  restartT = setTimeout(showRestartCurtain, 2000);       // igual que el puente
+  restartSafety = setTimeout(endRestartCurtain, 42000);   // por si no vuelve
+}
+
 
 /* ---------- PWA ---------- */
 if("serviceWorker" in navigator
@@ -3525,6 +3559,7 @@ function connect(){
   ws.onopen = () => { backoff = 500; };
   ws.onclose = () => {
     state.alive = false; paint();
+    if(restartMode) showRestartCurtain();   // cayo antes de los 2 s: telon ya
     title(T("reconnecting"));
     setTimeout(connect, backoff); backoff = Math.min(backoff*2, 8000);
   };
@@ -3548,6 +3583,7 @@ function connect(){
         goDown();
         spinner(false);              // ya hay contenido que ensenar
         boot();                      // y con el la cabecera ya tiene alto
+        if(restartMode) endRestartCurtain();   // el puente volvio: retira el telon
       });
     }
     else if(m.type === "item"){
@@ -3562,6 +3598,7 @@ function connect(){
       }
       if(m.item.kind === "tool") noteProduced();   // una tool ya es salida
       if(m.item.key === "compacted") coldTurn();    // tras compactar, reingesta
+      if(m.item.key === "restarting") beginRestartOverlay();  // baja el telon
       placeActions();
     }
     else if(m.type === "patch"){
@@ -4966,7 +5003,8 @@ const NOTES = {
       no_project:"no project open. pick a folder first.",
       cmd_failed:"{cmd} failed: {err}",
       compacting:"compacting the context\u2026",
-      restarting:"restarting the bridge\u2026",
+      restarting:"restarting pi remote\u2026",
+      restart_wait:"waiting for the turn to finish before restarting pi remote",
       restart_fail:"could not schedule the restart: {err}",
       compacted:"context compacted: {before} to {after} tokens",
       retrying:"retrying {n}/{max}",
@@ -4988,7 +5026,8 @@ const NOTES = {
       no_project:"sin proyecto. elige una carpeta primero.",
       cmd_failed:"{cmd} ha fallado: {err}",
       compacting:"comprimiendo el contexto\u2026",
-      restarting:"reiniciando el puente\u2026",
+      restarting:"reiniciando pi remote\u2026",
+      restart_wait:"esperando a que termine el turno para reiniciar pi remote",
       restart_fail:"no se pudo programar el reinicio: {err}",
       compacted:"contexto comprimido: de {before} a {after} tokens",
       retrying:"reintentando {n}/{max}",
@@ -5010,7 +5049,8 @@ const NOTES = {
       no_project:"Kein Projekt ge\u00f6ffnet. Zuerst einen Ordner w\u00e4hlen.",
       cmd_failed:"{cmd} fehlgeschlagen: {err}",
       compacting:"Kontext wird zusammengefasst\u2026",
-      restarting:"Brücke wird neu gestartet\u2026",
+      restarting:"pi remote wird neu gestartet…",
+      restart_wait:"warten auf das Ende des Vorgangs, um pi remote neu zu starten",
       restart_fail:"Neustart konnte nicht geplant werden: {err}",
       compacted:"Kontext zusammengefasst: von {before} auf {after} Tokens",
       retrying:"Neuer Versuch {n}/{max}",
@@ -5032,7 +5072,8 @@ const NOTES = {
       no_project:"Aucun projet ouvert. Choisissez d'abord un dossier.",
       cmd_failed:"{cmd} a \u00e9chou\u00e9 : {err}",
       compacting:"compactage du contexte\u2026",
-      restarting:"redémarrage du bridge\u2026",
+      restarting:"redémarrage de pi remote…",
+      restart_wait:"attente de la fin du tour pour redémarrer pi remote",
       restart_fail:"impossible de planifier le redémarrage : {err}",
       compacted:"contexte compact\u00e9 : de {before} \u00e0 {after} jetons",
       retrying:"nouvelle tentative {n}/{max}",
@@ -5054,7 +5095,8 @@ const NOTES = {
       no_project:"Nenhum projeto aberto. Escolha uma pasta primeiro.",
       cmd_failed:"{cmd} falhou: {err}",
       compacting:"a compactar o contexto\u2026",
-      restarting:"reiniciando o bridge\u2026",
+      restarting:"reiniciando o pi remote\u2026",
+      restart_wait:"aguardando o fim do turno para reiniciar o pi remote",
       restart_fail:"não foi possível agendar a reinicialização: {err}",
       compacted:"contexto compactado: de {before} para {after} tokens",
       retrying:"nova tentativa {n}/{max}",
@@ -5076,7 +5118,8 @@ const NOTES = {
       no_project:"未打开项目。先选择一个文件夹。",
       cmd_failed:"{cmd} 失败：{err}",
       compacting:"正在压缩上下文…",
-      restarting:"正在重启桥接服务…",
+      restarting:"正在重启 pi remote…",
+      restart_wait:"等待本轮结束后重启 pi remote",
       restart_fail:"无法安排重启：{err}",
       compacted:"上下文已压缩：从 {before} 到 {after} tokens",
       retrying:"重试 {n}/{max}",

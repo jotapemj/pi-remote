@@ -149,7 +149,8 @@ def cycle(grace):
 def register():
     """Tarea one-shot bajo la cuenta del usuario: sobrevive a la muerte de
     quien la dispara (el puente, o el agente dentro del puente)."""
-    tr = '"%s" "%s" --cycle' % (pythonw(), str(HERE / "pi_restart.py"))
+    # sin gracia: el puente ya espera al agent_settled y da 2 s de telon
+    tr = '"%s" "%s" --cycle --grace 0' % (pythonw(), str(HERE / "pi_restart.py"))
     r = subprocess.run(
         ["schtasks", "/Create", "/F", "/TN", TASK_NAME, "/SC", "ONCE",
          "/ST", "00:00", "/TR", tr],

@@ -61,16 +61,19 @@ async def main():
             dlg = await js("$('#modal').classList.contains('open')")
             m0 = marks(mark)               # todavia 0: nada ha salido
             await js("$('#modalOk').click()")
-            await asyncio.sleep(1.5)
+            await asyncio.sleep(2.6)        # el puente da 2 s de telon antes
             m1 = marks(mark)
             note1 = await js("[...document.querySelectorAll('.note')]"
                              ".some(e => /restarting|reiniciando/i.test"
                              "(e.textContent))")
+            curtain1 = await js("!$('#curtain').classList.contains('gone')"
+                                " && $('#curtain').classList.contains('restarting')")
             checks += [
                 ("el tap abre el dialogo de confirmacion", dlg is True),
                 ("no dispara antes de confirmar", m0 == 0),
-                ("confirmado, dispara en el acto", m1 == 1),
+                ("confirmado, dispara tras la breve espera del telon", m1 == 1),
                 ("deja su nota en el transcripto", note1 is True),
+                ("baja el telon de reinicio (breathe)", curtain1 is True),
             ]
 
             # --- a mitad de turno: espera a que asiente ---
@@ -81,7 +84,7 @@ async def main():
             await asyncio.sleep(0.6)
             early = marks(mark)      # todavia no: el turno va en curso
             await until(p, "state.running === false")
-            await asyncio.sleep(1.5)
+            await asyncio.sleep(2.6)        # asienta y luego los 2 s de telon
             late = marks(mark)
             checks += [
                 ("el turno en curso arranca", run is True),
