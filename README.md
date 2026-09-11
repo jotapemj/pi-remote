@@ -352,6 +352,28 @@ reconnects on its own. On Windows, `pi_restart.py --ensure` is the idempotent
 twin: point a startup shortcut at it instead of the bridge directly, and a
 crash left over from last night costs nothing at log on.
 
+## Functions
+
+A **Functions** page in the settings menu holds five switches, each remembered
+per browser:
+
+- **Show reasoning** — the agent's thinking as a collapsible "Thought for N
+  seconds" block, closed by default.
+- **Response suggestions** — after each turn the model offers three likely
+  replies as plain lines under its answer; a tap sends one. It appends a hidden
+  instruction to every prompt, at a small context cost.
+- **Summary on agent stop** — stopping a working turn asks the agent, in the
+  background, for one line on what it was doing instead of just killing it.
+- **Notifications** — a local notification, with the last reply as its body,
+  when a turn ends while the tab is hidden. The browser's own; no third parties.
+- **Smooth generation** — streamed text fades in left to right; turned off, it
+  lands all at once.
+
+<p align="center">
+  <img src="docs/functions.png" width="300"
+       alt="The Functions page: five switches — show reasoning, response suggestions, summary on agent stop, notifications, and smooth generation">
+</p>
+
 ## Security
 
 - **A bridge that runs things always has a token.** If you do not set
