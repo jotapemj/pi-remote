@@ -3364,7 +3364,9 @@ function themeModal(){
     + `<button data-m="light">${esc(T("light"))}</button>`
     + `<button data-m="dark">${esc(T("dark"))}</button></div></div>`;
   openModal(T("theme"), rows + foot,
-            () => setTheme(fam, mode),
+            () => { setTheme(fam, mode);
+                    // refresca "Tema | <familia>" en ajustes, que queda detras
+                    if(sheetPage === "appearance") paintSheet("appearance"); },
             {plain: true, cancel: () => applyTheme(beforeFam, beforeMode)});
   const body = $("#modalBody");
   const sw = body.querySelector(".tmode .sw");

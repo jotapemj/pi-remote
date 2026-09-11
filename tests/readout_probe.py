@@ -285,6 +285,27 @@ async def main():
             await asyncio.sleep(0.3)
             await js("turnTo('appearance', 1)")   # el slider vive ahi
             await asyncio.sleep(0.7)
+
+            # la fila "Tema | <familia>" en ajustes se refresca al confirmar,
+            # sin tener que cerrar y reabrir ajustes
+            themeRow = ("[...document.querySelectorAll('#sheetBody .pick')]"
+                        ".find(b => b.querySelector('.pval'))")
+            val0 = await js("(()=>{const r=%s;"
+                            " return r && r.querySelector('.pval').textContent;})()"
+                            % themeRow)
+            await js("%s.click()" % themeRow)
+            await asyncio.sleep(0.2)
+            await js("[...document.querySelectorAll('#modalBody .mrow')]"
+                     ".find(b=>b.dataset.fam==='gemma').click();"
+                     " $('#modalOk').click()")
+            await asyncio.sleep(0.3)
+            val1 = await js("(()=>{const r=%s;"
+                            " return r && r.querySelector('.pval').textContent;})()"
+                            % themeRow)
+            print("  fila tema: antes=%r despues=%r" % (val0, val1))
+            checks.append(("la fila Tema en ajustes se refresca al confirmar",
+                           val0 != val1 and "Gemma" in (val1 or "")))
+
             size = await js("(() => {"
                             " const i = document.querySelector('.track input');"
                             " i.value = 6; i.dispatchEvent(new Event('input'));"
