@@ -56,6 +56,7 @@ try{
   --head:#191e25; --head-ink:#8b95a2;   /* barra de una caja plegable */
   --box:#191e25;  --box-ink:#8b95a2;    /* su cuerpo, ya desplegado */
   --field-ink:#dde2e8;                  /* lo que escribes */
+  --you-ink:#dde2e8;                    /* tinta de tu burbuja; = --ink salvo que la separes */
   --mono:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
   --sans:"Plus Jakarta Sans",system-ui,-apple-system,Segoe UI,sans-serif;
   --gut:14px;
@@ -81,6 +82,7 @@ try{
   --head:#0d0d0d; --head-ink:#a2a298;
   --box:#111111;  --box-ink:#878d93;
   --field-ink:#a3a3a1;
+  --you-ink:#e6e6e4;
 }
 :root[data-theme="klaude-light"]{
   /* Klaude a plena luz: papel calido, y las cajas de codigo en pizarra
@@ -101,6 +103,7 @@ try{
   --head:#232833; --head-ink:#b6bcc6;
   --box:#2b303b;  --box-ink:#cbd1da;
   --field-ink:#0b0b0b;
+  --you-ink:#0b0b0b;
   --cast-card:14px 17px 40px 4px rgba(40,40,40,.07);
 }
 :root[data-theme="light"]{
@@ -121,6 +124,7 @@ try{
   --head:#ffffff; --head-ink:#59636f;
   --box:#ffffff;  --box-ink:#59636f;
   --field-ink:#151920;
+  --you-ink:#151920;
   --cast-card:14px 17px 40px 4px rgba(112,144,176,.08);
 }
 *{box-sizing:border-box}
@@ -266,7 +270,7 @@ main{flex:1; overflow-y:auto; padding:16px var(--gut) 8px; position:relative;
 .blk-you{
   max-width:80%; border-radius:var(--r-bubble);
   background:var(--raise); border:1px solid var(--rule);
-  padding:13px 17px; color:var(--ink);
+  padding:13px 17px; color:var(--you-ink);
   white-space:pre-wrap; word-break:break-word;
 }
 .tag{
