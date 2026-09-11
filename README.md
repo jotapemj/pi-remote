@@ -282,7 +282,7 @@ and this layout would be worse there.
 ## Commands
 
 Type `/`, or tap the **+** inside the composer and pick **Commands**.
-Twenty-two commands, filtered as you type, with keyboard navigation on a
+Twenty-three commands, filtered as you type, with keyboard navigation on a
 desktop browser. The same **+** menu attaches an image — paste one, or pick it
 from the device — for a model that can see; it rides along with your next
 message.
@@ -293,6 +293,16 @@ message.
 The ones that cannot be undone — `/compact`, `/clearq`, `/new` — ask first.
 `/bash` runs a command **skipping the model entirely**, and with it the
 guardrails: it is your hand, not the agent's.
+
+`/restart` asks too: it restarts the bridge itself, agent included. The kill
+cannot come from inside — a child dies with its parent's tree — so the command
+fires a one-shot scheduled task (the bridge registers it at startup), which
+runs under the Task Scheduler service, outside the process tree. It waits a
+20 s grace so the last reply lands intact, kills the bridge, relaunches it and
+verifies the port answers. The session comes back from disk and the phone
+reconnects on its own. On Windows, `pi_restart.py --ensure` is the idempotent
+twin: point a startup shortcut at it instead of the bridge directly, and a
+crash left over from last night costs nothing at log on.
 
 ## Look and language
 
@@ -375,7 +385,7 @@ python tests/run.py            # everything, about four minutes
 python tests/run.py rail       # just the ones matching "rail"
 ```
 
-Forty-one probes: the page is driven in a real headless Chrome through the
+Forty-two probes: the page is driven in a real headless Chrome through the
 DevTools protocol, which is how the animation, contrast, layout and security
 checks are measured rather than assumed. Chrome or Edge is found
 automatically; point `CHROME` at it otherwise.
