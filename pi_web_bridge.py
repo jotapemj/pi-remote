@@ -361,6 +361,14 @@ def quick_label(path):
             return info
     except OSError:
         pass
+    # la cola no vio session_info; si el fichero pasa de la ventana, un rename
+    # pudo quedar enterrado a megas del final. El pase completo (como el arbol)
+    # es la unica forma de no mostrar el nombre de creacion, ya viejo.
+    try:
+        if Path(path).stat().st_size > TAIL_WIN:
+            return session_label(Path(path))
+    except OSError:
+        pass
     try:
         with open(path, "rb") as fh:
             head = fh.read(HEAD_WIN).decode("utf-8", "replace")
