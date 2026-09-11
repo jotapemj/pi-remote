@@ -2399,6 +2399,7 @@ const runLabel = n => T("ranN").replace("{n}", n);
 /* Copiar y estadisticas van una sola vez, en la respuesta final del
    turno; nunca en los trozos de texto entre comandos, ni mientras genera. */
 function placeActions(){
+  const was = atBottom();          // seguias el final antes de colocar acciones
   feed.querySelectorAll(".msgacts").forEach(el => el.remove());
   feed.querySelectorAll(".suggests").forEach(el => el.remove());
   if(state.running) return;
@@ -2416,6 +2417,9 @@ function placeActions(){
         + ` aria-label="${esc(T("statsTitle"))}">${ico("stats")}</button>` : "");
   last.appendChild(acts);
   placeSuggests(last);
+  // al terminar, las sugerencias crecen el feed: si seguias el final, baja
+  // al fondo absoluto para no dejarlas fuera de vista
+  if(was) requestAnimationFrame(() => jumpTo(main.scrollHeight));
 }
 
 /* Filas de sugerencia bajo la ultima respuesta: mismo aspecto en escritorio y
