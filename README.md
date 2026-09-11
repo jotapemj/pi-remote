@@ -1,15 +1,16 @@
-# pi-remote
+<p align="center">
+  <img src="docs/title.png" alt="pi remote" width="440">
+</p>
 
 Drive the [pi coding agent](https://pi.dev) from your phone, on **native
 Windows**, with nothing in between. One Python process wraps `pi --mode rpc`
 and serves a web app over your tailnet. No daemon, no Unix socket, no relay,
 no third party: your browser talks to your own machine.
 
-<!-- CAPTURA 1 — la principal, la que se ve en GitHub sin hacer scroll.
-     Un turno completo en el móvil, tema oscuro: tu burbuja arriba a la
-     derecha, la respuesta a ancho completo con un bloque de código, una
-     fila de herramienta y, abajo, la tarjeta ámbar de permiso.
-     Ancho ~400px. -->
+<p align="center">
+  <img src="docs/hero.png" width="380"
+       alt="A full turn on the phone: the user's message, a full-width reply with a code block, a tool row, and an amber permission card at the bottom">
+</p>
 
 > **Whoever holds the token can run commands on your machine.** There is no
 > sandbox: the bridge starts a real agent in a real folder. A token is always
@@ -57,6 +58,30 @@ the fonts, all served locally so the page never calls out to anyone.
 | `PI_WEB_CWD` | none | project to open at startup |
 | `PI_WEB_STATE` | `state.json` | where recent projects are kept |
 | `PI_WEB_LOG` | `bridge.log` | log file when there is no console |
+
+### Generating a token
+
+Any long, random, hard-to-guess string works — treat it like a password:
+whoever has it can run commands on your machine. Leave `PI_WEB_TOKEN` unset and
+the bridge mints a temporary one for that run and prints it with the URL; set it
+to keep the same token across restarts.
+
+Python is already a dependency, so the portable one-liner works on every OS:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+Native, if you prefer:
+
+| OS | Generate a token | Set it for the session |
+|---|---|---|
+| Windows · PowerShell | `$b=[byte[]]::new(24);[Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b);[Convert]::ToBase64String($b)` | `$env:PI_WEB_TOKEN="<token>"` |
+| Windows · cmd | *(use the Python line above)* | `set PI_WEB_TOKEN=<token>` |
+| Linux / macOS | `openssl rand -base64 32` | `export PI_WEB_TOKEN=<token>` |
+
+To make it permanent, set it wherever you make the bridge start on its own —
+the startup shortcut, the systemd unit, the launchd plist (see below).
 
 ## Install it as an app
 
@@ -192,9 +217,10 @@ The last open session comes back too: on startup the bridge reopens that
 exact session file, as long as it still exists in the project's session
 folder — a trashed or moved one falls back to a fresh session.
 
-<!-- CAPTURA 2 — la barra lateral abierta con tres o cuatro proyectos, uno
-     de ellos desplegado mostrando "sesión nueva" en ámbar y sus sesiones
-     con fecha. Usa nombres genéricos, no los de tus proyectos reales. -->
+<p align="center">
+  <img src="docs/sidebar.png" width="360"
+       alt="The projects rail: recents on top, then the projects, one unfolded to show new session and its sessions with dates">
+</p>
 
 Under the two buttons, the **recents** section lists the four most recently
 used sessions across all known projects, by last modification — tapping one
@@ -213,8 +239,10 @@ text — or closes the view when the text is already empty.
   `.jsonl` is moved to a `_trash` folder beside it. The open session is
   refused.
 
-<!-- CAPTURA 3 — el selector de carpetas: tarjetas desde C:\Users, con la
-     flecha de subir arriba y el botón ámbar "usar esta carpeta". -->
+<p align="center">
+  <img src="docs/folders.png" width="360"
+       alt="The folder picker: an up arrow and the current path, an amber use this folder button, and a card per subfolder">
+</p>
 
 Opening a project rebuilds the transcript from pi's own `get_messages`, so the
 history is the real session on disk, not something kept in memory.
@@ -230,11 +258,10 @@ asks, and that question arrives here as an `extension_ui_request` that
 **blocks the turn until you answer** — indefinitely, since `pi-guardrails`
 sets no timeout.
 
-<!-- CAPTURA 4 — la tarjeta de permiso ampliada: cabecera "pi pregunta",
-     el título de la extensión, la caja con la frase en cristiano y el
-     comando en monoespaciada debajo, y los botones con las opciones
-     reales. Y una segunda, ya respondida, con el check verde y
-     "respondido: permitir una vez". -->
+<p align="center">
+  <img src="docs/permission.png" width="380"
+       alt="A permission card: the plain-words explanation over the raw command with the real options, and a second one already answered with a green check">
+</p>
 
 Four things that are easy to get wrong, and that this bridge handles:
 
@@ -255,29 +282,30 @@ Four things that are easy to get wrong, and that this bridge handles:
 The four dialog kinds — `select`, `confirm`, `input`, `editor` — are all
 answered from the browser.
 
-<!-- CAPTURA 5 — mientras genera: la palabra rotatoria junto al cursor
-     dentro del mensaje con los segundos al lado, el medidor de contexto
-     a la derecha con "56.79% | 56k/131k", y el botón de enviar
-     convertido en el cuadrado de parar. -->
+### Which guardrails work
 
-## On a wide screen
+pi has no prompts of its own, so the safety net is a guardrails extension — and
+over RPC only the ones that ask through the standard dialog methods (`select`,
+`confirm`, `input`, `editor`) reach you here. An extension that draws its UI
+with `ctx.ui.custom()` gets nothing: that call returns `undefined` at once, and
+the bridge can neither see nor answer it.
 
-The phone layout is the default, but from 1000px the projects rail stops
-being a drawer and becomes a column: drag the divider to resize it, double
-click to reset, and fold it away with the panel button. The width and the
-folded state are remembered.
+**Recommended: `pi-guardrails`.** Its command gate uses `select`, so dangerous
+commands surface as a real dialog you can answer from the phone. But its
+file-access guard (`pathAccess`, mode `ask`) is drawn with `custom()`: over RPC
+it never shows, and its promise resolving to `undefined` reads as *deny*, so
+every file outside the working directory is refused with no dialog and no way to
+allow it. Turn that one feature off in `~/.pi/agent/extensions/guardrails.json`
+— it leaves the command gate untouched:
 
-The transcript stays at 760px whatever the window size — a line of text
-that crosses a 27" monitor is unreadable — and the composer lines up with
-it. Settings become a centred window instead of a sheet rising from the
-bottom.
+```json
+{ "features": { "pathAccess": false } }
+```
 
-It keys on width, not orientation: a phone held sideways is landscape too,
-and this layout would be worse there.
-
-<!-- CAPTURA 8 — la ventana ancha: barra de proyectos a la izquierda con
-     un proyecto desplegado, el chat centrado a 760px, y el compositor
-     alineado con el texto. -->
+<p align="center">
+  <img src="docs/running.png" width="380"
+       alt="While generating: a rotating status word with the seconds beside it, the context meter reading 56.80% | 74k/131k, and the send button turned into a stop square">
+</p>
 
 ## Commands
 
@@ -287,8 +315,10 @@ desktop browser. The same **+** menu attaches an image — paste one, or pick it
 from the device — for a model that can see; it rides along with your next
 message.
 
-<!-- CAPTURA 6 — el diálogo de ayuda con la lista de comandos y su
-     descripción, sobre el fondo desenfocado. -->
+<p align="center">
+  <img src="docs/commands.png" width="380"
+       alt="The command list: each command with its description, filtered as you type, over the composer">
+</p>
 
 The ones that cannot be undone — `/compact`, `/clearq`, `/new` — ask first.
 `/bash` runs a command **skipping the model entirely**, and with it the
@@ -303,42 +333,6 @@ verifies the port answers. The session comes back from disk and the phone
 reconnects on its own. On Windows, `pi_restart.py --ensure` is the idempotent
 twin: point a startup shortcut at it instead of the bridge directly, and a
 crash left over from last night costs nothing at log on.
-
-## Look and language
-
-Four theme families — pi remote, Klaude, Jipiti and Gemma — each with a light
-and a dark look, plus an auto mode that follows the system, and six languages
-(English, Spanish, German, French, Portuguese, Simplified Chinese), picked from
-the menu and remembered per browser. Fonts, icons and everything else are served by the
-bridge, so the page works on a tailnet with no route to the internet.
-
-The agent's reasoning appears as a collapsible "Thought for N seconds" block,
-closed by default. A **Functions** page in the settings menu turns it on or
-off and chooses how streamed text arrives: a left-to-right fade or all at
-once. The same page can offer response suggestions: after each turn the model
-proposes three likely replies as plain lines under its answer, and a tap sends
-one. Enabling them shows a note: the bridge appends a hidden instruction to
-every prompt, at a small context cost per turn. It can also raise a local
-notification — with the last reply as its body — when the agent finishes a
-turn while the tab is hidden: the browser's own mechanism, no third parties
-involved. And *summary on stop*: with it enabled, stopping a working turn
-asks the agent for one line — what it was doing — instead of just killing it. The active model and
-reasoning level show in small print below the composer.
-
-The send button lives inside the composer and becomes a stop while the agent
-works. Pressing stop before the agent has produced anything takes the message
-back out and returns it to the composer, unsent.
-
-A run of tool calls collapses into one expandable row once the turn ends —
-reasoning the model interleaves between them does not break the run. Each tool
-box shows the full command it ran and its output, one below the other.
-A tool that returns an image — `read` over a png — shows it as a
-thumbnail under the output; tapping it opens a lightbox with pinch zoom
-and drag to close.
-
-<!-- CAPTURA 7 — el menú de ajustes: apariencia con auto/claro/oscuro, la
-     tarjeta de idioma, y ayuda / acerca de / donar. Una en cada tema, lado
-     a lado, estaría bien. -->
 
 ## Security
 
@@ -386,7 +380,7 @@ python tests/run.py            # everything, about four minutes
 python tests/run.py rail       # just the ones matching "rail"
 ```
 
-Forty-two probes: the page is driven in a real headless Chrome through the
+Forty-three probes: the page is driven in a real headless Chrome through the
 DevTools protocol, which is how the animation, contrast, layout and security
 checks are measured rather than assumed. Chrome or Edge is found
 automatically; point `CHROME` at it otherwise.
