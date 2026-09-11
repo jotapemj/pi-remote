@@ -5224,7 +5224,7 @@ function splitHints(t, streaming){
     // la cerrada antes que la abierta: <hint>x</hint> no capture "x</hint>"
     const done = s.match(/^<hint:\s*([\s\S]*?)>$/)
       || s.match(/^<hint>\s*([\s\S]*?)<\/hint>\s*$/)
-      || (!streaming && s.match(/^<hint>([\s\S]*)$/));
+      || (!streaming && s.match(/^<hint>([\s\S]*?)>?$/));   // tolera un > de cierre suelto
     if(done){ hints.unshift(done[1].trim()); saw = true; i--; }
     // cola en construccion en su propia linea: "<", "<h", ... "<hint: algo",
     // "<hint>", "<hint>algo"

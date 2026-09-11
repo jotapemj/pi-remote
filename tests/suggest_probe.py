@@ -211,6 +211,23 @@ async def in_page():
                  "Hecho." in shown and "<hint" not in shown),
             ]
 
+            # abierta con un > de cierre suelto (el modelo cierra con > en vez
+            # de </hint>): el texto no debe arrastrar ese > final (bug de la foto)
+            await js("setSuggest(true); feed.innerHTML=''; nodes.clear();"
+                     " render({id:9, kind:'assistant', streaming:false,"
+                     " text:'Hecho.\\n"
+                     "<hint>Los nombres se actualizan.>\\n"
+                     "<hint>Sigue mostrando viejos.>'}); placeActions()")
+            await asyncio.sleep(0.05)
+            rows = await js("[...document.querySelectorAll("
+                            "'.suggests .sug .stext')].map(n=>n.textContent)")
+            print("  cierre suelto: filas=%s" % rows)
+            checks += [
+                ("un > de cierre suelto no queda en el texto del hint",
+                 rows == ["Los nombres se actualizan.",
+                          "Sigue mostrando viejos."]),
+            ]
+
             # colision: etiqueta cerrada EN MEDIO de la prosa se ve como texto
             await js("setSuggest(true); feed.innerHTML=''; nodes.clear();"
                      " render({id:7, kind:'assistant', streaming:false,"
