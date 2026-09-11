@@ -816,9 +816,10 @@ footer > *{position:relative; z-index:1}
 .mrow.bad .i{color:var(--coral)}
 .mrow .i{color:var(--faint)}
 /* pie del selector de tema: switch Auto sobre el toggle claro/oscuro */
-.tmode{margin-top:6px; padding-top:14px; border-top:1px solid var(--rule);
-  display:flex; flex-direction:column; gap:12px}
-.tmode .frow{display:flex; align-items:center; justify-content:space-between}
+.tmode{margin:8px -20px 10px; padding:16px 20px 0;
+  border-top:1px solid var(--rule);          /* separador de borde a borde */
+  display:flex; flex-direction:column; gap:14px}
+.tmode .frow{display:flex; align-items:center; justify-content:flex-end; gap:12px}
 .tmode .flbl{font:600 13px/1 var(--sans); color:var(--ink)}
 .seg{display:flex; border:1px solid var(--rule); border-radius:10px;
   overflow:hidden; transition:opacity .2s ease}
@@ -1287,20 +1288,20 @@ main:has(#spin) .empty{display:none}
 .mcard{
   background:var(--surface); border:1px solid var(--rule);
   border-radius:var(--r-card); box-shadow:var(--cast-card);
-  width:100%; max-width:470px; max-height:82vh; padding:20px;
+  width:100%; max-width:470px; max-height:82vh; padding:20px 0;
   display:flex; flex-direction:column;
   transform:scale(.94) translateY(14px); will-change:transform;
   transition:transform .26s cubic-bezier(.32,.72,0,1);
 }
 .modal.open .mcard{transform:none}
-.mcard h3{font:600 15px/1.3 var(--sans);margin:0 0 13px;color:var(--ink)}
-.mbody{overflow-y:auto;font:400 13px/1.55 var(--sans);color:var(--dim)}
+.mcard h3{font:600 15px/1.3 var(--sans);margin:0 0 13px;padding:0 20px;color:var(--ink)}
+.mbody{overflow-y:auto;padding:0 20px;font:400 13px/1.55 var(--sans);color:var(--dim)}
 .mbody dt{font:600 12.5px/1.5 var(--mono);color:var(--amber);margin-top:11px}
 .mbody dt:first-child{margin-top:0}
 .mbody dd{margin:1px 0 0}
 .mbody p{margin:0 0 9px}
 .mbody b{color:var(--ink)}
-.macts{display:flex; gap:8px; margin-top:16px; flex:none}
+.macts{display:flex; gap:8px; margin-top:16px; padding:0 20px; flex:none}
 .ok{
   flex:1; background:var(--amber); color:var(--on-amber);
   border:1px solid transparent; border-radius:var(--r-tool);
