@@ -5782,10 +5782,14 @@ addEventListener("resize", ()=> marqueeAll());
 let kbNow = -1;   // -1: la primera llamada siempre aplica (pone --kb a 0px)
 function anchorKb(kb){
   if(kb === kbNow) return;
+  const wasDown = atBottom();   // si seguias el final, quedate pegado al final
   const under = main.scrollHeight - main.scrollTop - main.clientHeight;
   kbNow = kb;
   document.documentElement.style.setProperty("--kb", kb + "px");
-  main.scrollTo({top: main.scrollHeight - main.clientHeight - under,
+  // pegado al fondo: al borde absoluto (el residual dejaba ver la sombra);
+  // leyendo en mitad: devuelve la misma distancia que faltaba al fondo
+  main.scrollTo({top: wasDown ? main.scrollHeight
+                              : main.scrollHeight - main.clientHeight - under,
                 behavior: "instant"});   // instant: el suave llega tarde
 }
 if(window.visualViewport){
