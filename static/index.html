@@ -830,6 +830,12 @@ footer > *{position:relative; z-index:1}
 .seg button.on{background:var(--amber); color:var(--on-amber)}
 .seg.off{opacity:.4}
 .seg button:disabled{cursor:default}
+/* Gemma no tiene bordes (--rule transparente): el interruptor apagado y el
+   separador del selector necesitan un tono propio para verse */
+:root[data-theme="gemma-light"] .sw:not([aria-checked="true"]){background:#d6d3d3}
+:root[data-theme="gemma-dark"]  .sw:not([aria-checked="true"]){background:#3a3a3a}
+:root[data-theme="gemma-light"] .tmode{border-top-color:#e2e0e0}
+:root[data-theme="gemma-dark"]  .tmode{border-top-color:#343434}
 
 /* ---------- slash palette ---------- */
 .palette .grab{margin:6px 0 2px}
@@ -1237,7 +1243,9 @@ main:has(#spin) .empty{display:none}
 .proj .i{color:var(--faint)}
 .proj.on .i{color:var(--amber)}
 .proj:hover{background:var(--raise)}
-.proj.on{background:var(--raise);color:var(--amber)}
+/* seleccionado: el fondo y la negrita marcan; el titulo en --ink no cae en
+   azul-sobre-azul (jipiti/gemma) y siempre se lee */
+.proj.on{background:var(--raise); color:var(--ink); font-weight:600}
 .proj small{
   display:block; font:400 10.5px/1.4 var(--mono); color:var(--faint);
   margin-top:3px;
@@ -5229,21 +5237,14 @@ function setSize(step){
 }
 applySize(sizeStep());
 
-/* La barra de estado. En el navegador sigue al tema (borde alto de la
-   toolbar) y Android saca el contraste de iconos solo. Pero una PWA
-   INSTALADA fija el fondo de la barra al color del manifest (grafito) y no
-   lo cambia en caliente; ahi, si mandaramos un color claro, los iconos se
-   volverian negros sobre grafito = ilegible. Asi que instalada se mantiene
-   oscura, para que los iconos sigan blancos y legibles.
+/* La barra de estado sigue al color de la toolbar (--plate-a) en cada tema,
+   asi la barra del sistema y la cabecera son del mismo tono. Android saca el
+   contraste de iconos del propio theme-color (claro -> iconos oscuros).
    iOS: el estilo se lee al arrancar y no se puede cambiar (ver AGENTS). */
 const MANIFEST_BG = "#12151a";
 function statusBar(){
   const meta = document.querySelector('meta[name="theme-color"]');
   if(!meta) return;
-  const installed = matchMedia("(display-mode: standalone)").matches
-    || matchMedia("(display-mode: fullscreen)").matches
-    || navigator.standalone === true;
-  if(installed){ meta.content = MANIFEST_BG; return; }
   const v = getComputedStyle(document.documentElement)
               .getPropertyValue("--plate-a").trim();
   meta.content = v || MANIFEST_BG;
