@@ -1,8 +1,10 @@
 """/restart: el puente dispara un comando FUERA de su propio arbol de
 procesos (una tarea programada, que sobrevive a su propia muerte). Si el
 agente va en turno, espera a que asiente para que la ultima respuesta
-llegue entera antes del kill. Aqui no se mata nada: PI_RESTART_CMD apunta
-a un marcador que solo escribe en un fichero, y se mide cuando aparece.
+llegue entera antes del kill. El tap en la paleta abre primero un dialogo
+de confirmacion: sin confirmar, nada se dispara. Aqui no se mata nada:
+PI_RESTART_CMD apunta a un marcador que solo escribe en un fichero, y se
+mide cuando aparece.
 """
 import asyncio
 import json
@@ -53,15 +55,21 @@ async def main():
             await until(p, "state.running === false")
             await asyncio.sleep(1.5)
 
-            # --- en reposo: dispara en el acto ---
-            await js("send({type:'restart'})")
+            # --- el tap abre un dialogo: nada se dispara sin confirmar ---
+            await js("CMDS.find(c=>c.n==='restart').run()")
+            await asyncio.sleep(0.4)
+            dlg = await js("$('#modal').classList.contains('open')")
+            m0 = marks(mark)               # todavia 0: nada ha salido
+            await js("$('#modalOk').click()")
             await asyncio.sleep(1.5)
             m1 = marks(mark)
             note1 = await js("[...document.querySelectorAll('.note')]"
                              ".some(e => /restarting|reiniciando/i.test"
                              "(e.textContent))")
             checks += [
-                ("en reposo, dispara en el acto", m1 == 1),
+                ("el tap abre el dialogo de confirmacion", dlg is True),
+                ("no dispara antes de confirmar", m0 == 0),
+                ("confirmado, dispara en el acto", m1 == 1),
                 ("deja su nota en el transcripto", note1 is True),
             ]
 
