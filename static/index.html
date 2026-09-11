@@ -2903,7 +2903,10 @@ async function loadChats(){
   $("#chatHead").hidden = !(d.results || []).length;
 }
 function maybeChats(){
-  const k = JSON.stringify((state.recent || []).map(r=>r.path)) + state.cwd;
+  // el nombre de sesion cuenta: un /name no cambia el conjunto de
+  // proyectos, pero deja las etiquetas de recientes viejas
+  const k = JSON.stringify((state.recent || []).map(r=>r.path)) + state.cwd
+          + "|" + (state.sessionName || "");
   if(k === chatsKey) return;
   chatsKey = k;
   loadChats();

@@ -344,7 +344,10 @@ def quick_label(path):
             if size > TAIL_WIN:
                 fh.seek(size - TAIL_WIN)
                 fh.readline()        # no quedarse en media linea
+            else:
+                fh.seek(0)           # fichero pequeno: la cola es todo
             tail = fh.read(TAIL_WIN).decode("utf-8", "replace")
+        info = None
         for line in tail.splitlines():
             if "session_info" not in line:
                 continue
@@ -353,7 +356,9 @@ def quick_label(path):
             except ValueError:
                 continue
             if e.get("type") == "session_info" and (e.get("name") or "").strip():
-                return e["name"].strip()
+                info = e["name"].strip()   # la ultima gana, como session_label
+        if info:
+            return info
     except OSError:
         pass
     try:

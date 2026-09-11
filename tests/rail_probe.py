@@ -109,6 +109,28 @@ async def main():
                     ("y cierra la barra", got[1] is False),
                 ]
 
+                # ---- rebautizado: recientes adopta el nombre nuevo ----
+                # La sesion mas nueva cambia su etiqueta en disco (una
+                # session_info al final + mtime) y la pagina recibe un state
+                # con otro sessionName: #chats tiene que volver a pedir.
+                newest = max(b.sess_dir.glob("*.jsonl"),
+                             key=lambda f: f.stat().st_mtime)
+                with open(newest, "a", encoding="utf-8") as fh:
+                    fh.write('{"type": "session_info", '
+                             '"name": "renombrada"}\n')
+                fut2 = time.time() + 10
+                os.utime(newest, (fut2, fut2))
+                await js("state.sessionName = 'nueva'; paint()")
+                ren = False
+                for _ in range(30):
+                    ren = "renombrada" in await js(
+                        "document.querySelector('#chats').textContent")
+                    if ren:
+                        break
+                    await asyncio.sleep(0.3)
+                checks.append(("recientes adopta el nombre tras un rebautizado",
+                               ren is True))
+
                 # ---- vista de busqueda: pantalla completa sobre el rail ----
                 await js("openSearch()")
                 await asyncio.sleep(0.6)
