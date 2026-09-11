@@ -12,12 +12,28 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="pi-remote">
 <script id="boot">
-/* pick the theme before first paint, or the wrong one flashes on load */
-try{
-  var p = localStorage.getItem("pi.theme") || "light";
-  document.documentElement.dataset.theme = p !== "auto" ? p
-    : (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
-}catch(e){}
+/* pick the theme before first paint, or the wrong one flashes on load.
+   A theme is a family (a light/dark pair) plus a mode (auto|light|dark).
+   IIFE: sus variables no deben chocar con las globales del script grande. */
+(function(){try{
+  var pairs={pi:["light","dark"],klaude:["klaude-light","klaude"],
+    jipiti:["jipiti-light","jipiti-dark"],gemma:["gemma-light","gemma-dark"]};
+  var fam=localStorage.getItem("pi.themeFamily");
+  var mode=localStorage.getItem("pi.themeMode");
+  if(!fam){                                   // migra el viejo pi.theme
+    var old=localStorage.getItem("pi.theme")||"light";
+    fam="pi"; mode="light";
+    if(old==="auto"){ mode="auto"; }
+    else for(var k in pairs){
+      if(pairs[k][0]===old){ fam=k; mode="light"; }
+      else if(pairs[k][1]===old){ fam=k; mode="dark"; }
+    }
+  }
+  var pair=pairs[fam]||pairs.pi;
+  var lit = mode==="light" || (mode!=="dark"
+    && matchMedia("(prefers-color-scheme: light)").matches);
+  document.documentElement.dataset.theme = lit ? pair[0] : pair[1];
+}catch(e){}})();
 </script>
 <style>
 /* fonts served by the bridge itself: no google, no internet needed */
@@ -790,6 +806,20 @@ footer > *{position:relative; z-index:1}
 .mrow.bad{color:var(--coral)}
 .mrow.bad .i{color:var(--coral)}
 .mrow .i{color:var(--faint)}
+/* pie del selector de tema: switch Auto sobre el toggle claro/oscuro */
+.tmode{margin-top:6px; padding-top:14px; border-top:1px solid var(--rule);
+  display:flex; flex-direction:column; gap:12px}
+.tmode .frow{display:flex; align-items:center; justify-content:space-between}
+.tmode .flbl{font:600 13px/1 var(--sans); color:var(--ink)}
+.seg{display:flex; border:1px solid var(--rule); border-radius:10px;
+  overflow:hidden; transition:opacity .2s ease}
+.seg button{flex:1; background:var(--raise); color:var(--ink); border:none;
+  border-left:1px solid var(--rule); padding:11px 0; cursor:pointer;
+  font:600 13px/1 var(--sans)}
+.seg button:first-child{border-left:none}
+.seg button.on{background:var(--amber); color:var(--on-amber)}
+.seg.off{opacity:.4}
+.seg button:disabled{cursor:default}
 
 /* ---------- slash palette ---------- */
 .palette .grab{margin:6px 0 2px}
@@ -3290,20 +3320,49 @@ $("#modal").onclick = e => { if(e.target.id === "modal") closeModal(); };
 
 /* el tema se aplica al tocarlo, para verlo, pero no queda hasta Aceptar */
 function themeModal(){
-  const before = themePref();
-  const rows = THEMES.map(t =>
-    `<button class="mrow${t === before ? " on" : ""}" data-t="${t}">`
-    + ico("palette") + `<span>${esc(THEME_NAME(t))}</span></button>`).join("");
-  openModal(T("theme"), rows,
-            () => setTheme(document.querySelector(".mrow.on").dataset.t),
-            {plain: true, cancel: () => applyTheme(before)});
-  $("#modalBody").querySelectorAll(".mrow").forEach(b=>{
-    b.onclick = () => {
-      $("#modalBody").querySelectorAll(".mrow")
-        .forEach(x => x.classList.toggle("on", x === b));
-      applyTheme(b.dataset.t);       // solo vista previa
-    };
+  const beforeFam = themeFamily(), beforeMode = themeMode();
+  let fam = beforeFam, mode = beforeMode;
+  const rows = FAMILIES.map(f =>
+    `<button class="mrow" data-fam="${f.id}">`
+    + ico("palette") + `<span>${esc(f.name)}</span></button>`).join("");
+  const foot =
+    `<div class="tmode">`
+    + `<div class="frow"><span class="flbl">${esc(T("auto"))}</span>`
+    + `<button class="sw" role="switch" aria-label="${esc(T("auto"))}">`
+    + `<span class="knob"></span></button></div>`
+    + `<div class="seg" role="group" aria-label="${esc(T("theme"))}">`
+    + `<button data-m="light">${esc(T("light"))}</button>`
+    + `<button data-m="dark">${esc(T("dark"))}</button></div></div>`;
+  openModal(T("theme"), rows + foot,
+            () => setTheme(fam, mode),
+            {plain: true, cancel: () => applyTheme(beforeFam, beforeMode)});
+  const body = $("#modalBody");
+  const sw = body.querySelector(".tmode .sw");
+  const seg = body.querySelector(".seg");
+  function paint(){
+    body.querySelectorAll(".mrow").forEach(x =>
+      x.classList.toggle("on", x.dataset.fam === fam));
+    const auto = mode === "auto";
+    sw.setAttribute("aria-checked", auto ? "true" : "false");
+    seg.classList.toggle("off", auto);
+    const eff = modeLight(mode) ? "light" : "dark";
+    seg.querySelectorAll("button").forEach(b => {
+      b.disabled = auto;
+      b.classList.toggle("on", b.dataset.m === eff);
+    });
+    applyTheme(fam, mode);           // solo vista previa
+  }
+  body.querySelectorAll(".mrow").forEach(b => {
+    b.onclick = () => { fam = b.dataset.fam; paint(); };
   });
+  sw.onclick = () => {
+    mode = mode === "auto" ? (SYS.matches ? "light" : "dark") : "auto";
+    paint();
+  };
+  seg.querySelectorAll("button").forEach(b => {
+    b.onclick = () => { if(mode === "auto") return; mode = b.dataset.m; paint(); };
+  });
+  paint();
 }
 
 const LANG_NAME = {en:"English", es:"Espa\u00f1ol", de:"Deutsch",
@@ -4989,18 +5048,50 @@ function showWord(fade){
 }
 
 /* ---------- theme ---------- */
-const THEMES = ["auto", "light", "dark", "klaude", "klaude-light",
-  "jipiti-light", "jipiti-dark", "gemma-light", "gemma-dark"];
-const THEME_NAME = t => ({klaude:"Klaude",
-  "klaude-light":"Klaude Light",
-  "jipiti-light":"Jipiti Light", "jipiti-dark":"Jipiti Dark",
-  "gemma-light":"Gemma Light", "gemma-dark":"Gemma Dark"})[t] || T(t);
+/* Un tema es una familia (par claro/oscuro) mas un modo transversal
+   (auto|light|dark) que elige la variante. */
+const FAMILIES = [
+  {id:"pi",     name:"pi remote", light:"light",        dark:"dark"},
+  {id:"klaude", name:"Klaude",    light:"klaude-light", dark:"klaude"},
+  {id:"jipiti", name:"Jipiti",    light:"jipiti-light", dark:"jipiti-dark"},
+  {id:"gemma",  name:"Gemma",     light:"gemma-light",  dark:"gemma-dark"},
+];
+const FAM = id => FAMILIES.find(f => f.id === id) || FAMILIES[0];
 const SIZES = [13, 14, 15, 16, 17, 18, 19, 20];
 const SYS = matchMedia("(prefers-color-scheme: light)");
 
-function themePref(){
-  try { return localStorage.getItem("pi.theme") || "light"; }
+/* migra el viejo pi.theme (un solo string) a familia+modo, una vez */
+(function migrateTheme(){
+  try{
+    if(localStorage.getItem("pi.themeFamily")) return;
+    const old = localStorage.getItem("pi.theme");
+    if(old == null) return;
+    let fam = "pi", mode = "light";
+    if(old === "auto"){ mode = "auto"; }
+    else {
+      const f = FAMILIES.find(f => f.light === old || f.dark === old);
+      if(f){ fam = f.id; mode = f.dark === old ? "dark" : "light"; }
+    }
+    localStorage.setItem("pi.themeFamily", fam);
+    localStorage.setItem("pi.themeMode", mode);
+    localStorage.removeItem("pi.theme");
+  }catch(e){}
+})();
+function themeFamily(){
+  try { return localStorage.getItem("pi.themeFamily") || "pi"; }
+  catch(e){ return "pi"; }
+}
+function themeMode(){
+  try { return localStorage.getItem("pi.themeMode") || "light"; }
   catch(e){ return "light"; }
+}
+/* modo -> variante concreta; auto sigue al sistema */
+function modeLight(mode){
+  return mode === "light" || (mode !== "dark" && SYS.matches);
+}
+function resolveTheme(famId, mode){
+  const f = FAM(famId);
+  return modeLight(mode) ? f.light : f.dark;
 }
 function sizeStep(){
   try {
@@ -5039,16 +5130,18 @@ function statusBar(){
   meta.content = v || MANIFEST_BG;
 }
 
-function applyTheme(pref){
-  const t = pref !== "auto" ? pref : (SYS.matches ? "light" : "dark");
-  document.documentElement.dataset.theme = t;
+function applyTheme(famId, mode){
+  document.documentElement.dataset.theme = resolveTheme(famId, mode);
   statusBar();
 }
-function setTheme(pref){
-  try { localStorage.setItem("pi.theme", pref); } catch(e){}
-  applyTheme(pref);
+function setTheme(famId, mode){
+  try {
+    localStorage.setItem("pi.themeFamily", famId);
+    localStorage.setItem("pi.themeMode", mode);
+  } catch(e){}
+  applyTheme(famId, mode);
 }
-applyTheme(themePref());
+applyTheme(themeFamily(), themeMode());
 
 /* mostrar u ocultar el razonamiento del modelo, recordado en local */
 let showThinking = (() => {
@@ -5188,7 +5281,7 @@ function fadeTail(root, pending){
   last.parentNode.replaceChild(frag, last);
 }
 SYS.addEventListener("change", () => {
-  if(themePref() === "auto") applyTheme("auto");
+  if(themeMode() === "auto") applyTheme(themeFamily(), "auto");
 });
 
 /* ---------- menu ---------- */

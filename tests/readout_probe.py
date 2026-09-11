@@ -207,43 +207,59 @@ async def main():
                  and after[2] is True),
             ]
 
-            # el tema se previsualiza al tocarlo, pero pide Aceptar
-            await js("closeModal(); setTheme('dark'); menuSheet(); themeModal()")
+            # familias arriba (por nombre), modo abajo (Auto + claro/oscuro)
+            await js("closeModal(); setTheme('pi','dark'); menuSheet(); themeModal()")
             await asyncio.sleep(0.4)
-            rows = await js("[...document.querySelectorAll('#modalBody .mrow')]"
-                            ".map(b=>b.dataset.t)")
+            fams = await js("[...document.querySelectorAll('#modalBody .mrow')]"
+                            ".map(b=>b.dataset.fam)")
+            footer = await js("[!!document.querySelector('#modalBody .tmode .sw'),"
+                              " [...document.querySelectorAll("
+                              "'#modalBody .seg button')].map(b=>b.dataset.m)]")
+            # tocar una familia (Klaude) la previsualiza en el modo actual (dark)
             await js("[...document.querySelectorAll('#modalBody .mrow')]"
-                     ".find(b=>b.dataset.t==='klaude').click()")
+                     ".find(b=>b.dataset.fam==='klaude').click()")
             await asyncio.sleep(0.3)
             preview = await js("[document.documentElement.dataset.theme,"
                                " $('#modal').classList.contains('open'),"
-                               " localStorage.getItem('pi.theme')]")
+                               " localStorage.getItem('pi.themeFamily')]")
+            # el switch Auto deja en disabled el toggle claro/oscuro
+            await js("document.querySelector('#modalBody .tmode .sw').click()")
+            await asyncio.sleep(0.15)
+            autoed = await js("[document.querySelector('#modalBody .tmode .sw')"
+                              ".getAttribute('aria-checked'),"
+                              " document.querySelector('#modalBody .seg button')"
+                              ".disabled,"
+                              " document.querySelector('#modalBody .seg')"
+                              ".classList.contains('off')]")
             await js("$('#modalNo').click()")
             await asyncio.sleep(0.4)
             cancelled = await js("[document.documentElement.dataset.theme,"
                                  " $('#modal').classList.contains('open')]")
+            # de nuevo: Klaude + claro, aceptar -> guarda familia y modo
             await js("menuSheet(); themeModal()")
             await asyncio.sleep(0.3)
             await js("[...document.querySelectorAll('#modalBody .mrow')]"
-                     ".find(b=>b.dataset.t==='klaude').click();"
+                     ".find(b=>b.dataset.fam==='klaude').click();"
+                     " [...document.querySelectorAll('#modalBody .seg button')]"
+                     ".find(b=>b.dataset.m==='light').click();"
                      " $('#modalOk').click()")
             await asyncio.sleep(0.4)
             accepted = await js("[document.documentElement.dataset.theme,"
-                                " localStorage.getItem('pi.theme'),"
-                                " getComputedStyle(document.body)"
-                                ".backgroundColor]")
-            print("  temas: %s" % rows)
-            print("  al tocar Klaude: %s abierto=%s guardado=%r"
+                                " localStorage.getItem('pi.themeFamily'),"
+                                " localStorage.getItem('pi.themeMode')]")
+            print("  familias: %s" % fams)
+            print("  pie: switch=%s toggle=%s" % (footer[0], footer[1]))
+            print("  al tocar Klaude: %s abierto=%s fam=%r"
                   % (preview[0], preview[1], preview[2]))
-            print("  al cancelar    : %s" % cancelled[0])
+            print("  auto: checked=%s btn.disabled=%s seg.off=%s" % tuple(autoed))
+            print("  al cancelar: %s" % cancelled[0])
             tc = await js("[document.querySelector("
                           "'meta[name=\"theme-color\"]').content.trim()"
                           ".toLowerCase(),"
                           " getComputedStyle(document.documentElement)"
                           ".getPropertyValue('--plate-a').trim().toLowerCase()]")
             print("  barra de estado: %r vs plate-a %r" % (tc[0], tc[1]))
-            print("  al aceptar     : %s guardado=%r fondo=%s"
-                  % (accepted[0], accepted[1], accepted[2]))
+            print("  al aceptar: %s fam=%r modo=%r" % tuple(accepted))
 
             # el tamano del texto
             await js("closeModal(); menuSheet()")
@@ -261,20 +277,23 @@ async def main():
             print("  tamano al 6: %s guardado=%r letras=%s" % tuple(size))
 
             checks += [
-                ("los temas: base, Klaude, Jipiti y Gemma",
-                 rows == ["auto", "light", "dark", "klaude", "klaude-light",
-                          "jipiti-light", "jipiti-dark",
-                          "gemma-light", "gemma-dark"]),
+                ("las cuatro familias, por nombre",
+                 fams == ["pi", "klaude", "jipiti", "gemma"]),
+                ("el pie trae Auto y el toggle claro/oscuro",
+                 footer[0] is True and footer[1] == ["light", "dark"]),
                 ("la barra de estado sigue al color de la toolbar",
                  tc[0] == tc[1] and tc[0] != ""),
-                ("tocar uno lo previsualiza sin cerrar ni guardar",
+                ("tocar una familia la previsualiza sin cerrar ni guardar",
                  preview[0] == "klaude" and preview[1] is True
-                 and preview[2] == "dark"),
+                 and preview[2] == "pi"),
+                ("Auto deja en disabled el toggle claro/oscuro",
+                 autoed[0] == "true" and autoed[1] is True
+                 and autoed[2] is True),
                 ("cancelar lo deshace",
                  cancelled[0] == "dark" and cancelled[1] is False),
-                ("aceptar lo aplica y lo guarda",
-                 accepted[0] == "klaude" and accepted[1] == "klaude"
-                 and "21, 21, 21" in accepted[2]),
+                ("aceptar aplica y guarda familia y modo",
+                 accepted[0] == "klaude-light" and accepted[1] == "klaude"
+                 and accepted[2] == "light"),
                 ("el tamano del texto se aplica y se guarda",
                  size[0] == "19px" and size[1] == "6"),
                 ("con una A a cada lado", size[2] == 2),
