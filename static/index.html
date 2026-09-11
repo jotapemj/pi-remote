@@ -373,6 +373,8 @@ main{flex:1; overflow-y:auto; padding:16px var(--gut) 8px; position:relative;
   padding:13px 17px; color:var(--you-ink);
   white-space:pre-wrap; word-break:break-word;
 }
+/* enviado pero sin ack: cursiva y tenue hasta que pi empieza a producir */
+.blk-you.you-pending{font-style:italic; opacity:.55}
 .tag{
   display:block; font:700 10px/1.4 var(--sans); letter-spacing:.09em;
   color:var(--amber); text-transform:uppercase; margin-bottom:5px;
@@ -3423,8 +3425,9 @@ function paintCtx(){
     + (c.tokens != null ? "  |  " + kilo(c.tokens) + "/" + kilo(c.window) : "");
 }
 function elapsed(){
-  return state.startedAt
-    ? Math.round(Date.now()/1000 - state.startedAt) + "s" : "";
+  if(!state.startedAt) return "";
+  // el reloj del puente puede ir por delante del navegador: nunca negativo
+  return Math.max(0, Math.round(Date.now()/1000 - state.startedAt)) + "s";
 }
 /* piensa = trabaja pero no ha escrito texto en el ultimo instante */
 let lastDelta = 0, barShown = false, ctxIntro = false;   // secuencia de entrada de la barra
@@ -3435,6 +3438,7 @@ function thinking(){
    avisa: se infiere. Certero al cambiar de sesion o compactar; por tiempo
    cuando llama.cpp se reinicio y la reingesta tarda. */
 let produced = false, coldNext = false, turnStart = 0;
+let pendingUser = null;            // burbuja recien enviada, aun sin ack de pi
 let sessLoading = false;   // cambiando de sesion: el titulo va en skeleton
 let titleGrace = null;     // espera de gracia por el nombre antes de rendirse
 const PREFILL_MS = 1500;
@@ -3448,6 +3452,8 @@ function coldTurn(){
   paintStatus();               // muestra "prefilling…" ya, sin esperar al tick
 }
 function noteProduced(){
+  // pi ya produjo: confirma la burbuja del usuario (quita el estado sin ack)
+  if(pendingUser){ pendingUser.classList.remove("you-pending"); pendingUser = null; }
   if(produced) return;
   produced = true; coldNext = false;
   paintStatus();               // quita "prefilling…" y su clase en cuanto sale algo
@@ -3526,7 +3532,7 @@ function connect(){
       // al reconectar se conserva donde estabas leyendo
       const stay = main.scrollTop, wasDown = atBottom();
       feed.classList.add("nofx");
-      feed.innerHTML = ""; nodes.clear(); CWD = m.cwd || "";
+      feed.innerHTML = ""; nodes.clear(); pendingUser = null; CWD = m.cwd || "";
       m.items.forEach(render); state = m.state; paint();
       if(!state.running) groupToolRun();
       placeActions();
@@ -3542,7 +3548,14 @@ function connect(){
     }
     else if(m.type === "item"){
       render(m.item);
-      if(m.item.kind === "user"){ jumpTo(main.scrollHeight); stopSending(); }
+      if(m.item.kind === "user"){
+        stopSending();
+        // sin ack aun: la burbuja entra tenue+cursiva hasta que pi produce
+        pendingUser = nodes.get(m.item.id) || null;
+        if(pendingUser) pendingUser.classList.add("you-pending");
+        // siempre al fondo absoluto, tras el layout (haya o no sugerencias)
+        requestAnimationFrame(()=> jumpTo(main.scrollHeight));
+      }
       if(m.item.kind === "tool") noteProduced();   // una tool ya es salida
       if(m.item.key === "compacted") coldTurn();    // tras compactar, reingesta
       placeActions();
@@ -4733,7 +4746,10 @@ en:["Actioning","Actualizing","Architecting","Baking","Beaming","Befuddling",
 "Topsy-turvying","Transfiguring","Transmuting","Twisting","Undulating",
 "Unfurling","Unravelling","Vibing","Waddling","Wandering","Warping",
 "Whirlpooling","Whirring","Whisking","Wibbling","Working","Wrangling",
-"Zesting","Zigzagging"],
+"Zesting","Zigzagging",
+"Pi-cking","Pi-loting","Pi-voting","Pi-ling","Pi-peting","Pi-oneering",
+"Pi-cnicking","Pi-nning","Pi-xelating","Com-pi-ling","Co-pi-loting",
+"Ma-ppi-ng","Sha-pi-ng","Ho-pi-ng","Ste-ppi-ng","Kee-pi-ng","Develo-pi-ng"],
 es:["Abrillantando","Acechando","Aclarando","Acoplando","Adobando","Afinando",
 "Agitando","Ahumando","Alambicando","Aleteando","Almibarando","Amasando",
 "Analizando","Anidando","Apilando","Arando","Armonizando","Arremolinando",
@@ -4771,7 +4787,11 @@ es:["Abrillantando","Acechando","Aclarando","Acoplando","Adobando","Afinando",
 "Tarareando","Tejiendo","Templando","Tramando","Trajinando","Transmutando",
 "Traqueteando","Trasteando","Trazando","Trenzando","Tricotando","Trillando",
 "Triturando","Urdiendo","Vadeando","Ventilando","Vibrando","Zanjando",
-"Zascandileando","Zigzagueando","Zurciendo"],
+"Zascandileando","Zigzagueando","Zurciendo",
+"Pi-ando","Pi-cando","Pi-coteando","Pi-lotando","Pi-xelando","Pi-peteando",
+"Pi-ntarrajeando","Com-pi-lando","Lim-pi-ando","A-pi-lando","A-pi-ñando",
+"Reco-pi-lando","Cre-pi-tando","Ca-pi-taneando","Ti-pi-ficando",
+"Tro-pi-calizando","Cham-pi-ñoneando"],
 de:["Abw\u00e4gend","Anfassend","Angreifend","Anmixend","Anreihend",
 "Ansto\u00dfend","Aufbauschend","Aufr\u00e4umend","Ausbalancierend",
 "Auskristallisierend","Ausprobierend","Ausrollend","Backend","Bastelnd",
@@ -4812,7 +4832,11 @@ de:["Abw\u00e4gend","Anfassend","Angreifend","Anmixend","Anreihend",
 "Z\u00e4hlend","Zeichnend","Zers\u00e4gend","Zersplitternd","Zerkleinernd",
 "Zermarrend","Zersetzend","Ziselierend","Zitternd","Zuckend",
 "Zufindend","Zupackend","Zuspitzend","Zurechtlegend","Zusammendrehend",
-"Zustimmend","Zwinkernd","Zwirbelnd","Zwingend"],
+"Zustimmend","Zwinkernd","Zwirbelnd","Zwingend",
+"Pi-epsend","Pi-lotierend","Pi-nselnd","Pi-ckend","Pi-pettierend","Pi-xelnd",
+"Pi-rouettierend","Pi-cknickend","Pi-lgernd","Kom-pi-lierend","Ko-pi-erend",
+"Ka-pi-erend","Ty-pi-sierend","Ins-pi-rierend","S-pi-elend","S-pi-egelnd",
+"S-pi-tzend"],
 fr:["Accordant","Achevant","Acqu\u00e9rant","Affinant","Aff\u00fbtant","Agitant",
 "Aiguillant","Ajustant","Alentant","Alimentant","Allongeant","Amalgamant",
 "Amarrant","Am\u00e9nageant","Anclant","Approchant","Assemblant","Assortant",
@@ -4846,7 +4870,11 @@ fr:["Accordant","Achevant","Acqu\u00e9rant","Affinant","Aff\u00fbtant","Agitant"
 "Tiraillant","Tracassant","Tremblottant","Triangulant","Ululant","Unifiant",
 "Vagabondant","Vaporisant","Varlochant","Vasillant","Veillant","Vernissant",
 "Victimant","Vilipendant","Virevoltant","Zappant","Z\u00e9zayant","Zigzaguant",
-"Zonant","Zozotant"],
+"Zonant","Zozotant",
+"Pi-anotant","Pi-lotant","Pi-votant","Pi-quant","Pi-ochant","Pi-xélisant",
+"Pi-pettant","Pi-que-niquant","Pi-affant","Pi-rouettant","Pi-mentant",
+"Com-pi-lant","Co-pi-ant","Em-pi-lant","Ta-pi-ssant","Cré-pi-tant",
+"Ins-pi-rant"],
 pt:["Acendendo","Acomodando","Acoplando","Acrescentando","Afiando","Agarrando",
 "Agu\u00e7ando","Agitando","Alargando","Alentando","Alinhando","Amaciando",
 "Ambulando","Amassando","Amparando","Analisando","Ancorando","Aquecendo",
@@ -4872,7 +4900,11 @@ pt:["Acendendo","Acomodando","Acoplando","Acrescentando","Afiando","Agarrando",
 "Sincopando","Sorrindo","Soterrando","Tacando","Tanteando","Tartamudando",
 "Tatuando","Teimosando","Temendo","Testando","Tontando","Tramando","Trincando",
 "Uivando","Vasculhando","Vazando","Vibrando","Vigorando","Vistoriando",
-"Voando","Xingando","Zanzando","Zapando","Zigzagando"],
+"Voando","Xingando","Zanzando","Zapando","Zigzagando",
+"Pi-ando","Pi-scando","Pi-ngando","Pi-pocando","Pi-lotando","Pi-votando",
+"Pi-ntando","Pi-xelizando","Pi-petando","Com-pi-lando","Co-pi-ando",
+"Em-pi-lhando","Cre-pi-tando","Ca-pi-taneando","Ti-pi-ficando",
+"Tro-pi-calizando","A-pi-tando"],
 zh:["琢磨中","摆弄中","比划中","拨弄中","打磨中","捣鼓中","雕琢中",
 "调校中","调试中","端详中","翻找中","缝补中","规划中","鼓捣中",
 "焊接中","拧动中","盘算中","推敲中","研磨中","熨烫中","搅拌中",
@@ -4897,7 +4929,9 @@ zh:["琢磨中","摆弄中","比划中","拨弄中","打磨中","捣鼓中","雕
 "脉动中","呼吸中","起伏中","波动中","震荡中","振动中","颤动中",
 "滑动中","滚动中","转动中","旋转中","回旋中","盘旋中","环绕中",
 "包围中","包裹中","覆盖中","倾听中","聆听中","细听中","默读中",
-"诵读中","吟咏中","哼唱中","低语中","呢喃中","絮语中"],
+"诵读中","吟咏中","哼唱中","低语中","呢喃中","絮语中",
+"批处理中","匹配中","拼装中","拼接中","拼贴中","拼写中","品尝中","品鉴中",
+"批阅中","批改中","漂浮中","飘动中","频闪中","拼搏中"],
 };
 /* notes come from the bridge as a key plus values, so they can be said
    in either language. an unknown key falls back to its english text. */
