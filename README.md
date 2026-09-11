@@ -303,16 +303,24 @@ with `ctx.ui.custom()` gets nothing: that call returns `undefined` at once, and
 the bridge can neither see nor answer it.
 
 **Recommended: `pi-guardrails`.** Its command gate uses `select`, so dangerous
-commands surface as a real dialog you can answer from the phone. But its
-file-access guard (`pathAccess`, mode `ask`) is drawn with `custom()`: over RPC
-it never shows, and its promise resolving to `undefined` reads as *deny*, so
-every file outside the working directory is refused with no dialog and no way to
-allow it. Turn that one feature off in `~/.pi/agent/extensions/guardrails.json`
-— it leaves the command gate untouched:
+commands surface as a real dialog you can answer from the phone.
 
-```json
-{ "features": { "pathAccess": false } }
-```
+> ⚠️ **You have to change one of its settings, or file access breaks.**
+> `pi-guardrails`' file-access guard (`pathAccess`, mode `ask`) — the prompt for
+> touching a file **outside** the working directory — is drawn with
+> `ctx.ui.custom()`, which does not exist over RPC. The call returns `undefined`,
+> the bridge never sees a dialog, and that `undefined` is read as *deny*: every
+> access outside the working directory is refused **silently**, with no prompt
+> and no way to allow it (the agent just reports "User denied access outside
+> working directory"). The command gate is fine — it uses `select` — so turn off
+> only that one feature in `~/.pi/agent/extensions/guardrails.json`:
+>
+> ```json
+> { "features": { "pathAccess": false } }
+> ```
+>
+> (`"pathAccess": { "mode": "allow" }` works too.) The bridge cannot rescue this:
+> the prompt never crosses into RPC.
 
 <p align="center">
   <img src="docs/running.png" width="200"
