@@ -16,3 +16,4 @@ __pycache__/
 # windows
 Thumbs.db
 desktop.ini
+bridge-restart.log

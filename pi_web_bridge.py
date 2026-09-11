@@ -54,6 +54,19 @@ READ_ONLY = _given.lower() in ("off", "no", "none")
 TOKEN = "" if READ_ONLY else (_given or secrets.token_urlsafe(18))
 TOKEN_MADE = bool(not READ_ONLY and not _given)
 
+# /restart: el matador no puede ser hijo de lo que mata. La tarea
+# programada corre bajo el servicio de Programador, fuera de nuestro arbol;
+# nosotros solo la disparamos. PI_RESTART_CMD (lista JSON) la sustituye
+# en el harness: nunca se toca la tarea real desde los tests.
+RESTART_TASK = "pi-remote-restart"
+_raw = os.environ.get("PI_RESTART_CMD", "").strip()
+try:
+    RESTART_CMD = json.loads(_raw) if _raw else None
+except ValueError:
+    RESTART_CMD = None
+if not isinstance(RESTART_CMD, list):
+    RESTART_CMD = ["schtasks", "/Run", "/TN", RESTART_TASK]
+
 # Lo unico que se atiende cuando no hay token: mirar, nunca tocar.
 READ_CMDS = {"get_state", "get_messages", "get_session_stats",
              "get_available_models", "get_available_thinking_levels",
@@ -654,6 +667,7 @@ class Bridge:
         self.cur = None                      # assistant item being streamed
         self.summary_pending = False         # tras el abort, toca pedir el resumen
         self.summary_ctx = ""                # lo que hacia, para realimentarlo
+        self.restart_pending = False         # /restart mientras corre un turno
 
         self.proc = None                     # no project, no agent
         self.cwd = ""
@@ -1037,6 +1051,10 @@ class Bridge:
                 return
             if self.state.get("summarizing"):
                 self.state["summarizing"] = False   # el resumen ya llego
+            if self.restart_pending:
+                # el turno asento: la ultima respuesta ya esta en disco
+                self.restart_pending = False
+                self.fire_restart()
             self.push_state()
             self.send_pi({"type": "get_session_stats"})
 
@@ -1386,12 +1404,30 @@ class Bridge:
                                "restore": True})
             return
 
+        if t == "restart":
+            # la tarea corre fuera de nuestro arbol: sobrevive a nuestra
+            # muerte. Si el agente va en turno, esperamos a que asiente
+            # para que la ultima respuesta llegue entera antes del kill.
+            self.note("info", "restarting", "restarting the bridge...")
+            if self.state.get("running"):
+                self.restart_pending = True
+            else:
+                self.fire_restart()
+            return
+
         if t in PASSTHROUGH:
             self.send_pi({k: v for k, v in msg.items() if k != "token"})
             return
 
         self.emit({"type": "rpc", "command": t,
                    "data": {"error": "command not allowed"}})
+
+    def fire_restart(self):
+        try:
+            subprocess.Popen(RESTART_CMD)
+        except Exception as e:
+            self.note("error", "restart_fail",
+                      "could not schedule the restart: {err}", err=str(e))
 
     def shutdown(self):
         self.stopped = True
@@ -1408,6 +1444,13 @@ bridge: "Bridge | None" = None
 async def lifespan(app: FastAPI):
     global bridge
     bridge = Bridge(asyncio.get_running_loop())
+    # /restart solo dispara una tarea: asegurarse de que existe (idempotente)
+    try:
+        subprocess.run([sys.executable, str(HERE / "pi_restart.py"),
+                        "--register"],
+                       capture_output=True, text=True, timeout=30)
+    except Exception:
+        pass
     print(f"pi-remote {VERSION}  (project: {bridge.cwd or 'none yet'})")
     if READ_ONLY:
         print("PI_WEB_TOKEN is off: read only, nothing can be run")
