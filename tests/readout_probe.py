@@ -261,6 +261,25 @@ async def main():
             print("  barra de estado: %r vs plate-a %r" % (tc[0], tc[1]))
             print("  al aceptar: %s fam=%r modo=%r" % tuple(accepted))
 
+            # bug movil: cerrar sin aceptar (tocar fuera) no debe dejar el
+            # tema previsualizado aplicado; se revierte al guardado
+            await js("menuSheet(); themeModal();"
+                     " [...document.querySelectorAll('#modalBody .mrow')]"
+                     ".find(b=>b.dataset.fam==='gemma').click()")
+            await asyncio.sleep(0.2)
+            await js("closeModal()")           # ni Aceptar ni Cancelar
+            await asyncio.sleep(0.3)
+            dismissed = await js("[document.documentElement.dataset.theme,"
+                                 " localStorage.getItem('pi.themeFamily')]")
+            await js("menuSheet(); themeModal()")
+            await asyncio.sleep(0.3)
+            reopened = await js("document.querySelector('#modalBody .mrow.on')"
+                                ".dataset.fam")
+            await js("$('#modalNo').click()")
+            await asyncio.sleep(0.3)
+            print("  cerrar sin aceptar: %s fam=%r  reabre marcada=%r"
+                  % (dismissed[0], dismissed[1], reopened))
+
             # el tamano del texto
             await js("closeModal(); menuSheet()")
             await asyncio.sleep(0.3)
@@ -294,6 +313,10 @@ async def main():
                 ("aceptar aplica y guarda familia y modo",
                  accepted[0] == "klaude-light" and accepted[1] == "klaude"
                  and accepted[2] == "light"),
+                ("cerrar sin aceptar revierte, no deja el preview aplicado",
+                 dismissed[0] == "klaude-light" and dismissed[1] == "klaude"),
+                ("y al reabrir marca la familia guardada",
+                 reopened == "klaude"),
                 ("el tamano del texto se aplica y se guarda",
                  size[0] == "19px" and size[1] == "6"),
                 ("con una A a cada lado", size[2] == 2),

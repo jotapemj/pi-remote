@@ -61,7 +61,7 @@
   --ink:#dde2e8; --dim:#8b95a2; --faint:#7d8794;
   --amber:#f2a63b; --mint:#4fb894; --coral:#e2574c;
   --on-amber:#12151a;                    /* ink that sits on an amber fill */
-  --plate-a:#1a1f27; --plate-b:#151a21;  /* nameplate gradient */
+  --plate-a:#151a21; --plate-b:#151a21;  /* toolbar plana: el color inferior */
   --ask-a:#1e1c16;   --ask-b:#191e25;    /* approval card gradient */
   --lit:#e8c98a;                         /* inline code */
   --veil:#0009;
@@ -86,7 +86,7 @@
   --ink:#e6e6e4; --dim:#a2a298; --faint:#7c7c75;
   --amber:#da7757; --mint:#5fae86; --coral:#c22f36;
   --on-amber:#ffffff;                   /* la flecha de enviar, blanca */
-  --plate-a:#1a1a1a; --plate-b:#151515;
+  --plate-a:#151515; --plate-b:#151515;
   --ask-a:#231c18;   --ask-b:#1b1b1b;
   --lit:#689bd4;                        /* codigo suelto en el texto */
   --veil:#0009;
@@ -108,7 +108,7 @@
   --ink:#0b0b0b; --dim:#6d6d64; --faint:#8b8b80;
   --amber:#d06d4b; --mint:#2a7d5a; --coral:#c0342a;
   --on-amber:#ffffff;
-  --plate-a:#ffffff; --plate-b:#f6f6f3;
+  --plate-a:#f6f6f3; --plate-b:#f6f6f3;
   --ask-a:#fdf2ec;   --ask-b:#fbfbf9;
   --lit:#2f6ab5;
   --veil:#26262499;
@@ -129,7 +129,7 @@
   --ink:#151920; --dim:#59636f; --faint:#6f7987;
   --amber:#8f5405; --mint:#0d7355; --coral:#b8342a;
   --on-amber:#fff8ec;
-  --plate-a:#ffffff; --plate-b:#f3f5f9;
+  --plate-a:#f3f5f9; --plate-b:#f3f5f9;
   --ask-a:#fdf5e6;   --ask-b:#ffffff;
   --lit:#8a5a10;
   --veil:#1b202899;
@@ -150,7 +150,7 @@
   --ink:#0d0d0d; --dim:#5d5d5d; --faint:#6e6e6e;
   --amber:#3a83f7; --mint:#0d7355; --coral:#c0342a;
   --on-amber:#ffffff;
-  --plate-a:#ffffff; --plate-b:#f4f9ff;
+  --plate-a:#f4f4f4; --plate-b:#f4f4f4;  /* toolbar neutra, tono del chat */
   --ask-a:#eaf3ff;   --ask-b:#ffffff;
   --lit:#0d0d0d;
   --veil:#1b2028aa;
@@ -171,7 +171,7 @@
   --ink:#ffffff; --dim:#a8a8a8; --faint:#8d8d8d;
   --amber:#2c67c5; --mint:#4fb894; --coral:#e2574c;
   --on-amber:#ffffff;
-  --plate-a:#1a1a1a; --plate-b:#000000;
+  --plate-a:#141414; --plate-b:#141414;  /* toolbar neutra, tono del chat */
   --ask-a:#14243f;   --ask-b:#212121;
   --lit:#b8d2f2;                        /* tu 424242 no se leia sobre la burbuja azul */
   --veil:#0009;
@@ -192,7 +192,7 @@
   --ink:#1f1f1f; --dim:#5f5f5f; --faint:#6f6f6f;
   --amber:#9dd2ff; --mint:#0d7355; --coral:#c0342a;
   --on-amber:#000000;
-  --plate-a:#ffffff; --plate-b:#faf9f9;
+  --plate-a:#faf9f9; --plate-b:#faf9f9;
   --ask-a:#eaf4ff;   --ask-b:#ffffff;
   --lit:#444746;                        /* tu f2f0f0 igualaba el fondo del chip */
   --veil:#1f1f1faa;
@@ -213,7 +213,7 @@
   --ink:#e3e3e3; --dim:#a0a0a0; --faint:#8a8a8a;
   --amber:#1f3b9b; --mint:#4fb894; --coral:#e2574c;
   --on-amber:#e0e0e0;
-  --plate-a:#1e1f20; --plate-b:#0f0f0f;
+  --plate-a:#0f0f0f; --plate-b:#0f0f0f;
   --ask-a:#17203a;   --ask-b:#1e1f20;
   --lit:#c9c9c9;                        /* tu 141414 igualaba el fondo del chip */
   --veil:#000000aa;
@@ -1093,6 +1093,11 @@ footer > *{position:relative; z-index:1}
 .pick:hover{border-color:var(--amber)}
 .pick small{display:block;font:400 11px/1.4 var(--mono);color:var(--faint);
   margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* etiqueta con el valor actual al lado, en gris tenue (p.ej. Tema | Klaude) */
+.pick .lblrow{display:flex; align-items:baseline; min-width:0}
+.pick .lblrow > .mq{flex:0 1 auto}
+.pick .pval{flex:none; margin-left:7px; color:var(--faint); font-weight:400;
+  white-space:nowrap}
 .nav{display:flex;gap:8px;align-items:center;margin-bottom:9px}
 .nav .path{flex:1;font:400 11px/1.35 var(--mono);color:var(--dim);
   word-break:break-all}
@@ -3212,6 +3217,7 @@ $("#scrim").onclick = closeRail;
 $("#addBtn").onclick = () => { closeRail(); browse(""); };
 
 /* ---------- modal dialogs ---------- */
+let modalCancel = null;   // callback si el modal se cierra sin aceptar
 function openModal(title, body, run, opts){
   opts = opts || {};
   $("#modalTitle").textContent = title;
@@ -3221,13 +3227,22 @@ function openModal(title, body, run, opts){
   no.hidden = !run;                        // informativo: un solo boton
   ok.textContent = T("ok");
   ok.classList.toggle("danger", !!run && !opts.plain);
-  ok.onclick = run ? () => { closeModal(); run(); } : closeModal;
-  no.onclick = () => { closeModal(); if(opts.cancel) opts.cancel(); };
+  modalCancel = opts.cancel || null;
+  ok.onclick = run ? () => { modalCancel = null; closeModal(); run(); }
+                   : () => closeModal();
+  no.onclick = () => closeModal();
   $("#modal").classList.add("open");
 }
 const modal = (title, body) => openModal(title, body, null);
 const confirmModal = (title, body, run) => openModal(title, body, run);
-function closeModal(){ $("#modal").classList.remove("open"); }
+/* Cerrar por cualquier via (boton, tocar fuera, atras) que no sea Aceptar
+   ejecuta el cancel pendiente: asi la vista previa del tema se revierte y no
+   queda un tema aplicado que el dialogo marca como no elegido. */
+function closeModal(){
+  $("#modal").classList.remove("open");
+  const c = modalCancel; modalCancel = null;
+  if(c) c();
+}
 
 /* lightbox: la imagen de una herramienta, a pantalla. Toca fuera o Esc cierra */
 const LB = $("#lightbox"), LBimg = LB.querySelector("img");
@@ -5443,6 +5458,7 @@ function paintSheet(page){
   if(page === "appearance"){
     $("#sheetTitle").textContent = T("appearance");
     body.appendChild(pickBtn({icon:"palette", label:T("theme"),
+                              val:"| " + FAM(themeFamily()).name,
                               chevron:true, run:themeModal}));
     fontCard(body);
     sizeCard(body);
@@ -5689,7 +5705,11 @@ function pickBtn(o){
   const b = document.createElement("button");
   b.className = o.cls || "pick";
   b.innerHTML = (o.icon ? ico(o.icon) : "")
-    + `<span class="txt">` + mqSpan("span", o.label)
+    + `<span class="txt">`
+    + (o.val
+        ? `<span class="lblrow">` + mqSpan("span", o.label)
+          + `<span class="pval">${esc(o.val)}</span></span>`
+        : mqSpan("span", o.label))
     + (o.hint ? mqSpan("small", o.hint) : "") + "</span>"
     + (o.chevron ? ico("chevron", "ch") : "");
   b.onclick = o.run;
