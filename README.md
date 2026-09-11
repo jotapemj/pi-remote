@@ -306,9 +306,10 @@ crash left over from last night costs nothing at log on.
 
 ## Look and language
 
-Four themes — light, dark, klaude and klaude-light, plus an auto that follows
-the system — and six languages (English, Spanish, German, French, Portuguese,
-Simplified Chinese), picked from the menu and remembered per browser. Fonts, icons and everything else are served by the
+Four theme families — pi remote, Klaude, Jipiti and Gemma — each with a light
+and a dark look, plus an auto mode that follows the system, and six languages
+(English, Spanish, German, French, Portuguese, Simplified Chinese), picked from
+the menu and remembered per browser. Fonts, icons and everything else are served by the
 bridge, so the page works on a tailnet with no route to the internet.
 
 The agent's reasoning appears as a collapsible "Thought for N seconds" block,
