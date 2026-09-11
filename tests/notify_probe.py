@@ -55,8 +55,11 @@ async def main():
             checks.append(("permiso concedido activa",
                            c2[0] is True and c2[1] is True))
 
-            # caso 3: fin de turno con pestana oculta -> notifica con la respuesta
-            await js("feed.innerHTML=''; nodes.clear();"
+            # caso 3: fin de turno con pestana oculta -> notifica con la
+            # respuesta. Sin SW (escritorio/http) usa el respaldo new Notification
+            await js("Object.defineProperty(navigator,'serviceWorker',"
+                     "{value:undefined,configurable:true});"
+                     " feed.innerHTML=''; nodes.clear();"
                      " render({id:70, kind:'assistant',"
                      "         text:'Hecho, todo verde.', streaming:false});"
                      " window.__n=null;"
@@ -84,6 +87,26 @@ async def main():
             checks.append(("la respuesta larga se recorta",
                            bool(n3b) and len(n3b) <= 221
                            and n3b.endswith("…")))
+
+            # caso 3c: con service worker (Android) la notif sale del SW,
+            # no de new Notification (que Android prohibe)
+            await js("Object.defineProperty(navigator,'serviceWorker',{value:{"
+                     " ready: Promise.resolve({ showNotification:"
+                     "   function(t,o){ window.__sw={t:t,o:o}; } }) },"
+                     " configurable:true});"
+                     " feed.innerHTML=''; nodes.clear();"
+                     " render({id:72, kind:'assistant',"
+                     "         text:'Aviso desde el SW.', streaming:false});"
+                     " window.__sw=null; window.__n=null; maybeNotify()")
+            await asyncio.sleep(0.08)
+            nsw = await js("[window.__sw && window.__sw.t,"
+                           " window.__sw && window.__sw.o.body, window.__n]")
+            print("  con SW: %s" % (nsw,))
+            checks += [
+                ("con service worker, la notif sale del SW (Android)",
+                 nsw[0] == "pi remote" and "Aviso desde el SW" in (nsw[1] or "")),
+                ("y no usa new Notification en ese caso", nsw[2] is None),
+            ]
 
             # caso 4: pestana visible -> NO notifica
             await js("window.__n=null;"

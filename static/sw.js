@@ -52,3 +52,15 @@ self.addEventListener("fetch", e => {
     return r;
   })));
 });
+
+// Tocar el aviso de fin de turno enfoca la app abierta, o abre una si no hay.
+// En Android el aviso lo emite este SW (showNotification), no new Notification.
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  e.waitUntil((async () => {
+    const all = await clients.matchAll({ type: "window",
+                                         includeUncontrolled: true });
+    for (const c of all) if ("focus" in c) return c.focus();
+    if (clients.openWindow) return clients.openWindow("/");
+  })());
+});

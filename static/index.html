@@ -3765,20 +3765,38 @@ function requestNotify(cb){
 /* Aviso local del navegador al terminar el agente, solo si la pestana no esta
    visible (si la miras, no molesta). Cero terceros: notificacion local, no
    push. */
+/* Muestra la notificacion. Android PROHIBE new Notification(): tiene que
+   salir del service worker (registration.showNotification), que vale tambien
+   en escritorio. new Notification queda de respaldo para cuando no hay SW
+   (sin HTTPS, o el registro fallo). El clic lo atiende el SW (notificationclick)
+   o el propio objeto en el respaldo. */
+function notifyShow(title, opts){
+  const sw = navigator.serviceWorker;
+  if(sw && sw.ready && typeof sw.ready.then === "function"){
+    sw.ready.then(reg => reg.showNotification(title, opts))
+            .catch(() => notifyFallback(title, opts));
+  } else {
+    notifyFallback(title, opts);
+  }
+}
+function notifyFallback(title, opts){
+  try {
+    const n = new Notification(title, opts);
+    n.onclick = () => { window.focus(); n.close(); };
+  } catch(e){}
+}
 function maybeNotify(){
   if(!notify || !("Notification" in window)) return;
   if(Notification.permission !== "granted") return;
   if(!document.hidden) return;
-  try {
-    // titulo fijo, cuerpo = la ultima respuesta del agente (lo que quepa)
-    const t = [...feed.children].reverse()
-      .find(el => el.__item && el.__item.kind === "assistant");
-    let body = t ? visibleText(t.__item.text || "").trim() : "";
-    if(!body) body = T("notifDone");
-    if(body.length > 220) body = body.slice(0, 219).trimEnd() + "…";
-    const n = new Notification("pi remote", {body: body, tag: "pi-turn"});
-    n.onclick = () => { window.focus(); n.close(); };
-  } catch(e){}
+  // titulo fijo, cuerpo = la ultima respuesta del agente (lo que quepa)
+  const t = [...feed.children].reverse()
+    .find(el => el.__item && el.__item.kind === "assistant");
+  let body = t ? visibleText(t.__item.text || "").trim() : "";
+  if(!body) body = T("notifDone");
+  if(body.length > 220) body = body.slice(0, 219).trimEnd() + "…";
+  notifyShow("pi remote",
+             {body: body, tag: "pi-turn", icon: "/icons/icon-192.png"});
 }
 let phDefault = "";
 function applyPh(){ box.dataset.ph = phDefault; }
