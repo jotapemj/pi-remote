@@ -127,6 +127,90 @@ try{
   --you-ink:#151920;
   --cast-card:14px 17px 40px 4px rgba(112,144,176,.08);
 }
+:root[data-theme="jipiti-light"]{
+  /* ChatGPT a plena luz: papel casi blanco, acento azul */
+  color-scheme:light;
+  --panel:#fcfcfc; --surface:#ffffff; --raise:#e8f3fe; --rule:#ececec;
+  --ink:#0d0d0d; --dim:#5d5d5d; --faint:#6e6e6e;
+  --amber:#3a83f7; --mint:#0d7355; --coral:#c0342a;
+  --on-amber:#ffffff;
+  --plate-a:#ffffff; --plate-b:#f4f9ff;
+  --ask-a:#eaf3ff;   --ask-b:#ffffff;
+  --lit:#0d0d0d;
+  --veil:#1b2028aa;
+  --cast:0 -14px 28px #0f172a1f;
+  --lift:0 1px 2px #0f172a12;
+  --mint-wash:#00f1001f; --coral-wash:#c0342a1f;
+  --add:#008f00; --del:#c0342a;
+  --head:#ffffff; --head-ink:#5d5d5d;
+  --box:#f3f3f3;  --box-ink:#0d0d0d;
+  --field-ink:#0d0d0d;
+  --you-ink:#0c274a;
+  --cast-card:14px 17px 40px 4px rgba(112,144,176,.08);
+}
+:root[data-theme="jipiti-dark"]{
+  /* ChatGPT de noche: negro, tarjetas grafito, burbuja azul */
+  color-scheme:dark;
+  --panel:#000000; --surface:#212121; --raise:#173e76; --rule:#333333;
+  --ink:#ffffff; --dim:#a8a8a8; --faint:#8d8d8d;
+  --amber:#2c67c5; --mint:#4fb894; --coral:#e2574c;
+  --on-amber:#ffffff;
+  --plate-a:#1a1a1a; --plate-b:#000000;
+  --ask-a:#14243f;   --ask-b:#212121;
+  --lit:#b8d2f2;                        /* tu 424242 no se leia sobre la burbuja azul */
+  --veil:#0009;
+  --cast:0 -14px 28px #0009;
+  --lift:none;
+  --cast-card:none;
+  --mint-wash:#00f1001a; --coral-wash:#c22f361a;
+  --add:#00f100; --del:#e0454c;
+  --head:#1a1a1a; --head-ink:#a8a8a8;
+  --box:#212121;  --box-ink:#ffffff;
+  --field-ink:#ffffff;
+  --you-ink:#f6fafe;
+}
+:root[data-theme="gemma-light"]{
+  /* Gemini a plena luz: sin lineas, separacion por color, codigo en negro */
+  color-scheme:light;
+  --panel:#faf9f9; --surface:#ffffff; --raise:#f2f0f0; --rule:#00000000;
+  --ink:#1f1f1f; --dim:#5f5f5f; --faint:#6f6f6f;
+  --amber:#9dd2ff; --mint:#0d7355; --coral:#c0342a;
+  --on-amber:#000000;
+  --plate-a:#ffffff; --plate-b:#faf9f9;
+  --ask-a:#eaf4ff;   --ask-b:#ffffff;
+  --lit:#444746;                        /* tu f2f0f0 igualaba el fondo del chip */
+  --veil:#1f1f1faa;
+  --cast:0 -14px 28px #0f172a1f;
+  --lift:0 1px 2px #0f172a12;
+  --mint-wash:#00f1001f; --coral-wash:#c0342a1f;
+  --add:#00c800; --del:#ff6b6b;
+  --head:#141414; --head-ink:#cfcfcf;
+  --box:#000000;  --box-ink:#ffffff;
+  --field-ink:#1f1f1f;
+  --you-ink:#1f1f1f;
+  --cast-card:14px 17px 40px 4px rgba(112,144,176,.08);
+}
+:root[data-theme="gemma-dark"]{
+  /* Gemini de noche: sin lineas, grafito calido */
+  color-scheme:dark;
+  --panel:#0f0f0f; --surface:#1e1f20; --raise:#171717; --rule:#00000000;
+  --ink:#e3e3e3; --dim:#a0a0a0; --faint:#8a8a8a;
+  --amber:#1f3b9b; --mint:#4fb894; --coral:#e2574c;
+  --on-amber:#e0e0e0;
+  --plate-a:#1e1f20; --plate-b:#0f0f0f;
+  --ask-a:#17203a;   --ask-b:#1e1f20;
+  --lit:#c9c9c9;                        /* tu 141414 igualaba el fondo del chip */
+  --veil:#000000aa;
+  --cast:0 -14px 28px #0009;
+  --lift:none;
+  --cast-card:none;
+  --mint-wash:#00f1001a; --coral-wash:#c22f361a;
+  --add:#00f100; --del:#e0454c;
+  --head:#141414; --head-ink:#a0a0a0;
+  --box:#141414;  --box-ink:#ffffff;
+  --field-ink:#e3e3e3;
+  --you-ink:#e3e3e3;
+}
 *{box-sizing:border-box}
 /* sin el flash azul del navegador al tocar; el foco de teclado se mantiene aparte */
 html{-webkit-tap-highlight-color:transparent}
@@ -4905,9 +4989,12 @@ function showWord(fade){
 }
 
 /* ---------- theme ---------- */
-const THEMES = ["auto", "light", "dark", "klaude", "klaude-light"];
+const THEMES = ["auto", "light", "dark", "klaude", "klaude-light",
+  "jipiti-light", "jipiti-dark", "gemma-light", "gemma-dark"];
 const THEME_NAME = t => ({klaude:"Klaude",
-  "klaude-light":"Klaude Light"})[t] || T(t);
+  "klaude-light":"Klaude Light",
+  "jipiti-light":"Jipiti Light", "jipiti-dark":"Jipiti Dark",
+  "gemma-light":"Gemma Light", "gemma-dark":"Gemma Dark"})[t] || T(t);
 const SIZES = [13, 14, 15, 16, 17, 18, 19, 20];
 const SYS = matchMedia("(prefers-color-scheme: light)");
 

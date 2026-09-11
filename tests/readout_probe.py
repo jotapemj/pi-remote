@@ -261,9 +261,10 @@ async def main():
             print("  tamano al 6: %s guardado=%r letras=%s" % tuple(size))
 
             checks += [
-                ("los cinco temas, con las dos variantes Klaude",
-                 rows == ["auto", "light", "dark", "klaude",
-                          "klaude-light"]),
+                ("los temas: base, Klaude, Jipiti y Gemma",
+                 rows == ["auto", "light", "dark", "klaude", "klaude-light",
+                          "jipiti-light", "jipiti-dark",
+                          "gemma-light", "gemma-dark"]),
                 ("la barra de estado sigue al color de la toolbar",
                  tc[0] == tc[1] and tc[0] != ""),
                 ("tocar uno lo previsualiza sin cerrar ni guardar",
