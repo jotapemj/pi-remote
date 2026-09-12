@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/title.png" alt="pi remote" width="440">
+  <img src="docs/title.png" alt="pi remote — pi code remote control for every OS, self hosted" width="700">
 </p>
 
 Drive the [pi coding agent](https://pi.dev) from your phone, on **native
