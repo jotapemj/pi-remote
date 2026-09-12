@@ -36,6 +36,45 @@ existing options do not fit:
 The ones that keep everything at home assume a daemon plus a Unix domain
 socket, which is exactly what Windows does not have.
 
+## Recommended setup
+
+This is the arrangement the project is built around, and the one that has been
+stable in daily use. It splits the work across three machines:
+
+- **An always-on Linux box for inference only.** A small server running
+  `llama.cpp` and serving a local model (Qwen here) over HTTP. It has the GPU
+  or the RAM, it never sleeps, and it does one job: answer completions.
+- **The Windows PC where the code lives.** This is where `pi` runs, configured
+  to use the inference box as its model endpoint. The agent reads and writes
+  your real project files here, so the code never has to move. The bridge
+  (`pi_web_bridge.py`) runs on this machine too, wrapping `pi`.
+- **The phone, as a thin client.** It reaches the bridge over Tailscale and
+  nothing else. No app to install (though the PWA is there if you want it), and
+  no ports open to the internet.
+
+```
+phone  --Tailscale-->  Windows PC              --HTTP-->  Linux box
+                       pi + bridge + your code            llama.cpp + model
+```
+
+Why this shape:
+
+- **The model stays on your network.** Prompts, code and output never leave it.
+  That is the whole reason to run your own inference instead of a hosted API.
+- **Each machine does what it is good at.** The Linux box carries the model and
+  stays up; the Windows PC keeps the code and the agent together, which is the
+  one thing that cannot be split (the agent has to run where the files are).
+- **Nothing is exposed.** The only way in is the tailnet: no relay, no daemon on
+  a public port, no third party in the path.
+- **It survives reboots and crashes** once you wire the bridge to start on its
+  own (see [Leave it running](#leave-it-running)). The inference box is always
+  on; the Windows PC just has to stay awake.
+
+You do not need this exact split. Everything can run on one machine, and the
+inference box can be any OpenAI-compatible endpoint. But if you have a spare
+Linux box with a GPU, keeping inference there and the agent on the machine with
+the code is the arrangement that has held up.
+
 ## Install
 
 ```bash
