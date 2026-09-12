@@ -8,11 +8,8 @@ and serves a web app over your tailnet. No daemon, no Unix socket, no relay,
 no third party: your browser talks to your own machine.
 
 <p align="center">
-  <img src="docs/hero.png" width="210"
-       alt="A full turn on the phone: the user's message, a reply with a code block, a tool row, and an amber permission card">
-  &nbsp;&nbsp;
-  <img src="docs/hero-desktop.png" width="600"
-       alt="The same turn on a desktop: the projects rail as a column on the left and the transcript centred">
+  <img src="docs/hero.png" width="860"
+       alt="A full turn on desktop and phone: the projects rail, the transcript, a code block, a tool row, and an amber permission card">
 </p>
 
 > **Whoever holds the token can run commands on your machine.** There is no
@@ -221,11 +218,8 @@ exact session file, as long as it still exists in the project's session
 folder — a trashed or moved one falls back to a fresh session.
 
 <p align="center">
-  <img src="docs/sidebar.png" width="200"
-       alt="The projects rail on a phone: recents on top, then the projects, one unfolded to its sessions">
-  &nbsp;&nbsp;
-  <img src="docs/sidebar-desktop.png" width="600"
-       alt="On a desktop the rail is a permanent column beside the transcript">
+  <img src="docs/sidebar.png" width="860"
+       alt="The projects rail — recents, then the projects with one unfolded to its sessions — as a permanent column on desktop and a drawer on the phone">
 </p>
 
 Under the two buttons, the **recents** section lists the four most recently
@@ -246,11 +240,8 @@ text — or closes the view when the text is already empty.
   refused.
 
 <p align="center">
-  <img src="docs/folders.png" width="200"
-       alt="The folder picker on a phone: a bottom sheet with the path, an amber use this folder button, and a card per subfolder">
-  &nbsp;&nbsp;
-  <img src="docs/folders-desktop.png" width="600"
-       alt="On a desktop the picker is a centred window over the blurred app">
+  <img src="docs/folders.png" width="860"
+       alt="The folder picker: a centred window over the blurred app on desktop, a bottom sheet on the phone, with the path, a use this folder button, and a card per subfolder">
 </p>
 
 Opening a project rebuilds the transcript from pi's own `get_messages`, so the
@@ -268,11 +259,8 @@ asks, and that question arrives here as an `extension_ui_request` that
 sets no timeout.
 
 <p align="center">
-  <img src="docs/permission.png" width="200"
-       alt="Permission cards on a phone: the plain-words explanation over the raw command, and a second one already answered with a green check">
-  &nbsp;&nbsp;
-  <img src="docs/permission-desktop.png" width="600"
-       alt="The same cards on a desktop, with the options laid out in one row">
+  <img src="docs/permission.png" width="860"
+       alt="Permission cards on desktop and phone: the plain-words explanation over the raw command with the real options, and a second one already answered with a green check">
 </p>
 
 Four things that are easy to get wrong, and that this bridge handles:
@@ -323,11 +311,8 @@ commands surface as a real dialog you can answer from the phone.
 > the prompt never crosses into RPC.
 
 <p align="center">
-  <img src="docs/running.png" width="200"
-       alt="While generating on a phone: a rotating status word with the seconds, the context meter, and the send button turned into a stop square">
-  &nbsp;&nbsp;
-  <img src="docs/running-desktop.png" width="600"
-       alt="The same running state on a desktop, the readout bar centred over the composer">
+  <img src="docs/running.png" width="860"
+       alt="While generating, on desktop and phone: a rotating status word with the seconds, the context meter, and the send button turned into a stop square">
 </p>
 
 ## Commands
@@ -339,11 +324,8 @@ from the device — for a model that can see; it rides along with your next
 message.
 
 <p align="center">
-  <img src="docs/commands.png" width="200"
-       alt="The command list on a phone: each command with its description, filtered as you type, over the composer">
-  &nbsp;&nbsp;
-  <img src="docs/commands-desktop.png" width="600"
-       alt="The same command list on a desktop, centred over the composer">
+  <img src="docs/commands.png" width="860"
+       alt="The command list on desktop and phone: each command with its description, filtered as you type, over the composer">
 </p>
 
 The ones that cannot be undone — `/compact`, `/clearq`, `/new` — ask first.
