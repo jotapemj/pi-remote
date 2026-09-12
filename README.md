@@ -12,11 +12,13 @@ no third party: your browser talks to your own machine.
        alt="A full turn on desktop and phone: the projects rail, the transcript, a code block, a tool row, and an amber permission card">
 </p>
 
-> **Whoever holds the token can run commands on your machine.** There is no
-> sandbox: the bridge starts a real agent in a real folder. A token is always
-> required — one is generated at startup if you do not set `PI_WEB_TOKEN` —
-> and the URL to open is printed with it. Only expose the port inside your
-> tailnet. Read [Security](#security) before leaving it running.
+> [!CAUTION]
+> **Single-user tool — do not expose the port to the public internet.** Whoever
+> can reach the port and holds the token can run commands on your machine: there
+> is no sandbox, the bridge starts a real agent in a real folder. A token is
+> always required — one is generated at startup if you do not set `PI_WEB_TOKEN`,
+> and the URL to open is printed with it — but keep the port **inside your
+> tailnet**. Read [Security](#security) before leaving it running.
 
 ## Why this exists
 
