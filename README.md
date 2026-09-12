@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/title.png" alt="pi remote — pi code remote control for every OS, self hosted" width="620">
+  <img src="docs/title.png" alt="pi remote: pi code remote control for every OS, self hosted" width="620">
 </p>
 
 Drive the [pi coding agent](https://pi.dev) from your phone, on **native
@@ -13,11 +13,11 @@ no third party: your browser talks to your own machine.
 </p>
 
 > [!CAUTION]
-> **Single-user tool — do not expose the port to the public internet.** Whoever
+> **Single-user tool. Do not expose the port to the public internet.** Whoever
 > can reach the port and holds the token can run commands on your machine: there
 > is no sandbox, the bridge starts a real agent in a real folder. A token is
-> always required — one is generated at startup if you do not set `PI_WEB_TOKEN`,
-> and the URL to open is printed with it — but keep the port **inside your
+> always required (one is generated at startup if you do not set `PI_WEB_TOKEN`,
+> and the URL to open is printed with it), but keep the port **inside your
 > tailnet**. Read [Security](#security) before leaving it running.
 
 ## Why this exists
@@ -63,7 +63,7 @@ the fonts, all served locally so the page never calls out to anyone.
 
 ### Generating a token
 
-Any long, random, hard-to-guess string works — treat it like a password:
+Any long, random, hard-to-guess string works. Treat it like a password:
 whoever has it can run commands on your machine. Leave `PI_WEB_TOKEN` unset and
 the bridge mints a temporary one for that run and prints it with the URL; set it
 to keep the same token across restarts.
@@ -82,7 +82,7 @@ Native, if you prefer:
 | Windows · cmd | *(use the Python line above)* | `set PI_WEB_TOKEN=<token>` |
 | Linux / macOS | `openssl rand -base64 32` | `export PI_WEB_TOKEN=<token>` |
 
-To make it permanent, set it wherever you make the bridge start on its own —
+To make it permanent, set it wherever you make the bridge start on its own:
 the startup shortcut, the systemd unit, the launchd plist (see below).
 
 ## Install it as an app
@@ -92,7 +92,7 @@ full-screen with its own icon, and starts instantly from a cached shell.
 It is still the same single page.
 
 On Android it runs true full-screen (`display: fullscreen`), so even the
-system status bar is hidden — swipe down to see the clock or notifications.
+system status bar is hidden; swipe down to see the clock or notifications.
 iOS does not support that and falls back to `standalone`, keeping its status
 bar. Changing the display mode needs a reinstall of the app.
 
@@ -100,7 +100,7 @@ bar. Changing the display mode needs a reinstall of the app.
   phone the bridge is reached by its Tailscale name, not `localhost`, so it
   is not a secure context on its own. The clean route is `tailscale serve`,
   which puts an HTTPS reverse proxy in front of the bridge using your
-  tailnet's own certificate — no open ports, no public exposure:
+  tailnet's own certificate, with no open ports and no public exposure:
 
   ```
   tailscale serve --bg 8770
@@ -121,14 +121,14 @@ bar. Changing the display mode needs a reinstall of the app.
 
 The bridge is a server, not a terminal app, so it does not need a console at
 all. The goal is not to recover it after closing the terminal: it is to never
-be a child of one. Nothing extra to install — every option below is a feature
+be a child of one. Nothing extra to install: every option below is a feature
 of the operating system.
 
 ### Windows
 
 Three ways, least invasive first.
 
-**1. Startup folder — start here.** Press `Win`+`R`, type `shell:startup`, and
+**1. Startup folder (start here).** Press `Win`+`R`, type `shell:startup`, and
 drop a shortcut in it:
 
 ```
@@ -141,7 +141,7 @@ terminal to close; the log goes to `bridge.log`. It starts with your session
 and keeps running. Two minutes, nothing registered, nothing to undo but
 deleting the shortcut.
 
-**2. Task Scheduler — if you want it to come back after a crash.** The startup
+**2. Task Scheduler (if you want it to come back after a crash).** The startup
 folder starts the bridge; it does not restart it. A task does. The cost is
 that Task Scheduler was built for short maintenance jobs, not for long-lived
 servers, and its defaults reflect that. Four settings decide whether this
@@ -156,7 +156,7 @@ survives:
 
 Trigger *at log on*, action `pythonw.exe` with the script, *start in* the
 project folder. The four settings above are only reachable from the task's
-properties or from an XML definition — the quick `schtasks` one-liner cannot
+properties or from an XML definition; the quick `schtasks` one-liner cannot
 set them.
 
 **3. A real Windows service.** Possible with NSSM or `pywin32`, and not
@@ -164,7 +164,7 @@ recommended here: both add an external dependency to a project whose whole
 point is that it has almost none. The first two options already give you
 everything a service would.
 
-### Linux — systemd user service
+### Linux: systemd user service
 
 `~/.config/systemd/user/pi-remote.service`:
 
@@ -189,7 +189,7 @@ loginctl enable-linger $USER      # survives logging out
 
 No traps here: `Restart=always` does what it says and there is no time limit.
 
-### macOS — launchd
+### macOS: launchd
 
 A plist in `~/Library/LaunchAgents/dev.pi-remote.plist` with `RunAtLoad` and
 `KeepAlive` set to `true`, `ProgramArguments` pointing at python3 and the
@@ -204,11 +204,11 @@ elsewhere. Survives closing the terminal, but not a reboot.
 ### Whichever you choose
 
 The machine has to stay awake. A laptop that suspends takes the bridge with
-it, and no amount of configuration fixes that — check your power plan.
+it, and no amount of configuration fixes that; check your power plan.
 
 > Running unattended means nobody reads the console. That is why a missing
 > token is also announced **on the page itself**, in a red strip under the
-> header — once per browser, so it warns without becoming wallpaper. The
+> header, once per browser, so it warns without becoming wallpaper. The
 > current state is always in *about*.
 
 ## Projects and sessions
@@ -217,22 +217,22 @@ The bridge starts with no project. Pick a folder and it launches pi there;
 the choice is remembered, so after a restart it comes back where you left off.
 The last open session comes back too: on startup the bridge reopens that
 exact session file, as long as it still exists in the project's session
-folder — a trashed or moved one falls back to a fresh session.
+folder; a trashed or moved one falls back to a fresh session.
 
 <p align="center">
   <img src="docs/sidebar.png" width="860"
-       alt="The projects rail — recents, then the projects with one unfolded to its sessions — as a permanent column on desktop and a drawer on the phone">
+       alt="The projects rail (recents, then the projects with one unfolded to its sessions) as a permanent column on desktop and a drawer on the phone">
 </p>
 
 Under the two buttons, the **recents** section lists the four most recently
-used sessions across all known projects, by last modification — tapping one
+used sessions across all known projects, by last modification; tapping one
 opens exactly that session. Below, the **projects** section keeps the
 folders, in the order they were added.
 
 **Search conversations** (magnifier button under *add project*) opens a full
 screen with a search box: empty it lists every session of the known
 projects, and any text filters by session name as you type. The X clears the
-text — or closes the view when the text is already empty.
+text, or closes the view when the text is already empty.
 
 - **Tap a project** to unfold its sessions. Tap a session to open exactly that
   one; tap *new session* to start a fresh one in that folder.
@@ -257,7 +257,7 @@ becomes safe to use.
 pi ships **no permission prompts of its own**. Without a guardrails extension
 installed, the agent runs whatever it decides to run. With one, the extension
 asks, and that question arrives here as an `extension_ui_request` that
-**blocks the turn until you answer** — indefinitely, since `pi-guardrails`
+**blocks the turn until you answer**, indefinitely, since `pi-guardrails`
 sets no timeout.
 
 <p align="center">
@@ -268,12 +268,12 @@ sets no timeout.
 Four things that are easy to get wrong, and that this bridge handles:
 
 - **A permission is not yes or no.** A `select` dialog carries the extension's
-  real options — allow once, allow for the session, deny — and they are shown
+  real options (allow once, allow for the session, deny) and they are shown
   as they come, never invented.
 - **It says what the command will do, in plain words.** A `select` dialog only
   carries a title and the options: never the command. So the bridge pairs it
   with the tool call left running, and the page reads that command and says it
-  in one line — `rm -rf ./build` becomes *deletes ./build and all its
+  in one line: `rm -rf ./build` becomes *deletes ./build and all its
   contents*. It is a lookup table, not a model: it never calls out, never
   guesses, and what it does not recognise it simply names.
 - **While pi waits for you it is not working.** The readout bar disappears and
@@ -281,12 +281,12 @@ Four things that are easy to get wrong, and that this bridge handles:
   busy one.
 - **`notify` and `setStatus` need no answer** and are shown as plain notes.
 
-The four dialog kinds — `select`, `confirm`, `input`, `editor` — are all
+The four dialog kinds (`select`, `confirm`, `input`, `editor`) are all
 answered from the browser.
 
 ### Which guardrails work
 
-pi has no prompts of its own, so the safety net is a guardrails extension — and
+pi has no prompts of its own, so the safety net is a guardrails extension, and
 over RPC only the ones that ask through the standard dialog methods (`select`,
 `confirm`, `input`, `editor`) reach you here. An extension that draws its UI
 with `ctx.ui.custom()` gets nothing: that call returns `undefined` at once, and
@@ -296,13 +296,13 @@ the bridge can neither see nor answer it.
 commands surface as a real dialog you can answer from the phone.
 
 > ⚠️ **You have to change one of its settings, or file access breaks.**
-> `pi-guardrails`' file-access guard (`pathAccess`, mode `ask`) — the prompt for
-> touching a file **outside** the working directory — is drawn with
+> `pi-guardrails`' file-access guard (`pathAccess`, mode `ask`), the prompt for
+> touching a file **outside** the working directory, is drawn with
 > `ctx.ui.custom()`, which does not exist over RPC. The call returns `undefined`,
 > the bridge never sees a dialog, and that `undefined` is read as *deny*: every
 > access outside the working directory is refused **silently**, with no prompt
 > and no way to allow it (the agent just reports "User denied access outside
-> working directory"). The command gate is fine — it uses `select` — so turn off
+> working directory"). The command gate is fine (it uses `select`), so turn off
 > only that one feature in `~/.pi/agent/extensions/guardrails.json`:
 >
 > ```json
@@ -321,8 +321,8 @@ commands surface as a real dialog you can answer from the phone.
 
 Type `/`, or tap the **+** inside the composer and pick **Commands**.
 Twenty-three commands, filtered as you type, with keyboard navigation on a
-desktop browser. The same **+** menu attaches an image — paste one, or pick it
-from the device — for a model that can see; it rides along with your next
+desktop browser. The same **+** menu attaches an image (paste one, or pick it
+from the device) for a model that can see; it rides along with your next
 message.
 
 <p align="center">
@@ -330,12 +330,12 @@ message.
        alt="The command list on desktop and phone: each command with its description, filtered as you type, over the composer">
 </p>
 
-The ones that cannot be undone — `/compact`, `/clearq`, `/new` — ask first.
+The ones that cannot be undone (`/compact`, `/clearq`, `/new`) ask first.
 `/bash` runs a command **skipping the model entirely**, and with it the
 guardrails: it is your hand, not the agent's.
 
 `/restart` asks too: it restarts the bridge itself, agent included. The kill
-cannot come from inside — a child dies with its parent's tree — so the command
+cannot come from inside (a child dies with its parent's tree), so the command
 fires a one-shot scheduled task (the bridge registers it at startup), which
 runs under the Task Scheduler service, outside the process tree. It waits a
 20 s grace so the last reply lands intact, kills the bridge, relaunches it and
@@ -349,21 +349,21 @@ crash left over from last night costs nothing at log on.
 A **Functions** page in the settings menu holds five switches, each remembered
 per browser:
 
-- **Show reasoning** — the agent's thinking as a collapsible "Thought for N
+- **Show reasoning**: the agent's thinking as a collapsible "Thought for N
   seconds" block, closed by default.
-- **Response suggestions** — after each turn the model offers three likely
+- **Response suggestions**: after each turn the model offers three likely
   replies as plain lines under its answer; a tap sends one. It appends a hidden
   instruction to every prompt, at a small context cost.
-- **Summary on agent stop** — stopping a working turn asks the agent, in the
+- **Summary on agent stop**: stopping a working turn asks the agent, in the
   background, for one line on what it was doing instead of just killing it.
-- **Notifications** — a local notification, with the last reply as its body,
+- **Notifications**: a local notification, with the last reply as its body,
   when a turn ends while the tab is hidden. The browser's own; no third parties.
-- **Smooth generation** — streamed text fades in left to right; turned off, it
+- **Smooth generation**: streamed text fades in left to right; turned off, it
   lands all at once.
 
 <p align="center">
   <img src="docs/functions.png" width="300"
-       alt="The Functions page: five switches — show reasoning, response suggestions, summary on agent stop, notifications, and smooth generation">
+       alt="The Functions page: five switches for show reasoning, response suggestions, summary on agent stop, notifications, and smooth generation">
 </p>
 
 ## Security
@@ -373,7 +373,7 @@ per browser:
   at startup. There is no configuration in which reaching the port is enough
   to execute something.
 - `PI_WEB_TOKEN=off` is the way to say you mean it: the bridge then answers
-  only the read-only commands and refuses everything that acts — prompts,
+  only the read-only commands and refuses everything that acts: prompts,
   shell, opening projects. The page greys those out, but the refusal is in
   the server: a disabled button stops nobody who opens a WebSocket by hand.
 - The WebSocket checks `Origin`, because WebSockets ignore the same-origin
