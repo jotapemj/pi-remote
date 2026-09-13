@@ -252,33 +252,24 @@ it, and no amount of configuration fixes that; check your power plan.
 
 ## Projects and sessions
 
-The bridge starts with no project. Pick a folder and it launches pi there;
-the choice is remembered, so after a restart it comes back where you left off.
-The last open session comes back too: on startup the bridge reopens that
-exact session file, as long as it still exists in the project's session
-folder; a trashed or moved one falls back to a fresh session.
+A **project** is a working directory on the PC, and inside each one live pi's
+existing sessions. Pick a folder from the picker and the bridge launches pi
+there. The choice persists: after a restart it reopens the last project and its
+last session (as long as that `.jsonl` still exists; otherwise a fresh one).
 
 <p align="center">
   <img src="docs/sidebar.png" width="860"
        alt="The projects rail (recents, then the projects with one unfolded to its sessions) as a permanent column on desktop and a drawer on the phone">
 </p>
 
-Under the two buttons, the **recents** section lists the four most recently
-used sessions across all known projects, by last modification; tapping one
-opens exactly that session. Below, the **projects** section keeps the
-folders, in the order they were added.
+The rail lists your projects in the order they were added; tapping one unfolds
+its sessions, and *new session* starts a fresh one. A **recents** section on
+top collects the last few sessions used across all projects. **Search** filters
+every known session by name. **Long-press** a project or a session for its
+actions (new session, remove).
 
-**Search conversations** (magnifier button under *add project*) opens a full
-screen with a search box: empty it lists every session of the known
-projects, and any text filters by session name as you type. The X clears the
-text, or closes the view when the text is already empty.
-
-- **Tap a project** to unfold its sessions. Tap a session to open exactly that
-  one; tap *new session* to start a fresh one in that folder.
-- **Hold a project or a session** for a dialog with its actions.
-- Removing a session does not delete it: pi has no delete over RPC, so the
-  `.jsonl` is moved to a `_trash` folder beside it. The open session is
-  refused.
+Removing a session does not delete it: pi has no delete over RPC, so the
+`.jsonl` is moved to a `_trash` folder beside it (the open session is refused).
 
 <p align="center">
   <img src="docs/folders.png" width="860"
@@ -385,8 +376,8 @@ crash left over from last night costs nothing at log on.
 
 ## Functions
 
-A **Functions** page in the settings menu holds five switches, each remembered
-per browser:
+The settings menu has a **Functions** page: optional switches that enrich the
+app, each remembered per browser.
 
 - **Show reasoning**: the agent's thinking as a collapsible "Thought for N
   seconds" block, closed by default.
