@@ -699,7 +699,7 @@ html.hide-think .think-turn{display:none}
 }
 .ask .opts{display:flex;flex-wrap:wrap;gap:7px;padding:11px 13px 13px}
 .opt{
-  font:500 12.5px/1 var(--mono); padding:9px 13px; border-radius:5px;
+  font:500 12.5px/1 var(--sans); padding:9px 13px; border-radius:5px;
   border:1px solid var(--rule); background:var(--raise); color:var(--ink);
   cursor:pointer; flex:1 1 auto; min-width:96px;
 }
@@ -1119,7 +1119,7 @@ footer > *{position:relative; z-index:1}
   word-break:break-all}
 .usebtn{
   display:block; width:100%; background:var(--amber); color:var(--on-amber);
-  border:none; border-radius:7px; font:600 12.5px/1 var(--mono);
+  border:none; border-radius:7px; font:600 12.5px/1 var(--sans);
   padding:12px; margin-bottom:11px; cursor:pointer;
 }
 .usebtn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
@@ -3719,7 +3719,7 @@ const CMDS = [
       note(`${state.sessionName || "—"}  ·  ${state.model || "—"}`
            + `  ·  ${state.thinking || "off"}`);}},
   {n:"compact", h:"Shrink the context now",
-                hEs:"Comprimir el contexto ahora",
+                hEs:"Compactar el contexto ahora",
                 run:()=>confirmModal(T("compactQ"), esc(T("compactB")),
                                      ()=>send({type:"compact"}))},
   {n:"last",    h:"Repeat the last reply", hEs:"Repetir la última respuesta",            run:()=>send({type:"get_last_assistant_text"})},
@@ -4478,7 +4478,7 @@ const STR = {
       openSession:"abrir", deleteSession:"quitar sesi\u00f3n",
       deleteQ:"\u00bfQuitar esta sesi\u00f3n?",
       deleteB:"Se mueve a una carpeta _trash al lado, no se borra.",
-      compactQ:"\u00bfComprimir el contexto ahora?",
+      compactQ:"\u00bfCompactar el contexto ahora?",
       compactB:"La conversaci\u00f3n se resume. No se puede deshacer.",
       clearqQ:"\u00bfDescartar los mensajes en cola?",
       restartQ:"\u00bfReiniciar pi remote ahora?",
@@ -5036,11 +5036,11 @@ const NOTES = {
       project:"proyecto: {path}",
       no_project:"sin proyecto. elige una carpeta primero.",
       cmd_failed:"{cmd} ha fallado: {err}",
-      compacting:"comprimiendo el contexto\u2026",
+      compacting:"compactando el contexto\u2026",
       restarting:"reiniciando pi remote\u2026",
       restart_wait:"esperando a que termine el turno para reiniciar pi remote",
       restart_fail:"no se pudo programar el reinicio: {err}",
-      compacted:"contexto comprimido: de {before} a {after} tokens",
+      compacted:"contexto compactado: de {before} a {after} tokens",
       retrying:"reintentando {n}/{max}",
       extension:"extensi\u00f3n: {err}",
       exported:"exportado a {path}",
