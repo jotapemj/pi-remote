@@ -81,11 +81,13 @@ async def main():
                         break
                     await asyncio.sleep(0.2)
                 lay = await js("""(() => {
-                  const r = el =>
-                    [...document.querySelectorAll('#rail > *')].indexOf(el);
-                  return [r($('#addBtn')) < r($('#chats')),
-                          r($('#searchBtn')) < r($('#chats')),
-                          r($('#chats')) < r($('#recents')),
+                  // orden en el DOM, robusto al anidamiento (la lista va en
+                  // un scroll interno, con la papelera en un pie fijo)
+                  const before = (a, b) => !!(a.compareDocumentPosition(b)
+                    & Node.DOCUMENT_POSITION_FOLLOWING);
+                  return [before($('#addBtn'), $('#chats')),
+                          before($('#searchBtn'), $('#chats')),
+                          before($('#chats'), $('#recents')),
                           !$('#chatHead').hidden, !$('#projHead').hidden];
                 })()""")
                 print("  disposicion: botones<chats<proyectos", lay)

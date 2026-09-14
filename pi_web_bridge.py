@@ -316,6 +316,56 @@ def trash_session(path, active):
     return ""
 
 
+def list_trashed(cwds, cap=60):
+    """Las sesiones en la papelera (_trash) de los proyectos conocidos."""
+    out, seen = [], set()
+    for cwd in cwds:
+        bin_dir = session_dir(cwd) / "_trash"
+        if not bin_dir.is_dir():
+            continue
+        for f in bin_dir.glob("*.jsonl"):
+            key = str(f)
+            if key in seen:
+                continue
+            seen.add(key)
+            try:
+                mt = f.stat().st_mtime
+            except OSError:
+                continue
+            out.append({"path": key, "cwd": cwd,
+                        "label": quick_label(f), "mtime": int(mt)})
+    out.sort(key=lambda x: x["mtime"], reverse=True)
+    return out[:cap]
+
+
+def restore_session(path):
+    """Devuelve un .jsonl de `_trash` a su carpeta de sesiones. Error o ''."""
+    if not path:
+        return "bad_path"
+    try:
+        target = Path(path).resolve()
+        root = sessions_root().resolve()
+    except OSError:
+        return "bad_path"
+    if root not in target.parents:
+        return "outside"                 # solo dentro de las sesiones de pi
+    if target.parent.name != "_trash":
+        return "not_trashed"             # solo cosas que estan en la papelera
+    if target.suffix != ".jsonl" or not target.is_file():
+        return "missing"
+    dest_dir = target.parent.parent      # la carpeta de sesiones del proyecto
+    try:
+        dest = dest_dir / target.name
+        i = 1
+        while dest.exists():
+            dest = dest_dir / f"{target.stem}.{i}{target.suffix}"
+            i += 1
+        target.rename(dest)
+    except OSError:
+        return "failed"
+    return ""
+
+
 def list_sessions(cwd, limit=20):
     d = session_dir(cwd)
     if not d.is_dir():
@@ -1446,6 +1496,13 @@ class Bridge:
                        "data": {"error": why, "path": path}})
             return
 
+        if t == "restore_session":
+            path = msg.get("path", "")
+            why = restore_session(path)
+            self.emit({"type": "rpc", "command": "restore_session",
+                       "data": {"error": why, "path": path}})
+            return
+
         if t == "forget_project":
             path = msg.get("path", "")
             if path.lower() == (self.cwd or "").lower():
@@ -1650,6 +1707,17 @@ async def search(q: str = Query(""), token: str = Query("")):
     if bridge.cwd and bridge.cwd not in cwds:
         cwds.append(bridge.cwd)
     return {"q": q, "results": search_sessions(cwds, q)}
+
+
+@app.get("/api/trash")
+async def trash(token: str = Query("")):
+    """Las conversaciones en la papelera de los proyectos conocidos."""
+    if not good_token(token):
+        return JSONResponse({"error": "bad token"}, status_code=403)
+    cwds = [c["path"] for c in read_recent()]
+    if bridge.cwd and bridge.cwd not in cwds:
+        cwds.append(bridge.cwd)
+    return {"results": list_trashed(cwds)}
 
 
 @app.get("/api/browse")

@@ -1180,14 +1180,30 @@ main:has(#spin) .empty{display:none}
 .rail{
   position:fixed; top:0; bottom:0; left:0; width:min(82%,292px); z-index:26;
   background:var(--surface); border-right:1px solid var(--rule);
-  padding:calc(15px + env(safe-area-inset-top)) 11px
-          calc(15px + env(safe-area-inset-bottom));
-  overflow-y:auto; transform:translateX(-101%); touch-action:pan-y;
+  padding:calc(15px + env(safe-area-inset-top)) 11px 0;
+  display:flex; flex-direction:column;
+  transform:translateX(-101%); touch-action:pan-y;
   transition:transform .3s cubic-bezier(.32,.72,0,1),
              background-color .18s, border-color .18s;
   will-change:transform;
 }
 .rail.on{transform:none}
+/* la lista scrollea; la cabecera (anadir/buscar) y el pie (papelera) fijos */
+.railscroll{flex:1; min-height:0; overflow-y:auto}
+.railfoot{
+  flex:none; position:relative; display:flex; justify-content:flex-end;
+  padding:12px 2px calc(10px + env(safe-area-inset-bottom));
+}
+.railfoot::before{           /* fade que separa el pie de la lista */
+  content:""; position:absolute; left:0; right:0; top:-30px; height:30px;
+  background:linear-gradient(transparent, var(--surface)); pointer-events:none;
+}
+.trashb{
+  background:none; border:none; cursor:pointer; color:var(--dim);
+  padding:8px; border-radius:8px; display:flex; flex:none;
+}
+.trashb:hover{color:var(--ink); background:var(--raise)}
+.trashb svg{width:22px; height:22px}
 .railtop{
   display:flex; align-items:center; gap:8px;
   font:600 15px/1.2 var(--mono); color:var(--ink); padding:4px 8px 15px;
@@ -1253,6 +1269,23 @@ main:has(#spin) .empty{display:none}
 .srow span{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;
   white-space:nowrap}
 .srow small{flex:none; font:400 11px/1 var(--mono); color:var(--faint)}
+/* papelera: titulo arriba, ruta debajo */
+.sbar2 .stitle{flex:1; min-width:0; color:var(--ink);
+  font:600 15px/1.3 var(--sans)}
+#trashList{flex:1; overflow-y:auto;
+  padding:6px 14px calc(18px + env(safe-area-inset-bottom))}
+.trow{
+  display:flex; flex-direction:column; align-items:flex-start; gap:3px;
+  width:100%; text-align:left; background:none; border:none; cursor:pointer;
+  padding:12px 2px; border-bottom:1px solid var(--rule);
+}
+.trow .tt{font:400 14.5px/1.35 var(--sans); color:var(--ink); max-width:100%;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.trow .tp{font:400 11px/1.3 var(--mono); color:var(--faint); max-width:100%;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.trow:hover .tt{color:var(--amber)}
+.notrash{padding:24px 4px; text-align:center; color:var(--faint);
+  font:400 13px/1.5 var(--sans)}
 .proj{
   display:flex; align-items:center; gap:10px; width:100%; text-align:left;
   background:none; border:none; border-radius:var(--r-tool);
@@ -1564,10 +1597,15 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
   </div>
   <button class="addp" id="addBtn"><span data-t="addProject"></span></button>
   <button class="addp ghost" id="searchBtn"><span data-t="searchConv"></span></button>
-  <div class="shead" id="chatHead" data-t="recent"></div>
-  <div id="chats"></div>
-  <div class="shead" id="projHead" data-t="projects"></div>
-  <div id="recents"></div>
+  <div class="railscroll">
+    <div class="shead" id="chatHead" data-t="recent"></div>
+    <div id="chats"></div>
+    <div class="shead" id="projHead" data-t="projects"></div>
+    <div id="recents"></div>
+  </div>
+  <div class="railfoot">
+    <button class="trashb" id="trashBtn" aria-label="trash"></button>
+  </div>
 </aside>
 <div class="grip" id="grip"></div>
 
@@ -1579,6 +1617,15 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
     <button class="xb" id="searchX" aria-label="close"></button>
   </div>
   <div id="searchList"></div>
+</div>
+
+<div class="searchview" id="trashView">
+  <div class="sbar2">
+    <span class="sic" id="trashIco"></span>
+    <span class="stitle" data-t="trashTitle"></span>
+    <button class="xb" id="trashX" aria-label="close"></button>
+  </div>
+  <div id="trashList"></div>
 </div>
 
 <div class="sheet" id="sheet"><div class="card">
@@ -3132,6 +3179,43 @@ $("#searchInput").addEventListener("input", () => {
   searchT = setTimeout(doSearch, 250);       // no pedir por tecla
 });
 
+/* ---------- papelera: restaurar conversaciones borradas ---------- */
+function trashRow(x){
+  const b = document.createElement("button");
+  b.className = "trow"; b.dataset.path = x.path;
+  b.innerHTML = `<span class="tt">${esc(x.label)}</span>`
+    + `<small class="tp">${esc(x.cwd || "")}</small>`;
+  b.onclick = () => restoreConfirm(x);
+  return b;
+}
+function trashEmpty(){
+  const p = document.createElement("div");
+  p.className = "notrash"; p.textContent = T("noTrash");
+  $("#trashList").appendChild(p);
+}
+async function loadTrash(){
+  let d;
+  try { d = await (await fetch("/api/trash?token="
+    + encodeURIComponent(TOKEN))).json(); }
+  catch(e){ return; }
+  const list = $("#trashList"); list.innerHTML = "";
+  const res = d.results || [];
+  if(!res.length) return trashEmpty();
+  res.forEach(x => list.appendChild(trashRow(x)));
+}
+function openTrash(){ closeRail(); $("#trashView").classList.add("on"); loadTrash(); }
+function closeTrash(){ $("#trashView").classList.remove("on"); }
+function restoreConfirm(x){
+  openModal(T("restoreQ").replace("{name}", x.label || ""), "",
+            () => send({type:"restore_session", path:x.path}), {plain:true});
+  $("#modalOk").textContent = T("restore");
+}
+$("#trashBtn").innerHTML = ico("remove");
+$("#trashIco").innerHTML = ico("remove");
+$("#trashX").innerHTML = ico("close");
+$("#trashBtn").onclick = openTrash;
+$("#trashX").onclick = closeTrash;
+
 function paintRail(){
   const list = $("#recents"), rec = state.recent || [];
   $("#projHead").hidden = !rec.length;
@@ -4454,6 +4538,8 @@ const STR = {
       forkFrom:"Fork from a message",
       forkTitle:"A copy of the conversation up to this message will be created:",
       forkTrash:"Send the original conversation to trash", forkDo:"Fork",
+      trashTitle:"Trash", restoreQ:"Restore {name}?", restore:"Restore",
+      noTrash:"Trash is empty", restoreFail:"could not restore the session",
       deleteQ:"Remove this session?",
       deleteB:"It is moved to a _trash folder next to it, not erased.",
       compactQ:"Compress the context now?",
@@ -4517,6 +4603,8 @@ const STR = {
       forkFrom:"Ramificar desde un mensaje",
       forkTitle:"Se crear\u00e1 una copia de la conversaci\u00f3n hasta este mensaje:",
       forkTrash:"Enviar conversaci\u00f3n original a la papelera", forkDo:"Ramificar",
+      trashTitle:"Papelera", restoreQ:"\u00bfRestaurar {name}?", restore:"Restaurar",
+      noTrash:"Papelera vac\u00eda", restoreFail:"no se pudo restaurar la sesi\u00f3n",
       deleteQ:"\u00bfQuitar esta sesi\u00f3n?",
       deleteB:"Se mueve a una carpeta _trash al lado, no se borra.",
       compactQ:"\u00bfCompactar el contexto ahora?",
@@ -4579,6 +4667,8 @@ const STR = {
       forkFrom:"Von einer Nachricht abzweigen",
       forkTitle:"Es wird eine Kopie des Gespr\u00e4chs bis zu dieser Nachricht erstellt:",
       forkTrash:"Urspr\u00fcngliches Gespr\u00e4ch in den Papierkorb verschieben", forkDo:"Abzweigen",
+      trashTitle:"Papierkorb", restoreQ:"{name} wiederherstellen?", restore:"Wiederherstellen",
+      noTrash:"Papierkorb ist leer", restoreFail:"Sitzung konnte nicht wiederhergestellt werden",
       deleteQ:"Diese Sitzung entfernen?",
       deleteB:"Sie wird in einen _trash-Ordner daneben verschoben, nicht gel\u00f6scht.",
       compactQ:"Kontext jetzt zusammenfassen?",
@@ -4641,6 +4731,8 @@ const STR = {
       forkFrom:"Bifurquer depuis un message",
       forkTitle:"Une copie de la conversation jusqu'à ce message sera créée :",
       forkTrash:"Envoyer la conversation d'origine à la corbeille", forkDo:"Bifurquer",
+      trashTitle:"Corbeille", restoreQ:"Restaurer {name} ?", restore:"Restaurer",
+      noTrash:"Corbeille vide", restoreFail:"impossible de restaurer la session",
       deleteQ:"Supprimer cette session ?",
       deleteB:"Elle sera d\u00e9plac\u00e9e dans un dossier _trash, pas effac\u00e9e.",
       compactQ:"Compacter le contexte maintenant ?",
@@ -4703,6 +4795,8 @@ const STR = {
       forkFrom:"Ramificar a partir de uma mensagem",
       forkTitle:"Ser\u00e1 criada uma c\u00f3pia da conversa at\u00e9 esta mensagem:",
       forkTrash:"Enviar a conversa original para o lixo", forkDo:"Ramificar",
+      trashTitle:"Lixo", restoreQ:"Restaurar {name}?", restore:"Restaurar",
+      noTrash:"Lixo vazio", restoreFail:"não foi possível restaurar a sessão",
       deleteQ:"Remover esta sess\u00e3o?",
       deleteB:"Ela vai para uma pasta _trash, n\u00e3o \u00e9 apagada.",
       compactQ:"Compactar o contexto agora?",
@@ -4764,6 +4858,8 @@ const STR = {
       forkFrom:"从某条消息分叉",
       forkTitle:"将创建到此消息为止的对话副本：",
       forkTrash:"将原始对话移入回收站", forkDo:"分叉",
+      trashTitle:"回收站", restoreQ:"恢复 {name}？", restore:"恢复",
+      noTrash:"回收站为空", restoreFail:"无法恢复会话",
       deleteQ:"删除此会话？",
       deleteB:"将移入旁边的 _trash 文件夹，不会删除。",
       compactQ:"现在压缩上下文？",
@@ -5905,6 +6001,8 @@ addEventListener("keydown", e => {
     return $("#statsheet").classList.remove("open");
   if($("#searchView").classList.contains("on"))
     return closeSearch();
+  if($("#trashView").classList.contains("on"))
+    return closeTrash();
   if(!WIDE.matches && $("#rail").classList.contains("on"))
     return closeRail();
   if($("#sheet").classList.contains("open") && sheetPage !== "root")
@@ -5988,6 +6086,20 @@ function onRpc(m){
       chatsKey = null;                    // fuerza recargar recientes
       paintRail(); maybeChats();
       if($("#searchView").classList.contains("on")) doSearch();
+    }
+    return;
+  }
+  if(m.command === "restore_session"){
+    if(!d.error){
+      const row = $("#trashList").querySelector(
+        '.trow[data-path="' + (window.CSS && CSS.escape
+          ? CSS.escape(d.path) : d.path) + '"]');
+      if(row) row.remove();
+      if(!$("#trashList .trow")) trashEmpty();   // vacia: dilo
+      for(const k in sessCache) delete sessCache[k];
+      chatsKey = null; paintRail(); maybeChats();
+    } else {
+      note(T("restoreFail"));
     }
     return;
   }

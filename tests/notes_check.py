@@ -15,7 +15,10 @@ es = dict(re.findall(r'(\w+):"([^"]*)"', block[block.index("es:{"):]))
 # claves que emite el puente, incluidas las que arma sobre la marcha
 keys = set(re.findall(r'self\.note\("(?:error|warn|info)", "(\w+)"', py))
 keys.discard("del_")
-keys |= {"del_" + w for w in re.findall(r'return "(\w+)"', py)}
+# del_<why>: el why sale de trash_session; solo sus returns, no los de otras
+# funciones (restore_session tiene los suyos y no emite notas del_)
+trash_fn = py[py.index("def trash_session"):py.index("def list_trashed")]
+keys |= {"del_" + w for w in re.findall(r'return "(\w+)"', trash_fn)}
 keys |= {"del_ok"}
 keys.discard("del_")
 
