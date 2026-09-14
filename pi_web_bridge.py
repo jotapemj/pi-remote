@@ -1144,7 +1144,10 @@ class Bridge:
                 "window": window, "cost": data.get("cost")}
             self.push_state()
 
-        elif cmd in ("switch_session", "new_session"):
+        elif cmd in ("switch_session", "new_session", "fork"):
+            # fork tambien: pi trunca en el mensaje y hace rebindSession (pasa a
+            # una rama nueva sin los posteriores). Sin esto el fork era mudo: el
+            # transcripto seguia mostrando los mensajes viejos. Reconstruimos.
             if not data.get("cancelled"):
                 self.log.clear()
                 self.cur = None

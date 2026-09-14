@@ -395,5 +395,8 @@ for line in sys.stdin:
     elif t == "abort":
         ABORT.set()
         out({"type": "response", "command": "abort", "success": True})
+    elif t == "fork":
+        out({"type": "response", "command": "fork", "success": True,
+             "data": {"cancelled": False, "text": "forked here"}})
     else:
         out({"type": "response", "command": t, "success": True, "data": {}})
