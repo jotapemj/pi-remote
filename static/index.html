@@ -1621,6 +1621,9 @@ const TOKEN = (() => {
 const $ = s => document.querySelector(s);
 const feed = $("#feed"), main = $("#main");
 let ws, state = {}, nodes = new Map(), tick = null, CWD = "";
+// borrador del compositor por conversacion: al cambiar de sesion se guarda el
+// de la que dejas y se carga el de la que abres. pendingPrefill lo usa el fork.
+let drafts = {}, curDraftKey = null, pendingPrefill = null;
 let firstSnap = true;
 
 /* ---------- material icons, apache 2.0 ---------- */
@@ -3669,23 +3672,7 @@ function connect(){
       }
       keepDown(was);
     }
-    else if(m.type === "state"){
-      const wasRunning = state.running;
-      // si el nombre cambio (/name), la caché del arbol se queda vieja:
-      // fuera antes de pintar para que el proyecto abierto se re-fetch
-      if(state.sessionName !== m.state.sessionName && state.cwd)
-        delete sessCache[state.cwd];
-      state = m.state;
-      if(!wasRunning && state.running){    // arranca turno: se espera prefill
-        produced = false; turnStart = Date.now();
-      }
-      paint();
-      if(wasRunning && !state.running){     // fin de turno
-        groupToolRun();
-        maybeNotify();
-      }
-      placeActions();     // coloca (o quita) acciones y sugerencias del turno
-    }
+    else if(m.type === "state") applyState(m);
     else if(m.type === "cleared"){
       feed.innerHTML=""; nodes.clear();
       barShown = false;
@@ -3715,6 +3702,34 @@ function connect(){
     }
     else if(m.type === "rpc") onRpc(m);
   };
+}
+/* Un estado nuevo. Si cambia la conversacion (otro sessionFile), el compositor
+   es de esa conversacion: guardamos el borrador de la que dejamos y cargamos el
+   de la que entramos (o el prefill del fork, si lo hay). Asi el texto no se
+   arrastra entre conversaciones. */
+function applyState(m){
+  const newKey = m.state.sessionFile || m.state.cwd || "";
+  if(newKey !== curDraftKey){
+    if(curDraftKey !== null) drafts[curDraftKey] = box.value;
+    box.value = pendingPrefill != null ? pendingPrefill : (drafts[newKey] || "");
+    pendingPrefill = null;
+    curDraftKey = newKey;
+  }
+  const wasRunning = state.running;
+  // si el nombre cambio (/name), la caché del arbol se queda vieja:
+  // fuera antes de pintar para que el proyecto abierto se re-fetch
+  if(state.sessionName !== m.state.sessionName && state.cwd)
+    delete sessCache[state.cwd];
+  state = m.state;
+  if(!wasRunning && state.running){    // arranca turno: se espera prefill
+    produced = false; turnStart = Date.now();
+  }
+  paint();
+  if(wasRunning && !state.running){     // fin de turno
+    groupToolRun();
+    maybeNotify();
+  }
+  placeActions();     // coloca (o quita) acciones y sugerencias del turno
 }
 const send = o => ws && ws.readyState === 1 && ws.send(JSON.stringify(o));
 
@@ -6017,8 +6032,9 @@ function forkConfirm(x){
   openModal(T("forkTitle"), body, () => {
     const cb = document.getElementById("forkTrashCb");
     send({type:"fork", entryId:x.entryId, trashOriginal: !!(cb && cb.checked)});
-    box.value = x.text || "";             // el texto ya viene limpio del puente
-    box.dispatchEvent(new Event("input"));
+    // el prefill es de la rama nueva: se aplica al entrar en ella (applyState),
+    // no aqui, para que no se guarde como borrador de la conversacion vieja.
+    pendingPrefill = x.text || "";
   }, {plain:true});
   $("#modalOk").textContent = T("forkDo");
 }

@@ -102,6 +102,16 @@ async def ws_checks():
     return checks
 
 
+ST = ("{running:false,waiting:false,alive:true,cwd:'C:/x',model:'m',"
+      "thinking:'x',context:null,queue:{steering:[],followUp:[]},recent:[]}")
+
+
+def enter(sf):
+    """Simula entrar en la conversacion cuyo fichero es sf (cambio de estado)."""
+    return ("applyState({state:Object.assign(%s,{sessionFile:'%s',"
+            "sessionName:'s'})})" % (ST, sf))
+
+
 async def ui_checks():
     checks = []
     with Bridge():
@@ -110,10 +120,23 @@ async def ui_checks():
             await p.js("try{ if(typeof ws!=='undefined' && ws)"
                        " ws.onmessage=null; }catch(e){}")   # sin pisadas del puente
             await p.js("setLang('es')")
-            await p.js("state={running:false,waiting:false,alive:true,cwd:'C:/x',"
-                       "sessionName:'s',model:'m',thinking:'x',context:null,"
-                       "queue:{steering:[],followUp:[]},recent:[]}; CWD='C:/x'; paint()")
+            await p.js("CWD='C:/x'; " + enter("/a"))
 
+            # borrador separado por conversacion: no se arrastra al cambiar
+            await p.js("box.value='borrador de A'")
+            await p.js(enter("/b"))
+            boxB = await p.js("box.value")
+            await p.js(enter("/a"))
+            boxA = await p.js("box.value")
+            print("  drafts: en B=%r  al volver a A=%r" % (boxB, boxA))
+            checks += [
+                ("cambiar de conversacion no arrastra el texto del compositor",
+                 boxB == ""),
+                ("al volver aparece el borrador de esa conversacion",
+                 boxA == "borrador de A"),
+            ]
+
+            # picker + dialogo
             await p.js("onRpc({command:'get_fork_messages', data:{messages:["
                        "{entryId:'e1',text:'hola mundo'},"
                        "{entryId:'e2',text:'segundo mensaje'}]}})")
@@ -121,25 +144,22 @@ async def ui_checks():
             cards = await p.js("[...document.querySelectorAll('.fork-card')]"
                                ".map(c=>c.textContent)")
             print("  picker cards: %r" % cards)
-            checks += [
-                ("el picker pinta una card por mensaje",
-                 cards == ["hola mundo", "segundo mensaje"]),
-            ]
+            checks.append(("el picker pinta una card por mensaje",
+                           cards == ["hola mundo", "segundo mensaje"]))
 
             await p.js("document.querySelectorAll('.fork-card')[0].click()")
             await asyncio.sleep(0.1)
             dlg = await p.js("[document.querySelector('#modal').classList"
                              ".contains('open'), !!document.getElementById("
-                             "'forkTrashCb'), document.querySelector('#modalOk')"
-                             ".textContent, document.querySelector('.forkmsg')"
+                             "'forkTrashCb'), document.querySelector('.forkmsg')"
                              "? document.querySelector('.forkmsg').textContent:'']")
-            print("  dialogo: abierto=%s checkbox=%s ok=%r msg=%r"
-                  % (dlg[0], dlg[1], dlg[2], dlg[3]))
-            checks += [
-                ("al elegir sale el dialogo con el mensaje y el checkbox",
-                 dlg[0] is True and dlg[1] is True and dlg[3] == "hola mundo"),
-            ]
+            print("  dialogo: abierto=%s checkbox=%s msg=%r"
+                  % (dlg[0], dlg[1], dlg[2]))
+            checks.append(("al elegir sale el dialogo con el mensaje y el checkbox",
+                           dlg[0] is True and dlg[1] is True
+                           and dlg[2] == "hola mundo"))
 
+            # aceptar: forkea con el flag, y el prefill entra al abrir la rama
             await p.js("window.__sent=[]; ws.send=s=>window.__sent.push("
                        "JSON.parse(s)); document.getElementById('forkTrashCb')"
                        ".checked=true; document.querySelector('#modalOk').click()")
@@ -147,12 +167,14 @@ async def ui_checks():
             sent = await p.js("(()=>{const m=window.__sent.find(x=>x.type==="
                               "'fork'); return m?[m.entryId,m.trashOriginal]"
                               ":null;})()")
+            await p.js(enter("/forked"))          # se entra en la rama nueva
             boxv = await p.js("box.value")
-            print("  aceptar: enviado=%s box=%r" % (sent, boxv))
+            print("  fork: enviado=%s  prefill al entrar=%r" % (sent, boxv))
             checks += [
                 ("aceptar forkea el mensaje elegido con el flag de papelera",
                  sent == ["e1", True]),
-                ("y rellena el compositor con ese mensaje", boxv == "hola mundo"),
+                ("y el compositor se rellena con ese mensaje al entrar en la rama",
+                 boxv == "hola mundo"),
             ]
             checks.append(("sin errores de consola", not p.problems))
     return checks
