@@ -42,9 +42,9 @@ async def main():
             base = await js("document.querySelectorAll('.note').length")
 
             await js("send({type:'prompt', message:'compact ahora'})")
-            busy = await wait_for(js, "comprimiendo")
+            busy = await wait_for(js, "compactando")
             print("  compactando: %r  (habia %d notas)" % (busy, base))
-            done = await wait_for(js, "comprimido")
+            done = await wait_for(js, "compactado")
             print("  resuelta   : %r" % (done,))
 
             bar0 = await js("$('#bar').firstElementChild.style.width")
