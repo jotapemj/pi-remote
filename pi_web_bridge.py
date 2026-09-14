@@ -1394,6 +1394,11 @@ class Bridge:
             return
 
         if t == "abort":
+            # matar primero el comando shell en curso: sin esto el abort queda
+            # en cola hasta que el bash termina, y en un bucle think->bash el
+            # agente seguia pensando y ejecutando. abort_bash lo desbloquea ya.
+            # Sin bash en curso es inofensivo (pi no tiene nada que abortar).
+            self.send_pi({"type": "abort_bash"})
             # resumen al parar: si esta activo y el turno ya genero algo, lo
             # ABORTAMOS (interrumpe de verdad) y al asentarse pedimos el
             # resumen. Guardamos lo que llevaba hecho para realimentarlo. El
