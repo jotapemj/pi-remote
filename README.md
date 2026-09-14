@@ -367,8 +367,9 @@ guardrails: it is your hand, not the agent's.
 `/restart` asks too: it restarts the bridge itself, agent included. The kill
 cannot come from inside (a child dies with its parent's tree), so the command
 fires a one-shot scheduled task (the bridge registers it at startup), which
-runs under the Task Scheduler service, outside the process tree. It waits a
-20 s grace so the last reply lands intact, kills the bridge, relaunches it and
+runs under the Task Scheduler service, outside the process tree. If a turn is
+running, it waits for it to settle so the last reply lands
+intact; then, after a two-second fade, it kills the bridge, relaunches it and
 verifies the port answers. The session comes back from disk and the phone
 reconnects on its own. On Windows, `pi_restart.py --ensure` is the idempotent
 twin: point a startup shortcut at it instead of the bridge directly, and a
