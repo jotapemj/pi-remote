@@ -1124,6 +1124,26 @@ footer > *{position:relative; z-index:1}
 }
 .usebtn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .pick small.mk{color:var(--amber)}
+/* elegir mensaje para el fork: cards altas (mensaje entero), separadas */
+.forklist{display:flex; flex-direction:column; gap:10px; padding:2px 0 4px}
+.fork-card{
+  display:block; width:100%; text-align:left; cursor:pointer;
+  background:var(--raise); border:1px solid var(--rule); border-radius:9px;
+  padding:12px 13px; color:var(--ink); font:400 13.5px/1.5 var(--sans);
+  white-space:pre-wrap; word-break:break-word;
+}
+.fork-card:hover{border-color:var(--amber)}
+/* confirmar el fork: el mensaje en un cuerpo scrolleable (tope 60% alto) */
+.forkmsg{
+  max-height:60vh; overflow-y:auto; white-space:pre-wrap; word-break:break-word;
+  background:var(--raise); border:1px solid var(--rule); border-radius:9px;
+  padding:12px 13px; color:var(--ink); font:400 13.5px/1.5 var(--sans);
+}
+.forkopt{
+  display:flex; align-items:center; gap:10px; margin-top:14px; cursor:pointer;
+  color:var(--ink); font:400 13.5px/1.4 var(--sans);
+}
+.forkopt input{width:18px; height:18px; accent-color:var(--amber); flex:none}
 /* cargar sesion: el titulo respira mientras llega el historial */
 .spin{
   position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
@@ -4416,6 +4436,9 @@ const STR = {
       readOnlyCmd:"needs a token",
       close:"close", theme:"Theme", fontSize:"Text size", font:"Font",
       openSession:"open", deleteSession:"remove session",
+      forkFrom:"Fork from a message",
+      forkTitle:"A copy of the conversation up to this message will be created:",
+      forkTrash:"Send the original conversation to trash", forkDo:"Fork",
       deleteQ:"Remove this session?",
       deleteB:"It is moved to a _trash folder next to it, not erased.",
       compactQ:"Compress the context now?",
@@ -4476,6 +4499,9 @@ const STR = {
       close:"cerrar", theme:"Tema", fontSize:"Tama\u00f1o del texto",
       font:"Fuente",
       openSession:"abrir", deleteSession:"quitar sesi\u00f3n",
+      forkFrom:"Ramificar desde un mensaje",
+      forkTitle:"Se crear\u00e1 una copia de la conversaci\u00f3n hasta este mensaje:",
+      forkTrash:"Enviar conversaci\u00f3n original a la papelera", forkDo:"Ramificar",
       deleteQ:"\u00bfQuitar esta sesi\u00f3n?",
       deleteB:"Se mueve a una carpeta _trash al lado, no se borra.",
       compactQ:"\u00bfCompactar el contexto ahora?",
@@ -4535,6 +4561,9 @@ const STR = {
       close:"schlie\u00dfen", theme:"Design", fontSize:"Textgr\u00f6\u00dfe",
       font:"Schriftart",
       openSession:"\u00f6ffnen", deleteSession:"Sitzung entfernen",
+      forkFrom:"Von einer Nachricht abzweigen",
+      forkTitle:"Es wird eine Kopie des Gespr\u00e4chs bis zu dieser Nachricht erstellt:",
+      forkTrash:"Urspr\u00fcngliches Gespr\u00e4ch in den Papierkorb verschieben", forkDo:"Abzweigen",
       deleteQ:"Diese Sitzung entfernen?",
       deleteB:"Sie wird in einen _trash-Ordner daneben verschoben, nicht gel\u00f6scht.",
       compactQ:"Kontext jetzt zusammenfassen?",
@@ -4594,6 +4623,9 @@ const STR = {
       readOnlyCmd:"n\u00e9cessite un jeton",
       close:"Fermer", theme:"Th\u00e8me", fontSize:"Taille du texte", font:"Police",
       openSession:"ouvrir", deleteSession:"supprimer la session",
+      forkFrom:"Bifurquer depuis un message",
+      forkTitle:"Une copie de la conversation jusqu'à ce message sera créée :",
+      forkTrash:"Envoyer la conversation d'origine à la corbeille", forkDo:"Bifurquer",
       deleteQ:"Supprimer cette session ?",
       deleteB:"Elle sera d\u00e9plac\u00e9e dans un dossier _trash, pas effac\u00e9e.",
       compactQ:"Compacter le contexte maintenant ?",
@@ -4653,6 +4685,9 @@ const STR = {
       readOnlyCmd:"precisa de token",
       close:"Fechar", theme:"Tema", fontSize:"tamanho do texto", font:"tipo de letra",
       openSession:"abrir", deleteSession:"remover sess\u00e3o",
+      forkFrom:"Ramificar a partir de uma mensagem",
+      forkTitle:"Ser\u00e1 criada uma c\u00f3pia da conversa at\u00e9 esta mensagem:",
+      forkTrash:"Enviar a conversa original para o lixo", forkDo:"Ramificar",
       deleteQ:"Remover esta sess\u00e3o?",
       deleteB:"Ela vai para uma pasta _trash, n\u00e3o \u00e9 apagada.",
       compactQ:"Compactar o contexto agora?",
@@ -4711,6 +4746,9 @@ const STR = {
       readOnlyCmd:"需要令牌",
       close:"关闭", theme:"主题", fontSize:"文字大小", font:"字体",
       openSession:"打开", deleteSession:"删除会话",
+      forkFrom:"从某条消息分叉",
+      forkTitle:"将创建到此消息为止的对话副本：",
+      forkTrash:"将原始对话移入回收站", forkDo:"分叉",
       deleteQ:"删除此会话？",
       deleteB:"将移入旁边的 _trash 文件夹，不会删除。",
       compactQ:"现在压缩上下文？",
@@ -5021,6 +5059,7 @@ const NOTES = {
       retrying:"retrying {n}/{max}",
       extension:"extension: {err}",
       exported:"exported to {path}",
+      forked:"forked to {date}",
       del_ok:"session moved to _trash",
       del_in_use:"that session is open right now",
       del_missing:"that session is not there any more",
@@ -5044,6 +5083,7 @@ const NOTES = {
       retrying:"reintentando {n}/{max}",
       extension:"extensi\u00f3n: {err}",
       exported:"exportado a {path}",
+      forked:"copia creada \u00b7 {date}",
       del_ok:"sesi\u00f3n movida a _trash",
       del_in_use:"esa sesi\u00f3n est\u00e1 abierta ahora mismo",
       del_missing:"esa sesi\u00f3n ya no est\u00e1",
@@ -5067,6 +5107,7 @@ const NOTES = {
       retrying:"Neuer Versuch {n}/{max}",
       extension:"Erweiterung: {err}",
       exported:"exportiert nach {path}",
+      forked:"Kopie erstellt · {date}",
       del_ok:"Sitzung in _trash verschoben",
       del_in_use:"Diese Sitzung ist gerade ge\u00f6ffnet",
       del_missing:"Diese Sitzung existiert nicht mehr",
@@ -5090,6 +5131,7 @@ const NOTES = {
       retrying:"nouvelle tentative {n}/{max}",
       extension:"extension : {err}",
       exported:"export\u00e9 vers {path}",
+      forked:"copie cr\u00e9\u00e9e \u00b7 {date}",
       del_ok:"session d\u00e9plac\u00e9e dans _trash",
       del_in_use:"cette session est ouverte",
       del_missing:"cette session n'existe plus",
@@ -5113,6 +5155,7 @@ const NOTES = {
       retrying:"nova tentativa {n}/{max}",
       extension:"extens\u00e3o: {err}",
       exported:"exportado para {path}",
+      forked:"c\u00f3pia criada \u00b7 {date}",
       del_ok:"sess\u00e3o movida para _trash",
       del_in_use:"esta sess\u00e3o est\u00e1 aberta",
       del_missing:"esta sess\u00e3o j\u00e1 n\u00e3o existe",
@@ -5136,6 +5179,7 @@ const NOTES = {
       retrying:"重试 {n}/{max}",
       extension:"扩展：{err}",
       exported:"已导出到 {path}",
+      forked:"副本已创建 · {date}",
       del_ok:"会话已移入 _trash",
       del_in_use:"此会话正在打开",
       del_missing:"此会话已不存在",
@@ -5922,11 +5966,61 @@ function onRpc(m){
     return sheet("thinking", (d.levels||[]).map(l=>({
       label:l, run:()=>send({type:"set_thinking_level", level:l})})));
   if(m.command === "get_fork_messages")
-    return sheet("fork from", (d.messages||[]).slice(-12).reverse().map(x=>({
-      label:(x.text||"(empty)").slice(0,90),
-      run:()=>send({type:"fork", entryId:x.entryId})})));
+    return forkPicker(d.messages || []);
+  if(m.command === "delete_session"){     // el arbol se quedaba con la borrada
+    if(!d.error){
+      for(const k in sessCache) delete sessCache[k];
+      chatsKey = null;                    // fuerza recargar recientes
+      paintRail(); maybeChats();
+      if($("#searchView").classList.contains("on")) doSearch();
+    }
+    return;
+  }
   if(m.command === "get_last_assistant_text")
     return note(d.text || "—");           // nota en el chat, no un alert crudo
+}
+
+/* Elegir desde qué mensaje ramificar. Cards altas (mensaje entero), scroll
+   invertido: lo más reciente abajo, scrolleas arriba para retroceder. El
+   puente ya limpio los inyectados (resumen) y el SUGGEST_HINT. */
+function forkPicker(msgs){
+  $("#sheetTitle").textContent = T("forkFrom");
+  const body = $("#sheetBody"); body.innerHTML = "";
+  const list = document.createElement("div");
+  list.className = "forklist";
+  msgs.forEach(x=>{
+    const b = document.createElement("button");
+    b.className = "fork-card";
+    b.textContent = x.text || "";
+    b.onclick = () => forkConfirm(x);
+    list.appendChild(b);
+  });
+  if(!msgs.length){
+    const p = document.createElement("div");
+    p.className = "nosub"; p.textContent = T("noSub");
+    list.appendChild(p);
+  }
+  body.appendChild(list);
+  $("#sheet").classList.add("open");
+  const card = $("#sheet .card");
+  setTimeout(() => { card.scrollTop = card.scrollHeight; }, 60);
+}
+
+/* Confirmar el fork: titulo, el mensaje en un cuerpo scrolleable (para no
+   crecer sin fin) y el checkbox de mandar la original a la papelera. Aceptar
+   forkea, rellena el compositor con ese mensaje y (si se marco) papelea. */
+function forkConfirm(x){
+  $("#sheet").classList.remove("open");
+  const body = `<div class="forkmsg">${esc(x.text || "")}</div>`
+    + `<label class="forkopt"><input type="checkbox" id="forkTrashCb">`
+    + `<span>${esc(T("forkTrash"))}</span></label>`;
+  openModal(T("forkTitle"), body, () => {
+    const cb = document.getElementById("forkTrashCb");
+    send({type:"fork", entryId:x.entryId, trashOriginal: !!(cb && cb.checked)});
+    box.value = x.text || "";             // el texto ya viene limpio del puente
+    box.dispatchEvent(new Event("input"));
+  }, {plain:true});
+  $("#modalOk").textContent = T("forkDo");
 }
 
 applyLang();

@@ -681,6 +681,9 @@ class Bridge:
         self.summary_pending = False         # tras el abort, toca pedir el resumen
         self.summary_ctx = ""                # lo que hacia, para realimentarlo
         self.restart_pending = False         # /restart mientras corre un turno
+        self.fork_from = None                # sesion origen, por si toca papelearla
+        self.fork_trash = False              # el usuario pidio borrar la original
+        self.trash_after_new = None          # borrar la abierta = salir y papelear
 
         self.proc = None                     # no project, no agent
         self.cwd = ""
@@ -1144,10 +1147,7 @@ class Bridge:
                 "window": window, "cost": data.get("cost")}
             self.push_state()
 
-        elif cmd in ("switch_session", "new_session", "fork"):
-            # fork tambien: pi trunca en el mensaje y hace rebindSession (pasa a
-            # una rama nueva sin los posteriores). Sin esto el fork era mudo: el
-            # transcripto seguia mostrando los mensajes viejos. Reconstruimos.
+        elif cmd in ("switch_session", "new_session"):
             if not data.get("cancelled"):
                 self.log.clear()
                 self.cur = None
@@ -1155,6 +1155,51 @@ class Bridge:
                 self.send_pi({"type": "get_state"})
                 self.send_pi({"type": "get_session_stats"})
                 self.send_pi({"type": "get_messages"})
+                # borrar la sesion abierta: no se puede papelear en uso, asi que
+                # salimos a una nueva y, ya fuera, la movemos a _trash.
+                if self.trash_after_new:
+                    why = trash_session(self.trash_after_new, None)
+                    if why:
+                        self.note("error", "del_" + why,
+                                  f"could not remove the session: {why}")
+                    else:
+                        self.note("info", "del_ok", "session moved to _trash")
+                    self.emit({"type": "rpc", "command": "delete_session",
+                               "data": {"error": why,
+                                        "path": self.trash_after_new}})
+            self.trash_after_new = None
+
+        elif cmd == "fork":
+            # pi trunca en el mensaje y hace rebindSession (rama nueva sin lo
+            # posterior). Reconstruimos el transcripto; papeleamos la original si
+            # se pidio (ya no esta en uso, pi rebindeo -> active=None); y nota.
+            if not data.get("cancelled"):
+                old = self.fork_from
+                self.log.clear()
+                self.cur = None
+                self.emit({"type": "cleared"})
+                self.send_pi({"type": "get_state"})
+                self.send_pi({"type": "get_session_stats"})
+                self.send_pi({"type": "get_messages"})
+                if self.fork_trash and old:
+                    trash_session(old, None)
+                stamp = time.strftime("%Y-%m-%d %H:%M")
+                self.note("info", "forked", f"forked to {stamp}", date=stamp)
+            self.fork_from = None
+            self.fork_trash = False
+
+        elif cmd == "get_fork_messages":
+            # limpia lo inyectado: fuera el prompt de resumen (STOP_SUMMARY),
+            # y recorta el SUGGEST_HINT del texto. Lista y prefill limpios.
+            out = []
+            for m in data.get("messages") or []:
+                txt = SUGGEST_HINT_RE.sub("", m.get("text") or "").strip()
+                if not txt or txt.startswith(
+                        "You were just interrupted by the user."):
+                    continue
+                out.append({"entryId": m.get("entryId"), "text": txt})
+            self.emit({"type": "rpc", "command": "get_fork_messages",
+                       "data": {"messages": out}})
 
         elif cmd == "get_messages":
             self.load_history(data.get("messages"))
@@ -1377,15 +1422,28 @@ class Bridge:
             return
 
         if t == "delete_session":
-            why = trash_session(msg.get("path", ""),
-                                self.state.get("sessionFile"))
+            path = msg.get("path", "")
+            active = self.state.get("sessionFile")
+            same = False
+            if path and active:
+                try:
+                    same = Path(path).resolve() == Path(active).resolve()
+                except OSError:
+                    same = False
+            if same:
+                # borrar la sesion abierta: no se puede papelear en uso, asi que
+                # salimos a una sesion nueva y, al asentar, la movemos a _trash.
+                self.trash_after_new = path
+                self.send_pi({"type": "new_session"})
+                return
+            why = trash_session(path, active)
             if why:
                 self.note("error", "del_" + why,
                           f"could not remove the session: {why}")
             else:
                 self.note("info", "del_ok", "session moved to _trash")
             self.emit({"type": "rpc", "command": "delete_session",
-                       "data": {"error": why, "path": msg.get("path", "")}})
+                       "data": {"error": why, "path": path}})
             return
 
         if t == "forget_project":
@@ -1436,6 +1494,14 @@ class Bridge:
                 self.restart_pending = True
             else:
                 self.begin_restart()
+            return
+
+        if t == "fork":
+            # recordamos la sesion origen (por si hay que papelearla) y el flag;
+            # a pi le mandamos solo el fork, sin el flag propio del cliente.
+            self.fork_from = self.state.get("sessionFile")
+            self.fork_trash = bool(msg.get("trashOriginal"))
+            self.send_pi({"type": "fork", "entryId": msg.get("entryId")})
             return
 
         if t in PASSTHROUGH:

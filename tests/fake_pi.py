@@ -398,5 +398,15 @@ for line in sys.stdin:
     elif t == "fork":
         out({"type": "response", "command": "fork", "success": True,
              "data": {"cancelled": False, "text": "forked here"}})
+    elif t == "get_fork_messages":
+        out({"type": "response", "command": "get_fork_messages",
+             "success": True, "data": {"messages": [
+                 {"entryId": "e1", "text": "first question"},
+                 {"entryId": "e2", "text": "do the thing\n\n[After your reply, "
+                  "always end with exactly three suggestion lines: "
+                  "<hint: a>\n<hint: b>\n<hint: c>]"},
+                 {"entryId": "e3", "text": "You were just interrupted by the "
+                  "user. Reply with a single short line of what you were doing."},
+             ]}})
     else:
         out({"type": "response", "command": t, "success": True, "data": {}})

@@ -170,7 +170,10 @@ def lang_block(objname, lg):
     return h[k + 1:m]
 
 def keys_of(block):
-    return set(re.findall(r'(\w+):"', block))
+    # vacia el contenido de las cadenas antes de buscar claves: un valor que
+    # acaba en ':' (p.ej. un titulo) no debe confundirse con una clave nueva
+    stripped = re.sub(r'"(?:[^"\\]|\\.)*"', '""', block)
+    return set(re.findall(r'(\w+):""', stripped))
 
 i18n = []
 for obj in ("STR", "NOTES", "XS", "XW"):
