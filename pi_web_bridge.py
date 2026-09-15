@@ -735,6 +735,31 @@ def read_models_json():
         return {}
 
 
+def save_model_params(provider, model_id, context_window, max_tokens):
+    """Editar los parametros de un modelo en models.json.
+
+    Round-trip: se lee el fichero entero y se reescribe con lo demas intacto.
+    Devuelve None si ha ido bien, o el error en texto plano."""
+    p = Path(os.environ.get("PI_MODELS_JSON") or (AGENT_DIR / "models.json"))
+    try:
+        with open(p, encoding="utf-8") as fh:
+            d = json.load(fh)
+    except (OSError, ValueError) as exc:
+        return "cannot read models.json: %s" % exc
+    ms = ((d.get("providers") or {}).get(provider) or {}).get("models")
+    for m in ms or []:
+        if m.get("id") == model_id:
+            m["contextWindow"] = context_window
+            m["maxTokens"] = max_tokens
+            try:
+                with open(p, "w", encoding="utf-8") as fh:
+                    json.dump(d, fh, indent=2)
+            except OSError as exc:
+                return "cannot write models.json: %s" % exc
+            return None
+    return "model not found: %s/%s" % (provider, model_id)
+
+
 def model_endpoint(provider):
     """baseUrl y apiKey del provider actual, para la peticion del titulo."""
     p = (read_models_json().get("providers") or {}).get(provider) or {}
@@ -1737,6 +1762,21 @@ class Bridge:
             self.fork_from = self.state.get("sessionFile")
             self.fork_trash = bool(msg.get("trashOriginal"))
             self.send_pi({"type": "fork", "entryId": msg.get("entryId")})
+            return
+
+        if t == "save_model_params":
+            # el puente escribe models.json (pi es el dueño del fichero y lo
+            # relee al arrancar): por eso se aplican al reiniciar
+            cw, mt = msg.get("contextWindow"), msg.get("maxTokens")
+            if not (isinstance(cw, int) and isinstance(mt, int)
+                    and cw > 0 and mt > 0):
+                self.emit({"type": "rpc", "command": t,
+                           "data": {"error": "parameters must be positive integers"}})
+                return
+            err = save_model_params(msg.get("provider"), msg.get("modelId"),
+                                    cw, mt)
+            self.emit({"type": "rpc", "command": t,
+                       "data": {"error": err} if err else {}})
             return
 
         if t in PASSTHROUGH:

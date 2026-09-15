@@ -1096,6 +1096,24 @@ footer > *{position:relative; z-index:1}
 .backb:hover{color:var(--ink)}
 .backb[hidden]{display:none}
 .backb .i{width:19px;height:19px}
+#sheetOk{margin-left:auto; color:var(--amber)}
+/* fila de la card de modelos: el lapiz edita los parametros del modelo */
+.mrow .pen{
+  position:absolute; right:12px; top:50%; display:flex; color:var(--dim);
+  transform:translateY(-50%); padding:4px; margin-right:-4px;
+}
+.mrow .pen:hover{color:var(--amber)}
+/* parametros del modelo: titulo pequeno y debajo el campo, estilo material */
+.mfield{padding:10px 14px 2px}
+.mfield label{display:block; font:500 11px/1 var(--sans);
+  letter-spacing:.06em; text-transform:uppercase; color:var(--faint); margin-bottom:7px}
+.mfield input{
+  width:100%; box-sizing:border-box; background:none; border:none;
+  border-bottom:1px solid var(--line); color:var(--ink);
+  font:400 16px/1.2 var(--sans); padding:4px 0 7px; outline:none;
+}
+.mfield input:focus{border-bottom-color:var(--amber)}
+.mfield input[readonly]{color:var(--dim); border-bottom-style:dashed}
 
 /* al entrar en una seccion el contenido llega desde la derecha,
    y al volver desde la izquierda */
@@ -1672,6 +1690,7 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
   <div class="sbar">
     <button class="backb" id="sheetBack" hidden aria-label="back"></button>
     <h2 id="sheetTitle"></h2>
+    <button class="backb" id="sheetOk" hidden aria-label="confirm"></button>
   </div>
   <div id="sheetBody"></div>
 </div></div>
@@ -1720,6 +1739,7 @@ const ICONS = {
   copy:"M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z",
   stats:"M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z",
   chip:"M15 9H9v6h6V9zm-2 4h-2v-2h2v2zm8-2V9h-2V7c0-1.1-.9-2-2-2h-2V3h-2v2h-2V3H9v2H7c-1.1 0-2 .9-2 2v2H3v2h2v2H3v2h2v2c0 1.1.9 2 2 2h2v2h2v-2h2v2h2v-2h2c1.1 0 2-.9 2-2v-2h2v-2h-2v-2h2zm-4 6H7V7h10v10z",
+  pen:"M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z",
   check:"M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z",
   lang:"M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z",
   close:"M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z",
@@ -3419,7 +3439,7 @@ function openModal(title, body, run, opts){
   const no = $("#modalNo"), ok = $("#modalOk");
   no.textContent = T("cancel");
   no.hidden = !run;                        // informativo: un solo boton
-  ok.textContent = T("ok");
+  ok.textContent = opts.ok || T("ok");
   ok.classList.toggle("danger", !!run && !opts.plain);
   modalCancel = opts.cancel || null;
   ok.onclick = run ? () => { modalCancel = null; closeModal(); run(); }
@@ -4632,6 +4652,10 @@ const STR = {
       secOne:"second", secMany:"seconds", minOne:"minute", minMany:"minutes",
       reasoning:"Reasoning",
       functions:"Functions", model:"Model", loadingModels:"loading models…",
+      editModel:"Edit model", contextWindow:"Context window", maxTokens:"Max tokens",
+      modelId:"Model ID", modalities:"Input", confirm:"Confirm",
+      confirmChanges:"Confirm changes?",
+      confirmBody:"This action modifies pi's <em>models.json</em> file.<br>The changes apply when pi remote restarts.",
       showThinking:"Show reasoning",
       suggest:"Response suggestions",
       stopsum:"Summary on agent stop",
@@ -4703,6 +4727,10 @@ const STR = {
       secOne:"segundo", secMany:"segundos", minOne:"minuto", minMany:"minutos",
       reasoning:"Razonamiento",
       functions:"Funciones", model:"Modelo", loadingModels:"cargando modelos…",
+      editModel:"Editar modelo", contextWindow:"Ventana de contexto", maxTokens:"Tokens máximos",
+      modelId:"ID del modelo", modalities:"Entrada", confirm:"Confirmar",
+      confirmChanges:"¿Confirmar cambios?",
+      confirmBody:"Esta acción modificará el fichero <em>models.json</em> de pi.<br>Los cambios se aplicarán al reiniciar pi remote.",
       showThinking:"Mostrar razonamiento",
       suggest:"Sugerencias de respuesta",
       stopsum:"Resumen al detener agente",
@@ -4773,6 +4801,10 @@ const STR = {
       secOne:"Sekunde", secMany:"Sekunden", minOne:"Minute", minMany:"Minuten",
       reasoning:"Gedankengang",
       functions:"Funktionen", model:"Modell", loadingModels:"Modelle werden geladen…",
+      editModel:"Modell bearbeiten", contextWindow:"Kontextfenster", maxTokens:"Max. Token",
+      modelId:"Modell-ID", modalities:"Eingabe", confirm:"Bestätigen",
+      confirmChanges:"Änderungen bestätigen?",
+      confirmBody:"Diese Aktion ändert die Datei <em>models.json</em> von pi.<br>Die Änderungen werden beim Neustart von pi remote wirksam.",
       showThinking:"Argumentation zeigen",
       suggest:"Antwortvorschl\u00e4ge",
       stopsum:"Zusammenfassung beim Stoppen des Agenten",
@@ -4842,6 +4874,10 @@ const STR = {
       secOne:"seconde", secMany:"secondes", minOne:"minute", minMany:"minutes",
       reasoning:"Raisonnement",
       functions:"Fonctions", model:"Modèle", loadingModels:"chargement des modèles…",
+      editModel:"Modifier le modèle", contextWindow:"Fenêtre de contexte", maxTokens:"Jeton max",
+      modelId:"ID du modèle", modalities:"Entrée", confirm:"Confirmer",
+      confirmChanges:"Confirmer les modifications ?",
+      confirmBody:"Cette action modifie le fichier <em>models.json</em> de pi.<br>Les modifications s'appliqueront au redémarrage de pi remote.",
       showThinking:"Afficher le raisonnement",
       suggest:"Suggestions de r\u00e9ponse",
       stopsum:"Résumé à l'arrêt de l'agent",
@@ -4911,6 +4947,10 @@ const STR = {
       secOne:"segundo", secMany:"segundos", minOne:"minuto", minMany:"minutos",
       reasoning:"Racioc\u00ednio",
       functions:"Fun\u00e7\u00f5es", model:"Modelo", loadingModels:"a carregar modelos\u2026",
+      editModel:"Editar modelo", contextWindow:"Janela de contexto", maxTokens:"Tokens máximos",
+      modelId:"ID do modelo", modalities:"Entrada", confirm:"Confirmar",
+      confirmChanges:"Confirmar alterações?",
+      confirmBody:"Esta ação modifica o ficheiro <em>models.json</em> do pi.<br>As alterações aplicar-se-ão ao reiniciar o pi remote.",
       showThinking:"Mostrar raciocínio",
       suggest:"Sugest\u00f5es de resposta",
       stopsum:"Resumo ao parar o agente",
@@ -4979,6 +5019,10 @@ const STR = {
       secOne:"秒", secMany:"秒", minOne:"分钟", minMany:"分钟",
       reasoning:"推理",
       functions:"功能", model:"模型", loadingModels:"正在加载模型…",
+      editModel:"编辑模型", contextWindow:"上下文窗口", maxTokens:"最大令牌数",
+      modelId:"模型 ID", modalities:"输入", confirm:"确认",
+      confirmChanges:"确认修改？",
+      confirmBody:"此操作将修改 pi 的 <em>models.json</em> 文件。<br>更改将在重启 pi remote 后生效。",
       showThinking:"显示推理",
       suggest:"回复建议",
       stopsum:"停止代理时摘要",
@@ -5732,6 +5776,7 @@ function sizeCard(body){
 /* el menu es un cuaderno de paginas: raiz, apariencia, idioma, modelo */
 let sheetPage = "root";
 let models = [];          // modelos disponibles, cacheados al pedirlos
+let editModel = null;     // el modelo que se esta editando en modelEdit
 function paintSheet(page){
   sheetPage = page;
   $("#sheet").classList.remove("forkmode");
@@ -5740,6 +5785,9 @@ function paintSheet(page){
   back.hidden = page === "root";
   if(!back.innerHTML) back.innerHTML = ico("back");
   back.onclick = () => turnTo("root", -1);
+  const okb = $("#sheetOk");
+  okb.hidden = true;                     // el check de confirmar, por pagina
+  if(!okb.innerHTML) okb.innerHTML = ico("check");
 
   const head = t => {
     const h = document.createElement("div");
@@ -5852,7 +5900,52 @@ function paintSheet(page){
     sizeCard(body);
     return;
   }
-  if(page === "language"){
+  if(page === "modelEdit"){
+    if(!editModel) return;
+    $("#sheetTitle").textContent = T("editModel");
+    const sub = document.createElement("div");
+    sub.className = "shead"; sub.textContent = editModel.name;
+    body.appendChild(sub);
+    const okb = $("#sheetOk");
+    // arrancan con los valores actuales: el check exige ambos validos y
+    // alguno distinto del original
+    const fields = {contextWindow: editModel.contextWindow,
+                    maxTokens: editModel.maxTokens};
+    const row = (key, value, readonly) => {
+      const f = document.createElement("div");
+      f.className = "mfield";
+      f.innerHTML = `<label>${esc(T(key))}</label>`;
+      const inp = document.createElement("input");
+      if(readonly){ inp.value = value; inp.readOnly = true; }
+      else{
+        inp.type = "number"; inp.min = "1"; inp.step = "1";
+        inp.value = value == null ? "" : value;
+        inp.addEventListener("input", () => {
+          const v = parseInt(inp.value, 10);
+          fields[key] = (isFinite(v) && v > 0) ? v : null;
+          // el check solo aparece con los dos campos validos y distintos
+          okb.hidden = !(fields.contextWindow && fields.maxTokens
+            && (fields.contextWindow !== editModel.contextWindow
+                || fields.maxTokens !== editModel.maxTokens));
+        });
+      }
+      f.appendChild(inp); body.appendChild(f);
+    };
+    row("contextWindow", editModel.contextWindow);
+    row("maxTokens", editModel.maxTokens);
+    row("modelId", editModel.id, true);
+    row("modalities", (editModel.input || []).join(", "), true);
+    okb.onclick = () => openModal(
+      T("confirmChanges"),
+      `<p>${T("confirmBody")}</p>`,
+      () => send({type:"save_model_params", provider:editModel.provider,
+                  modelId:editModel.id,
+                  contextWindow:fields.contextWindow,
+                  maxTokens:fields.maxTokens}),
+      {ok: T("confirm")});
+    return;
+  }
+  if(page === "language"){ 
     $("#sheetTitle").textContent = T("language");
     LANGS.forEach(l => body.appendChild(pickBtn({
       icon: l === lang() ? "check" : null, label: LANG_NAME[l],
@@ -5875,7 +5968,15 @@ function paintSheet(page){
       b.innerHTML = `<span class="chkslot">${ico("check")}</span>`
         + `<span class="txt">` + mqSpan("span", m.name || m.id)
         + (m.contextWindow ? mqSpan("small", kilo(m.contextWindow) + " ctx") : "")
-        + `</span>`;
+        + `</span>`
+        + `<span class="pen" role="button" aria-label="${esc(T("editModel"))}">` + ico("pen") + `</span>`;
+      b.querySelector(".pen").onclick = e => {
+        e.stopPropagation();
+        editModel = {provider:m.provider, id:m.id, name:m.name || m.id,
+                     contextWindow:m.contextWindow, maxTokens:m.maxTokens,
+                     input:m.input};
+        turnTo("modelEdit", 1);
+      };
       b.onclick = () => {
         if(b.classList.contains("sel")) return;   // ya elegido
         send({type:"set_model", provider:m.provider, modelId:m.id});
@@ -6235,6 +6336,13 @@ async function browse(path){
 
 function onRpc(m){
   const d = m.data || {};
+  if(m.command === "save_model_params"){
+    if(d && d.error) return note(d.error);
+    // el fichero ya esta escrito: refrescar la lista y volver a la card
+    send({type:"get_available_models"});
+    turnTo("model", -1);
+    return;
+  }
   if(m.command === "get_available_models"){
     models = d.models || [];
     // la card de ajustes (pagina "model") repinta con la lista; el comando

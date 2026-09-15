@@ -383,7 +383,8 @@ crash left over from last night costs nothing at log on.
 The settings menu has a **Functions** page: optional switches that enrich the
 app, each remembered per browser. A **Model** card on the settings root picks
 the active model; the choice is remembered and reapplied to every new
-session.
+session. The pencil on each row edits its parameters (context window and max
+tokens) in pi's `models.json`, applied on the next restart.
 
 - **Auto-name sessions** (experimental): on the first prompt of an unnamed
   session the local model is asked for a short title in the app's language.
@@ -451,7 +452,7 @@ python tests/run.py            # everything, about four minutes
 python tests/run.py rail       # just the ones matching "rail"
 ```
 
-Forty-six probes: the page is driven in a real headless Chrome through the
+Forty-seven probes: the page is driven in a real headless Chrome through the
 DevTools protocol, which is how the animation, contrast, layout and security
 checks are measured rather than assumed. Chrome or Edge is found
 automatically; point `CHROME` at it otherwise.
