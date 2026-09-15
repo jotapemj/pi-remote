@@ -388,7 +388,6 @@ session.
 - **Auto-name sessions** (experimental): on the first prompt of an unnamed
   session the local model is asked for a short title in the app's language.
   One attempt per session; on failure the session stays "Untitled".
-
 - **Show reasoning**: the agent's thinking as a collapsible "Thought for N
   seconds" block, closed by default.
 - **Response suggestions**: after each turn the model offers three likely
@@ -452,7 +451,7 @@ python tests/run.py            # everything, about four minutes
 python tests/run.py rail       # just the ones matching "rail"
 ```
 
-Forty-five probes: the page is driven in a real headless Chrome through the
+Forty-six probes: the page is driven in a real headless Chrome through the
 DevTools protocol, which is how the animation, contrast, layout and security
 checks are measured rather than assumed. Chrome or Edge is found
 automatically; point `CHROME` at it otherwise.
