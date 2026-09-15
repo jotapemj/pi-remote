@@ -768,7 +768,10 @@ def autoname_title(text, lang, provider, model_id):
         return None
     payload = json.dumps({
         "model": model_id,
-        "max_tokens": 24,
+        "max_tokens": 64,
+        # un Qwen3 con thinking se come el presupuesto en reasoning y devuelve
+        # content vacio (fin length): sin pensar, el titulo sale en pocos tokens
+        "chat_template_kwargs": {"enable_thinking": False},
         "messages": [{"role": "user", "content":
                       "Reply with a short title (at most six words) in %s for "
                       "this conversation. First user message:\n%s"
