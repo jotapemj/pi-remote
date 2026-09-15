@@ -378,28 +378,30 @@ reconnects on its own. On Windows, `pi_restart.py --ensure` is the idempotent
 twin: point a startup shortcut at it instead of the bridge directly, and a
 crash left over from last night costs nothing at log on.
 
-## Functions
+## Settings and Functions
 
-The settings menu has a **Functions** page: optional switches that enrich the
-app, each remembered per browser.
+The settings menu has a **Model** card on its root and a **Functions** page
+of optional switches, each remembered per browser.
 
-- **Model**: pick the active model from the settings root; the choice is
-  remembered for every new session. The pencil on each row edits its context
-  window and max tokens (applied on the next restart).
-- **Auto-name sessions** (experimental): on the first prompt of an unnamed
-  session the local model is asked for a short title in the app's language.
-  One attempt per session; on failure the session stays "Untitled".
-- **Show reasoning**: the agent's thinking as a collapsible "Thought for N
-  seconds" block, closed by default.
-- **Response suggestions**: after each turn the model offers three likely
-  replies as plain lines under its answer; a tap sends one. It appends a hidden
-  instruction to every prompt, at a small context cost.
-- **Summary on agent stop**: stopping a working turn asks the agent, in the
-  background, for one line on what it was doing instead of just killing it.
-- **Notifications**: a local notification, with the last reply as its body,
-  when a turn ends while the tab is hidden. The browser's own; no third parties.
-- **Smooth generation**: streamed text fades in left to right; turned off, it
-  lands all at once.
+- **Model** (settings root): pick the active model; the choice is remembered
+  for every new session. The pencil on each row edits its context window and
+  max tokens (applied on the next restart).
+- **Functions** page:
+  - **Auto-name sessions** (experimental): on the first prompt of an unnamed
+    session the local model is asked for a short title in the app's language.
+    One attempt per session; on failure the session stays "Untitled".
+  - **Show reasoning**: the agent's thinking as a collapsible "Thought for N
+    seconds" block, closed by default.
+  - **Response suggestions**: after each turn the model offers three likely
+    replies as plain lines under its answer; a tap sends one. It appends a
+    hidden instruction to every prompt, at a small context cost.
+  - **Summary on agent stop**: stopping a working turn asks the agent, in the
+    background, for one line on what it was doing instead of just killing it.
+  - **Notifications**: a local notification, with the last reply as its body,
+    when a turn ends while the tab is hidden. The browser's own; no third
+    parties.
+  - **Smooth generation**: streamed text fades in left to right; turned off,
+    it lands all at once.
 
 <p align="center">
   <img src="docs/functions.png" width="300"
