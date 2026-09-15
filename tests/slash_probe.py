@@ -138,6 +138,62 @@ async def main():
             slash = await js("$('#palette').classList.contains('open')")
             checks.append(("teclear '/' abre la paleta", slash is True))
 
+            # el boton de enviar: un '/' lo convierte en un check ambar, sea o no
+            # que el agente este trabajando; enviarlo no debe bloquearse
+            await js("try{if(ws)ws.onmessage=null;}catch(e){}")
+            await js("state={running:false,waiting:false,alive:true,cwd:'C:/x',"
+                     "sessionName:'s',model:'m',thinking:'x',context:null,"
+                     "queue:{steering:[],followUp:[]},recent:[]}; CWD='C:/x'; paint()")
+            await js("box.value='/name foo'; box.dispatchEvent(new Event('input'))")
+            await asyncio.sleep(0.1)
+            conf = await js("[$('#send').classList.contains('confirm'),"
+                            " Number(getComputedStyle($('#send .chk')).opacity),"
+                            " Number(getComputedStyle($('#send .halt')).opacity)]")
+            print("  send con '/': confirm=%s ok=%s halt=%s" % tuple(conf))
+            checks.append(("un '/' pone el boton de enviar en modo check",
+                           conf[0] is True and conf[1] == 1 and conf[2] == 0))
+
+            # el boton sigue redondo como la flecha: el icono no debe heredar el
+            # fondo/padding del boton global .ok (colision de clase -> cuadrado)
+            shape = await js("[getComputedStyle($('#send')).borderRadius,"
+                             " getComputedStyle($('#send .chk')).backgroundColor,"
+                             " getComputedStyle($('#send .chk')).padding]")
+            print("  forma check: br=%s bg=%s pad=%s" % tuple(shape))
+            checks.append(("el boton de check es redondo, sin fondo/padding heredado",
+                           shape[0] == "50%"
+                           and "rgba(0, 0, 0, 0)" in shape[1]
+                           and shape[2] in ("0px", "")))
+
+            # con el agente ocupado el check gana al cuadrado de parar
+            await js("state.running=true; paint()")
+            await asyncio.sleep(0.05)
+            busyc = await js("[$('#send').classList.contains('confirm'),"
+                             " Number(getComputedStyle($('#send .chk')).opacity)]")
+            print("  send '/' con agente ocupado: confirm=%s ok=%s" % tuple(busyc))
+            checks.append(("con el agente ocupado el '/' sigue mandando",
+                           busyc[0] is True and busyc[1] == 1))
+
+            # al pulsar, envia el comando (runLine) y no aborta el turno
+            await js("window.__lines=[]; window.__sent=[]; window.__rl=runLine;"
+                     " runLine=t=>{window.__lines.push(t); box.value='';};"
+                     " ws.send=s=>window.__sent.push(JSON.parse(s));"
+                     " $('#send').click()")
+            await asyncio.sleep(0.05)
+            click = await js("[window.__lines[0]||null,"
+                             " !!window.__sent.find(x=>x.type==='abort')]")
+            print("  click con '/': linea=%r abort=%s" % tuple(click))
+            checks.append(("pulsar el check envia el comando y no aborta",
+                           click[0] == "/name foo" and click[1] is False))
+
+            # quitar el '/' revierte a enviar/parar
+            await js("runLine=window.__rl; state.running=false; box.value='';"
+                     " box.dispatchEvent(new Event('input')); paint()")
+            await asyncio.sleep(0.05)
+            gone = await js("$('#send').classList.contains('confirm')")
+            checks.append(("quitar el '/' revierte el boton", gone is False))
+
+
+
             checks.append(("sin errores de consola", not p.problems))
     return checks
 

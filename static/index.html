@@ -1013,16 +1013,19 @@ footer > *{position:relative; z-index:1}
 }
 /* aparece con el texto y al trabajar; si no, se esconde en la caja */
 .field.typing .send, .field.busy .send, .field.hasimg .send,
-.send.sending, .send.halting, .send.summing{
+.send.sending, .send.halting, .send.summing, .send.confirm{
   opacity:1; transform:translateY(-50%); pointer-events:auto;
 }
 /* enviar y parar comparten sitio y se cruzan con un fundido */
 .send .ic{
   grid-area:1/1; display:flex; transition:opacity .18s ease;
 }
-.send .halt,.send .wait{opacity:0}
+.send .halt,.send .wait,.send .chk{opacity:0}
 .send.halting .go{opacity:0}
 .send.halting .halt{opacity:1}
+/* comando slash: mande o no el agente, el boton es un check ambar para enviarlo */
+.send.confirm .go,.send.confirm .halt,.send.confirm .wait{opacity:0}
+.send.confirm .chk{opacity:1}
 /* esperando el resumen al parar: mismo fondo apagado, aro en vez de cuadrado */
 .send.summing .go,.send.summing .halt{opacity:0}
 .send.summing .wait{opacity:1}
@@ -1044,7 +1047,10 @@ footer > *{position:relative; z-index:1}
   background:var(--raise); color:var(--ink);
   box-shadow:inset 0 0 0 1px var(--dim);
 }
+/* el check gana al gris del stop aunque el agente este trabajando */
+.send.confirm{ background:var(--amber); color:var(--on-amber); box-shadow:none; }
 .send.halting .halt svg{width:18px;height:18px}
+.send.confirm .chk svg{width:18px;height:18px}
 .send .i{width:18px;height:18px}
 .send:disabled{background:var(--rule);color:var(--faint);cursor:default}
 
@@ -1600,7 +1606,7 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
       <div id="box" class="ce-blank" contenteditable="true" role="textbox"
            aria-multiline="true" data-ph=""></div>
       <div class="scrollind" id="scrollInd"></div>
-      <button class="send" id="send" aria-label="send"><span class="ic go"></span><span class="ic halt"></span><span class="ic wait"><span class="sspin"></span></span></button>
+      <button class="send" id="send" aria-label="send"><span class="ic go"></span><span class="ic halt"></span><span class="ic chk"></span><span class="ic wait"><span class="sspin"></span></span></button>
       <div class="plusmenu" id="plusMenu" hidden>
         <button class="pmi" data-act="commands"><span class="pmi-ic" data-ic="terminal"></span><span data-t="commands"></span></button>
         <button class="pmi" data-act="image"><span class="pmi-ic" data-ic="image"></span><span data-t="image"></span></button>
@@ -2909,6 +2915,7 @@ function paint(){
   // el aro del resumen lo manda el puente: vive desde el abort hasta que
   // llega el resumen, cruzando el hueco en que el agente no esta ocupado
   $("#send").classList.toggle("summing", !!state.summarizing);
+  confirmToggle();   // un slash en la caja manda, ocupado o no el agente
   $("#field").classList.toggle("busy", busy);
   if(busy) stopSending();
   if(busy && !tick) tick = setInterval(secs, 1000);
@@ -3315,6 +3322,7 @@ $("#menuBtn").innerHTML = ico("settings");
 $("#addBtn").insertAdjacentHTML("afterbegin", ico("add"));
 $("#send").querySelector(".go").innerHTML = ico("up");
 $("#send").querySelector(".halt").innerHTML = ico("halt");
+$("#send").querySelector(".chk").innerHTML = ico("check");
 $("#godown").innerHTML = ico("up");
 /* ---------- la columna de proyectos, en pantalla ancha ----------
    En estrecho la barra sigue siendo un cajon: aqui es una columna del
@@ -4050,6 +4058,12 @@ function slashToggle(){
   const empty = readBox().length === 0 && !box.querySelector(".chip");
   box.classList.toggle("ce-blank", empty);
   $("#field").classList.toggle("typing", !empty);
+  confirmToggle();
+}
+// un comando slash (/name, /clear...) es independiente del agente: el boton
+// de enviar pasa a un check ambar para mandarlo, este o no ocupado el turno
+function confirmToggle(){
+  $("#send").classList.toggle("confirm", box.value.trim().startsWith("/"));
 }
 box.addEventListener("input", ()=>{ paintPalette(); slashToggle(); applyPh(); });
 // con el prompt mas largo que el campo, el arrastre vertical scrollea el
@@ -4512,6 +4526,8 @@ box.addEventListener("keydown", e=>{
   }
 });
 $("#send").onclick = () => {
+  // comando slash pendiente: enviarlo, aunque el agente este trabajando
+  if($("#send").classList.contains("confirm")) return submit();
   if($("#send").classList.contains("halting")){
     // resumen al parar: si esta activo y el agente trabaja, pide el resumen;
     // el puente aborta e informa con state.summarizing, y el boton queda en aro
