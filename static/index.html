@@ -1097,6 +1097,18 @@ footer > *{position:relative; z-index:1}
 }
 #sheetBody.to-left{transform:translateX(-26px);opacity:0}
 #sheetBody.to-right{transform:translateX(26px);opacity:0}
+/* modo fork: la pill y el titulo quietos arriba; la lista scrollea con un fade
+   en el borde superior para que las cards no se corten de golpe */
+.sheet.forkmode .card{
+  overflow:hidden; display:flex; flex-direction:column; padding-bottom:0;
+}
+.sheet.forkmode .grab, .sheet.forkmode .sbar{flex:none}
+.sheet.forkmode #sheetBody{
+  flex:1; min-height:0; overflow-y:auto;
+  padding-bottom:calc(18px + env(safe-area-inset-bottom));
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 22px);
+  mask-image:linear-gradient(to bottom, transparent 0, #000 22px);
+}
 .pick{
   display:flex; align-items:center; gap:11px; width:100%; text-align:left;
   background:var(--raise); border:1px solid var(--rule);
@@ -5656,6 +5668,7 @@ function sizeCard(body){
 let sheetPage = "root";
 function paintSheet(page){
   sheetPage = page;
+  $("#sheet").classList.remove("forkmode");
   const body = $("#sheetBody"), back = $("#sheetBack");
   body.innerHTML = "";
   back.hidden = page === "root";
@@ -6014,6 +6027,7 @@ function pickBtn(o){
   return b;
 }
 function sheet(title, rows){
+  $("#sheet").classList.remove("forkmode");
   $("#sheetTitle").textContent = title;
   const body = $("#sheetBody"); body.innerHTML = "";
   rows.forEach(r=>{
@@ -6057,6 +6071,7 @@ async function loadSessions(){
 
 /* ---------- folder picker: one tap walks in, button picks ---------- */
 async function browse(path){
+  $("#sheet").classList.remove("forkmode");
   const u = "/api/browse?token=" + encodeURIComponent(TOKEN) +
             (path ? "&path=" + encodeURIComponent(path) : "");
   let d;
@@ -6161,9 +6176,9 @@ function forkPicker(msgs){
     list.appendChild(p);
   }
   body.appendChild(list);
-  $("#sheet").classList.add("open");
-  const card = $("#sheet .card");
-  setTimeout(() => { card.scrollTop = card.scrollHeight; }, 60);
+  // modo fork: pill y titulo fijos arriba, la lista scrollea con fade arriba
+  $("#sheet").classList.add("open", "forkmode");
+  setTimeout(() => { body.scrollTop = body.scrollHeight; }, 60);
 }
 
 /* Confirmar el fork: titulo, el mensaje en un cuerpo scrolleable (para no
