@@ -1103,17 +1103,30 @@ footer > *{position:relative; z-index:1}
   transform:translateY(-50%); padding:4px; margin-right:-4px;
 }
 .mrow .pen:hover{color:var(--amber)}
-/* parametros del modelo: titulo pequeno y debajo el campo, estilo material */
-.mfield{padding:10px 14px 2px}
-.mfield label{display:block; font:500 11px/1 var(--sans);
-  letter-spacing:.06em; text-transform:uppercase; color:var(--faint); margin-bottom:7px}
+/* parametros del modelo: campo outlined material. El label vive dentro
+   como placeholder y, al enfocar o tener valor, flota pequeno sobre el
+   borde (cortandolo con el fondo de la card) en color acento */
+.mfield{position:relative; margin:14px 2px 0}
 .mfield input{
-  width:100%; box-sizing:border-box; background:none; border:none;
-  border-bottom:1px solid var(--line); color:var(--ink);
-  font:400 16px/1.2 var(--sans); padding:4px 0 7px; outline:none;
+  width:100%; box-sizing:border-box; background:none;
+  border:1px solid var(--rule); border-radius:8px; color:var(--ink);
+  font:400 16px/1.2 var(--sans); padding:13px 14px; outline:none;
 }
-.mfield input:focus{border-bottom-color:var(--amber)}
-.mfield input[readonly]{color:var(--dim); border-bottom-style:dashed}
+.mfield input:focus{border-color:var(--amber)}
+.mfield label{
+  position:absolute; left:14px; top:50%; transform:translateY(-50%);
+  font:400 16px/1 var(--sans); color:var(--faint); pointer-events:none;
+  transition:all .15s ease; padding:0 2px;
+}
+.mfield input:focus + label,
+.mfield input:not(:placeholder-shown) + label{
+  top:0; left:10px; transform:none; font-size:11px; font-weight:500;
+  letter-spacing:.06em; text-transform:uppercase; color:var(--amber);
+  background:var(--surface); padding:0 4px;
+}
+.mfield input[readonly]{color:var(--dim)}
+.mfield input[readonly]:focus{border-color:var(--rule)}
+.mfield input[readonly] + label{color:var(--dim)}
 
 /* al entrar en una seccion el contenido llega desde la derecha,
    y al volver desde la izquierda */
@@ -5914,8 +5927,8 @@ function paintSheet(page){
     const row = (key, value, readonly) => {
       const f = document.createElement("div");
       f.className = "mfield";
-      f.innerHTML = `<label>${esc(T(key))}</label>`;
       const inp = document.createElement("input");
+      inp.placeholder = " ";                // el label flota con :placeholder-shown
       if(readonly){ inp.value = value; inp.readOnly = true; }
       else{
         inp.type = "number"; inp.min = "1"; inp.step = "1";
@@ -5929,7 +5942,9 @@ function paintSheet(page){
                 || fields.maxTokens !== editModel.maxTokens));
         });
       }
-      f.appendChild(inp); body.appendChild(f);
+      const lbl = document.createElement("label");
+      lbl.textContent = T(key);
+      f.append(inp, lbl); body.appendChild(f);
     };
     row("contextWindow", editModel.contextWindow);
     row("maxTokens", editModel.maxTokens);
