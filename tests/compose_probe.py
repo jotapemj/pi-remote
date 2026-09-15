@@ -212,6 +212,18 @@ async def main():
                 ("en una sesion nueva se esconde de nuevo", barGone is True),
             ]
 
+            # abrir un dialogo con el teclado abierto lo cierra (blur del
+            # compositor), o el modal centrado saldria desplazado (/restart)
+            await js("box.focus()")
+            focused = await js("document.activeElement === box")
+            await js("confirmModal('x', '', ()=>{})")
+            blurred = await js("document.activeElement !== box")
+            await js("closeModal()")
+            print("  dialogo: foco antes=%s -> tras abrir=%s"
+                   % (focused, not blurred))
+            checks.append(("abrir un dialogo cierra el teclado (blur del compositor)",
+                           focused is True and blurred is True))
+
             return report(checks)
 
 raise SystemExit(asyncio.run(main()))

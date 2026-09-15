@@ -3408,6 +3408,11 @@ $("#addBtn").onclick = () => { closeRail(); browse(""); };
 let modalCancel = null;   // callback si el modal se cierra sin aceptar
 function openModal(title, body, run, opts){
   opts = opts || {};
+  // cerrar el teclado movil: con el abierto, el dialogo centrado queda
+  // desplazado (p.ej. al lanzar /restart desde la paleta)
+  const ae = document.activeElement;
+  if(ae && (ae.isContentEditable || /^(INPUT|TEXTAREA)$/.test(ae.tagName)))
+    ae.blur();
   $("#modalTitle").textContent = title;
   $("#modalBody").innerHTML = body;
   const no = $("#modalNo"), ok = $("#modalOk");
