@@ -92,6 +92,9 @@ the fonts, all served locally so the page never calls out to anyone.
 | `PI_CMD` | auto-detected | path to the pi executable |
 | `PI_RESUME` | `new` | `continue` picks up the latest session here |
 | `PI_SESSION` | none | sessions start unnamed; set to name fresh ones |
+| `PI_AGENT_DIR` | `~/.pi/agent` | agent directory, for auto-naming (reads `models.json`) |
+| `PI_AUTONAME_TIMEOUT` | `8` | seconds to wait on the local model when naming a session |
+| `PI_MODELS_JSON` | none | explicit path to `models.json`, overriding `PI_AGENT_DIR` |
 | `PI_WEB_HOST` | `0.0.0.0` | bind address |
 | `PI_WEB_PORT` | `8770` | port |
 | `PI_WEB_TOKEN` | generated | shared secret, appended as `?token=`. `off` drops the bridge to read only |
@@ -381,6 +384,10 @@ The settings menu has a **Functions** page: optional switches that enrich the
 app, each remembered per browser. A **Model** card on the settings root picks
 the active model; the choice is remembered and reapplied to every new
 session.
+
+- **Auto-name sessions** (experimental): on the first prompt of an unnamed
+  session the local model is asked for a short title in the app's language.
+  One attempt per session; on failure the session stays "Untitled".
 
 - **Show reasoning**: the agent's thinking as a collapsible "Thought for N
   seconds" block, closed by default.

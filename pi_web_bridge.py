@@ -34,6 +34,7 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.request
 from collections import OrderedDict, deque
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -47,6 +48,9 @@ RESUME = os.environ.get("PI_RESUME", "new")
 # antes se imponia "web" a cada sesion; ahora arrancan sin nombre y el cliente
 # pinta "Untitled session" como mascara hasta que llega el titulo (auto o /name)
 SESSION_NAME = os.environ.get("PI_SESSION")
+# auto-nombre: directorio del agente (para leer models.json) y tope de espera
+AGENT_DIR = Path(os.environ.get("PI_AGENT_DIR") or (Path.home() / ".pi" / "agent"))
+AUTONAME_TIMEOUT = float(os.environ.get("PI_AUTONAME_TIMEOUT", "8"))
 HOST = os.environ.get("PI_WEB_HOST", "0.0.0.0")
 PORT = int(os.environ.get("PI_WEB_PORT", "8770"))
 # Un puente sin secreto deja ejecutar a cualquiera que alcance el puerto,
@@ -699,26 +703,90 @@ def persist(cwd, session):
 
 
 def read_default_model():
-    """El modelo por defecto que fijo el usuario (estado del puente)."""
-    try:
-        d = json.loads(STATE_FILE.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-    m = d.get("defaultModel")
-    if not isinstance(m, dict) or not m.get("id"):
-        return None
-    return {"provider": m.get("provider"), "id": m["id"]}
+    """El modelo por defecto que eligio el usuario, si lo hay.
+
+    pi resuelve su propio default al arrancar cada sesion; esto guarda el del
+    usuario para imponerlo en cada pi nuevo (sobrevive a reinicios y cambios
+    de proyecto). Guardado como {provider, id}."""
+    m = read_state().get("model")
+    if isinstance(m, dict) and m.get("provider") and m.get("id"):
+        return {"provider": m["provider"], "id": m["id"]}
+    return None
 
 
 def save_default_model(provider, mid):
-    """Fijar el modelo por defecto del usuario (merge: no pisa lo demas)."""
-    d = {}
+    d = read_state()
+    d["model"] = {"provider": provider, "id": mid}
     try:
-        d = json.loads(STATE_FILE.read_text(encoding="utf-8"))
-    except Exception:
-        pass
-    d["defaultModel"] = {"provider": provider, "id": mid}
-    STATE_FILE.write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
+        with open(STATE_FILE, "w", encoding="utf-8") as fh:
+            json.dump(d, fh, indent=1)
+    except OSError as exc:
+        print("state:", exc, file=sys.stderr)
+
+
+def read_models_json():
+    """El catalogo de modelos de pi, para sacar el endpoint del provider."""
+    p = Path(os.environ.get("PI_MODELS_JSON") or (AGENT_DIR / "models.json"))
+    try:
+        with open(p, encoding="utf-8") as fh:
+            d = json.load(fh)
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def model_endpoint(provider):
+    """baseUrl y apiKey del provider actual, para la peticion del titulo."""
+    p = (read_models_json().get("providers") or {}).get(provider) or {}
+    return p.get("baseUrl"), p.get("apiKey")
+
+
+def clean_title(raw):
+    """Un modelo pequeno mete comillas, un 'Title:' o varias lineas. Nos
+    quedamos con la primera linea limpia, con tope de largo."""
+    t = (raw or "").strip()
+    if not t:
+        return None
+    t = t.splitlines()[0]
+    t = re.sub(r'^["\'\s]*(?:title\s*[:\-]\s*)?', "", t, flags=re.I)
+    t = t.strip().strip('"').strip("'").rstrip(".").strip()
+    return t[:60] or None
+
+
+LANG_NAMES = {"en": "English", "es": "Spanish", "de": "German",
+              "fr": "French", "pt": "Portuguese", "zh": "Chinese"}
+
+
+def autoname_title(text, lang, provider, model_id):
+    """Pide al modelo local un titulo corto. None si no responde a tiempo.
+
+    La instruccion va en ingles (los modelos pequenos la entienden mejor);
+    el titulo se pide en el idioma elegido. Un solo intento: si falla, la
+    sesion queda sin nombre y la mascara del cliente lo pinta."""
+    base, key = model_endpoint(provider)
+    if not base or not model_id:
+        return None
+    payload = json.dumps({
+        "model": model_id,
+        "max_tokens": 24,
+        "messages": [{"role": "user", "content":
+                      "Reply with a short title (at most six words) in %s for "
+                      "this conversation. First user message:\n%s"
+                      % (LANG_NAMES.get(lang, "English"), text[:300])}]},
+    ).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
+    if key:
+        headers["Authorization"] = "Bearer " + key
+    try:
+        with urllib.request.urlopen(
+                urllib.request.Request(base.rstrip("/") + "/chat/completions",
+                                       data=payload, headers=headers),
+                timeout=AUTONAME_TIMEOUT) as r:
+            d = json.loads(r.read().decode("utf-8", "replace"))
+        raw = d["choices"][0]["message"]["content"]
+    except (OSError, ValueError, KeyError, IndexError):
+        return None
+    return clean_title(raw)
 
 
 def last_session(cwd):
@@ -773,6 +841,7 @@ class Bridge:
             # como servicio nadie lee la consola: el aviso va a la pantalla
             "readOnly": READ_ONLY, "tokenMade": TOKEN_MADE, "version": VERSION,
         }
+        self.autoname_done = False           # un solo intento por sesion
         self.pending = OrderedDict()         # dialog id -> item id
         self.compacting = None               # la nota "compactando" en curso
         self.prefill_t0 = None               # cuando arranco el prefill actual
@@ -1237,6 +1306,14 @@ class Bridge:
         self.send_pi({"type": "set_model", "provider": want["provider"],
                       "modelId": want["id"]})
 
+    def _autoname_then_send(self, text, lang, cmd):
+        t = autoname_title(text, lang,
+                           self.state.get("modelProvider"),
+                           self.state.get("modelId"))
+        if t:
+            self.send_pi({"type": "set_session_name", "name": t})
+        self.send_pi(cmd)
+
     def on_response(self, ev):
         cmd, data = ev.get("command"), ev.get("data") or {}
 
@@ -1274,6 +1351,7 @@ class Bridge:
 
         elif cmd in ("switch_session", "new_session"):
             if not data.get("cancelled"):
+                self.autoname_done = False   # sesion nueva: puede autonombrarse
                 self.log.clear()
                 self.cur = None
                 self.emit({"type": "cleared"})
@@ -1345,10 +1423,9 @@ class Bridge:
             self.state["model"] = data.get("name")
             self.state["modelId"] = data.get("id")
             self.state["modelProvider"] = data.get("provider")
-            # si el usuario eligio este modelo desde la app, queda como su
-            # default: se re-impondra en cada sesion nueva (apply_default_model)
-            if data.get("id"):
-                save_default_model(data.get("provider"), data.get("id"))
+            # elegir modelo = fijar el default para las sesiones nuevas
+            if data.get("provider") and data.get("id"):
+                save_default_model(data["provider"], data["id"])
             self.push_state()
 
         elif cmd == "set_thinking_level":
@@ -1532,6 +1609,16 @@ class Bridge:
                 cmd["images"] = images       # pi acepta images en el prompt
             if self.state["running"]:
                 cmd["streamingBehavior"] = msg.get("behavior", "followUp")
+            # autonombre: primer prompt de una sesion sin nombre, al modelo
+            # local. Un solo intento; si falla, la mascara lo pinta. En un
+            # hilo: el urlopen bloquearia el loop de asyncio hasta 8 s.
+            if (msg.get("autoname") and text and not self.autoname_done
+                    and not self.state.get("sessionName")):
+                self.autoname_done = True
+                threading.Thread(target=self._autoname_then_send,
+                                 args=(text, msg.get("lang"), cmd),
+                                 daemon=True).start()
+                return
             self.send_pi(cmd)
             return
 

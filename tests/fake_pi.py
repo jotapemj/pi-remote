@@ -418,6 +418,15 @@ for line in sys.stdin:
             out({"type": "response", "command": "set_model", "success": False,
                  "error": "Model not found: %s/%s"
                           % (cmd.get("provider"), cmd.get("modelId"))})
+    elif t == "set_session_name":
+        STATE["sessionName"] = cmd.get("name")
+        out({"type": "response", "command": "set_session_name",
+             "success": True})
+    elif t == "new_session":
+        # una sesion nueva nace sin nombre (el puente la autonombra o no)
+        STATE["sessionName"] = None
+        out({"type": "response", "command": "new_session", "success": True,
+             "data": {}})
     elif t == "abort":
         ABORT.set()
         out({"type": "response", "command": "abort", "success": True})

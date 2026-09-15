@@ -556,6 +556,7 @@ main{flex:1; overflow-y:auto; padding:16px var(--gut) 8px; position:relative;
 .frow{display:flex; align-items:center; gap:14px; padding:14px 16px}
 .ftext{flex:1; min-width:0}
 .flbl{font:600 14px/1.3 var(--sans); color:var(--ink)}
+.flbl small{font:400 12px/1 var(--sans); color:var(--faint)}
 .sw{
   width:44px; height:26px; border-radius:999px; flex:none;
   background:var(--rule); border:none; padding:0; cursor:pointer;
@@ -3965,6 +3966,12 @@ let stopsum = (() => {
   try { return localStorage.getItem("pi.stopsum") === "1"; }
   catch(e){ return false; }
 })();
+/* Autonombre: el primer prompt de una sesion nueva pide al modelo local un
+   nombre (el puente hace la peticion). Experimental: si falla, la mascara. */
+let autoname = (() => {
+  try { return localStorage.getItem("pi.autoname") === "1"; }
+  catch(e){ return false; }
+})();
 function setStopsum(on){
   stopsum = !!on;
   try { localStorage.setItem("pi.stopsum", on ? "1" : "0"); } catch(e){}
@@ -4566,6 +4573,8 @@ function submit(){
   const cmd = {type:"prompt", message:text};
   if(imgs.length) cmd.images = imgs;
   if(suggest) cmd.suggest = true;      // el puente inyecta la instruccion oculta
+  if(autoname) cmd.autoname = true;    // el puente pide el nombre al modelo
+  cmd.lang = lang();                   // el titulo, en el idioma activo
   send(cmd);
   $("#send").classList.add("sending");
   clearTimeout(sendTimer);
@@ -4635,6 +4644,8 @@ const STR = {
       notifBlocked:"Notifications are blocked. Enable them for this site in the browser settings.",
       notifUnsupported:"This browser doesn't support notifications. On iOS, install the app to the home screen first.",
       movement:"Smooth generation",
+      autoname:"Auto-name sessions", experimental:"Experimental",
+      autonameWarn:"This feature asks your local model for a session name. This is an experimental feature and may fail.",
       untitled:"Untitled session",
       motion_fade:"Fade", motion_instant:"Instant", image:"Image",
       output:"output", noOutput:"no output", command:"command",
@@ -4704,6 +4715,8 @@ const STR = {
       notifBlocked:"Notificaciones bloqueadas. Actívalas para este sitio en los ajustes del navegador.",
       notifUnsupported:"Este navegador no soporta notificaciones. En iOS, instala antes la app en la pantalla de inicio.",
       movement:"Generación suave",
+      autoname:"Nombres de sesión automáticos", experimental:"Experimental",
+      autonameWarn:"Esta función pide al modelo local un nombre de sesión. Es una función experimental y puede fallar.",
       untitled:"Sesión sin título",
       motion_fade:"Fundido", motion_instant:"Directo", image:"Imagen",
       ranN:"Ejecutados {n} comandos", ranNShown:"{n} comandos",
@@ -4772,6 +4785,8 @@ const STR = {
       notifBlocked:"Benachrichtigungen sind blockiert. Aktiviere sie f\u00fcr diese Seite in den Browsereinstellungen.",
       notifUnsupported:"Dieser Browser unterst\u00fctzt keine Benachrichtigungen. Auf iOS zuerst die App zum Startbildschirm hinzuf\u00fcgen.",
       movement:"Sanfte Generierung",
+      autoname:"Sitzungen automatisch benennen", experimental:"Experimentell",
+      autonameWarn:"Diese Funktion bittet das lokale Modell um einen Sitzungsnamen. Dies ist eine experimentelle Funktion und kann fehlschlagen.",
       untitled:"Unbenannte Sitzung",
       motion_fade:"Einblenden", motion_instant:"Sofort", image:"Bild",
       ranN:"{n} Befehle ausgef\u00fchrt", ranNShown:"{n} Befehle",
@@ -4839,6 +4854,8 @@ const STR = {
       notifBlocked:"Notifications bloqu\u00e9es. Active-les pour ce site dans les r\u00e9glages du navigateur.",
       notifUnsupported:"Ce navigateur ne g\u00e8re pas les notifications. Sur iOS, installe d'abord l'app sur l'\u00e9cran d'accueil.",
       movement:"Génération fluide",
+      autoname:"Noms de session automatiques", experimental:"Expérimental",
+      autonameWarn:"Cette fonction demande au modèle local un nom de session. C'est une fonction expérimentale et peut échouer.",
       untitled:"Session sans titre",
       motion_fade:"fondu", motion_instant:"instantan\u00e9", image:"image",
       ranN:"{n} commandes ex\u00e9cut\u00e9es", ranNShown:"{n} commandes",
@@ -4906,6 +4923,8 @@ const STR = {
       notifBlocked:"Notifica\u00e7\u00f5es bloqueadas. Ativa-as para este site nas defini\u00e7\u00f5es do navegador.",
       notifUnsupported:"Este navegador n\u00e3o suporta notifica\u00e7\u00f5es. No iOS, instala primeiro a app no ecr\u00e3 inicial.",
       movement:"Geração suave",
+      autoname:"Nomes de sessão automáticos", experimental:"Experimental",
+      autonameWarn:"Esta função pede ao modelo local um nome de sessão. É uma função experimental e pode falhar.",
       untitled:"Sessão sem título",
       motion_fade:"fundido", motion_instant:"instant\u00e2neo", image:"imagem",
       ranN:"{n} comandos executados", ranNShown:"{n} comandos",
@@ -4972,6 +4991,8 @@ const STR = {
       notifBlocked:"通知已被阻止。请在浏览器设置中为本站点启用。",
       notifUnsupported:"此浏览器不支持通知。在 iOS 上，请先将应用添加到主屏幕。",
       movement:"平滑生成",
+      autoname:"自动命名会话", experimental:"实验性",
+      autonameWarn:"此功能会请求本地模型为会话命名。这是实验性功能，可能会失败。",
       untitled:"未命名会话",
       motion_fade:"淡入", motion_instant:"即时", image:"图片",
       ranN:"执行了 {n} 条命令", ranNShown:"{n} 条命令",
@@ -5803,6 +5824,23 @@ function paintSheet(page){
       setMotion(on ? "fade" : "instant");
     };
     body.appendChild(mcard);
+
+    const acard = document.createElement("div");
+    acard.className = "fcard";
+    acard.innerHTML = `<div class="frow"><div class="ftext">`
+      + `<div class="flbl">${esc(T("autoname"))}`
+      + ` <small>${esc(T("experimental"))}</small></div></div>`
+      + `<button class="sw" role="switch" aria-label="${esc(T("autoname"))}"`
+      + ` aria-checked="${autoname}"><span class="knob"></span></button>`;
+    const asw = acard.querySelector(".sw");
+    asw.onclick = () => {
+      const on = asw.getAttribute("aria-checked") !== "true";
+      if(on) modal(T("autoname"), "<p>" + esc(T("autonameWarn")) + "</p>");
+      asw.setAttribute("aria-checked", on ? "true" : "false");
+      autoname = on;
+      try { localStorage.setItem("pi.autoname", on ? "1" : "0"); } catch(e){}
+    };
+    body.appendChild(acard);
     return;
   }
   if(page === "appearance"){
