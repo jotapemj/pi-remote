@@ -381,11 +381,11 @@ crash left over from last night costs nothing at log on.
 ## Functions
 
 The settings menu has a **Functions** page: optional switches that enrich the
-app, each remembered per browser. A **Model** card on the settings root picks
-the active model; the choice is remembered and reapplied to every new
-session. The pencil on each row edits its parameters (context window and max
-tokens) in pi's `models.json`, applied on the next restart.
+app, each remembered per browser.
 
+- **Model**: pick the active model from the settings root; the choice is
+  remembered for every new session. The pencil on each row edits its context
+  window and max tokens (applied on the next restart).
 - **Auto-name sessions** (experimental): on the first prompt of an unnamed
   session the local model is asked for a short title in the app's language.
   One attempt per session; on failure the session stays "Untitled".
