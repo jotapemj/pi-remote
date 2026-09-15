@@ -1631,9 +1631,8 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
 
 <div class="searchview" id="trashView">
   <div class="sbar2">
-    <span class="sic" id="trashIco"></span>
+    <button class="xb" id="trashBack" aria-label="back"></button>
     <span class="stitle" data-t="trashTitle"></span>
-    <button class="xb" id="trashX" aria-label="close"></button>
   </div>
   <div id="trashList"></div>
 </div>
@@ -3239,10 +3238,9 @@ function purgeConfirm(x){                 // borrado permanente: boton rojo + av
   $("#modalOk").textContent = T("purgeDo");
 }
 $("#trashBtn").innerHTML = ico("remove");
-$("#trashIco").innerHTML = ico("remove");
-$("#trashX").innerHTML = ico("close");
+$("#trashBack").innerHTML = ico("back");
 $("#trashBtn").onclick = openTrash;
-$("#trashX").onclick = closeTrash;
+$("#trashBack").onclick = closeTrash;
 
 function paintRail(){
   const list = $("#recents"), rec = state.recent || [];
