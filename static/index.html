@@ -5788,6 +5788,7 @@ function sizeCard(body){
 
 /* el menu es un cuaderno de paginas: raiz, apariencia, idioma, modelo */
 let sheetPage = "root";
+let sheetStack = [];        // paginas para volver con atras, una por nivel
 let models = [];          // modelos disponibles, cacheados al pedirlos
 let editModel = null;     // el modelo que se esta editando en modelEdit
 function paintSheet(page){
@@ -5797,7 +5798,7 @@ function paintSheet(page){
   body.innerHTML = "";
   back.hidden = page === "root";
   if(!back.innerHTML) back.innerHTML = ico("back");
-  back.onclick = () => turnTo("root", -1);
+  back.onclick = goBack;
   const okb = $("#sheetOk");
   okb.hidden = true;                     // el check de confirmar, por pagina
   if(!okb.innerHTML) okb.innerHTML = ico("check");
@@ -5964,7 +5965,7 @@ function paintSheet(page){
     $("#sheetTitle").textContent = T("language");
     LANGS.forEach(l => body.appendChild(pickBtn({
       icon: l === lang() ? "check" : null, label: LANG_NAME[l],
-      run: () => { setLang(l); turnTo("root", -1); }})));
+      run: () => { setLang(l); goBack(); }})));
     return;
   }
   if(page === "model"){
@@ -5990,7 +5991,7 @@ function paintSheet(page){
         editModel = {provider:m.provider, id:m.id, name:m.name || m.id,
                      contextWindow:m.contextWindow, maxTokens:m.maxTokens,
                      input:m.input};
-        turnTo("modelEdit", 1);
+        goPage("modelEdit");
       };
       b.onclick = () => {
         if(b.classList.contains("sel")) return;   // ya elegido
@@ -6008,12 +6009,12 @@ function paintSheet(page){
   }
 
   $("#sheetTitle").textContent = T("menu");
-  act("appearance", "palette", () => turnTo("appearance", 1));
-  act("language", "lang", () => turnTo("language", 1));
-  act("functions", "tool", () => turnTo("functions", 1));
+  act("appearance", "palette", () => goPage("appearance"));
+  act("language", "lang", () => goPage("language"));
+  act("functions", "tool", () => goPage("functions"));
   body.appendChild(pickBtn({icon:"chip", label:T("model"),
     val: state.model ? "| " + state.model : null,
-    chevron:true, run: () => turnTo("model", 1)}));
+    chevron:true, run: () => goPage("model")}));
   head("\u00a0");
   body.appendChild(pickBtn({icon:"help", label:T("help"),
     run: () => helpModal()}));
@@ -6024,6 +6025,17 @@ function paintSheet(page){
     run: () => { $("#sheet").classList.remove("open");
       PAYPAL ? open(PAYPAL, "_blank", "noopener")
              : modal(T("donate"), "<p>Coming soon.</p>"); }}));
+}
+
+/* adelante apila la pagina actual; atras desempila. Asi el retroceso
+   vuelve de donde se vino (p.ej. modelEdit -> model -> raiz), no siempre
+   a la raiz */
+function goPage(page){
+  if(sheetPage !== page) sheetStack.push(sheetPage);
+  turnTo(page, 1);
+}
+function goBack(){
+  turnTo(sheetStack.pop() || "root", -1);
 }
 
 function turnTo(page, dir){
@@ -6175,6 +6187,7 @@ dragToDismiss(palette, ".grab, .phead", closePalette, null);
 })();
 
 function menuSheet(){
+  sheetStack = [];                   // abrir el menu es raiz de la pila
   paintSheet("root");
   $("#sheet").classList.add("open");
   marqueeAll($("#sheetBody"));
@@ -6285,7 +6298,7 @@ addEventListener("keydown", e => {
   if(!WIDE.matches && $("#rail").classList.contains("on"))
     return closeRail();
   if($("#sheet").classList.contains("open") && sheetPage !== "root")
-    return turnTo("root", -1);       // Escape sube un nivel antes de cerrar
+    return goBack();                 // Escape sube un nivel antes de cerrar
   $("#sheet").classList.remove("open");
 });
 
@@ -6353,8 +6366,10 @@ function onRpc(m){
   const d = m.data || {};
   if(m.command === "save_model_params"){
     if(d && d.error) return note(d.error);
-    // el fichero ya esta escrito: refrescar la lista y volver a la card
+    // el fichero ya esta escrito: refrescar la lista y volver a la card,
+    // limpiando la pila (el atras desde model ira a raiz, no a modelEdit)
     send({type:"get_available_models"});
+    sheetStack = [];
     turnTo("model", -1);
     return;
   }

@@ -167,6 +167,23 @@ async def ui():
                     ("vuelve a la card de modelos",
                      back[0] == "Modelo" and back[1] is True),
                 ]
+
+                # atras por niveles: modelEdit -> model -> raiz
+                await js("document.querySelector('#sheetBody .mrow .pen').click()")
+                await asyncio.sleep(0.4)
+                await js("$('#sheetBack').click()")
+                await asyncio.sleep(0.4)
+                t1 = await js("$('#sheetTitle').textContent")
+                await js("$('#sheetBack').click()")
+                await asyncio.sleep(0.4)
+                t2 = await js("$('#sheetTitle').textContent")
+                print("  atras: %r -> %r" % (t1, t2))
+                checks += [
+                    ("atras desde modelEdit vuelve a la card de modelos",
+                     t1 == "Modelo"),
+                    ("atras desde model vuelve a la raiz del menu",
+                     t2 == "men\u00fa"),
+                ]
     return checks
 
 
