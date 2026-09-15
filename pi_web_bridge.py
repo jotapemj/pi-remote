@@ -160,6 +160,13 @@ STOP_SUMMARY = (
 )
 
 
+def is_stop_summary(text):
+    """El prompt inyectado del resumen-al-parar: no es un mensaje del usuario,
+    hay que ocultarlo del transcripto y del selector de fork."""
+    return (text or "").lstrip().startswith(
+        "You were just interrupted by the user.")
+
+
 # ------------------------------------------------------------------ access
 
 def good_token(given):
@@ -1244,8 +1251,7 @@ class Bridge:
             out = []
             for m in data.get("messages") or []:
                 txt = SUGGEST_HINT_RE.sub("", m.get("text") or "").strip()
-                if not txt or txt.startswith(
-                        "You were just interrupted by the user."):
+                if not txt or is_stop_summary(txt):
                     continue
                 out.append({"entryId": m.get("entryId"), "text": txt})
             self.emit({"type": "rpc", "command": "get_fork_messages",
@@ -1309,7 +1315,8 @@ class Bridge:
 
             if role == "user":
                 text = SUGGEST_HINT_RE.sub("", text_of(m.get("content")))
-                if text.strip():
+                # el prompt inyectado del resumen-al-parar no es del usuario
+                if text.strip() and not is_stop_summary(text):
                     add({"kind": "user", "text": text, "t": stamp})
 
             elif role == "assistant":

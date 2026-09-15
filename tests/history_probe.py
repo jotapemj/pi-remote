@@ -61,6 +61,10 @@ async def main():
                  and "Reply normally" not in texts
                  and "After your reply" not in texts
                  and "<hint:" not in texts),
+                ("el prompt inyectado del resumen no sale como burbuja",
+                 "You were just interrupted" not in texts),
+                ("pero la respuesta del resumen si aparece",
+                 "Parado. Estaba mirando el build." in texts),
                 ("segunda respuesta", "**ya esta**" in texts),
                 ("la llamada se cierra con su resultado",
                  bool(done) and done[0]["status"] == "done"

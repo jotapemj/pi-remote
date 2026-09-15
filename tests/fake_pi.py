@@ -351,6 +351,13 @@ MESSAGES = [
              "<hint: Wait, show me the diff first.>\n<hint: What about the "
              "tests?>\nReplace the example text with suggestions that fit. "
              "Always write all three lines. Write nothing after the third.]"}]},
+    # el prompt inyectado del resumen-al-parar: pi lo guarda como mensaje de
+    # usuario, pero NO lo escribio el usuario -> no debe salir en el transcripto.
+    {"role": "user", "timestamp": 1756000008000, "content": [{"type": "text",
+     "text": "You were just interrupted by the user. Reply with a single "
+             "short line of plain text, in the user's language."}]},
+    {"role": "assistant", "timestamp": 1756000008500, "content": [
+        {"type": "text", "text": "Parado. Estaba mirando el build."}]},
 ]
 
 TOKENS = 9000
