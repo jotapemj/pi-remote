@@ -373,6 +373,28 @@ def restore_session(path):
     return ""
 
 
+def purge_session(path):
+    """Borra de verdad un .jsonl de `_trash` (permanente). Error o ''."""
+    if not path:
+        return "bad_path"
+    try:
+        target = Path(path).resolve()
+        root = sessions_root().resolve()
+    except OSError:
+        return "bad_path"
+    if root not in target.parents:
+        return "outside"
+    if target.parent.name != "_trash":
+        return "not_trashed"             # solo se purga desde la papelera
+    if target.suffix != ".jsonl" or not target.is_file():
+        return "missing"
+    try:
+        target.unlink()
+    except OSError:
+        return "failed"
+    return ""
+
+
 def list_sessions(cwd, limit=20):
     d = session_dir(cwd)
     if not d.is_dir():
@@ -1507,6 +1529,13 @@ class Bridge:
             path = msg.get("path", "")
             why = restore_session(path)
             self.emit({"type": "rpc", "command": "restore_session",
+                       "data": {"error": why, "path": path}})
+            return
+
+        if t == "purge_session":
+            path = msg.get("path", "")
+            why = purge_session(path)
+            self.emit({"type": "rpc", "command": "purge_session",
                        "data": {"error": why, "path": path}})
             return
 
