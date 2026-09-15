@@ -403,7 +403,7 @@ tokens) in pi's `models.json`, applied on the next restart.
 
 <p align="center">
   <img src="docs/functions.png" width="300"
-       alt="The Functions page: five switches for show reasoning, response suggestions, summary on agent stop, notifications, and smooth generation">
+       alt="The Functions page: six switches for show reasoning, response suggestions, summary on agent stop, notifications, smooth generation, and auto-naming sessions">
 </p>
 
 ## Security
