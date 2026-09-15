@@ -698,6 +698,29 @@ def persist(cwd, session):
         print("state:", exc, file=sys.stderr)
 
 
+def read_default_model():
+    """El modelo por defecto que fijo el usuario (estado del puente)."""
+    try:
+        d = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    m = d.get("defaultModel")
+    if not isinstance(m, dict) or not m.get("id"):
+        return None
+    return {"provider": m.get("provider"), "id": m["id"]}
+
+
+def save_default_model(provider, mid):
+    """Fijar el modelo por defecto del usuario (merge: no pisa lo demas)."""
+    d = {}
+    try:
+        d = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    d["defaultModel"] = {"provider": provider, "id": mid}
+    STATE_FILE.write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
+
+
 def last_session(cwd):
     """La sesion guardada de esta carpeta, si sigue viva en su sitio."""
     p = read_state().get("session") or ""
@@ -742,7 +765,8 @@ class Bridge:
         self.seq = 0
         self.state = {
             "running": False, "startedAt": 0, "tool": None,
-            "sessionName": None, "model": None, "thinking": None,
+            "sessionName": None, "model": None,
+            "modelId": None, "modelProvider": None, "thinking": None,
             "context": None, "queue": {"steering": [], "followUp": []},
             "alive": True, "cwd": "", "waiting": False, "recent": [],
             "sessionFile": None, "summarizing": False,
@@ -1199,6 +1223,20 @@ class Bridge:
         elif t == "response":
             self.on_response(ev)
 
+    def apply_default_model(self):
+        """Imponer el modelo por defecto del usuario si la sesion no esta en el.
+        Con la guarda (solo si difiere), se aplica una vez por pi/sesion nueva
+        y no entra en bucle: la respuesta de set_model deja el estado en el
+        default y el siguiente get_state ya coincide."""
+        want = read_default_model()
+        if not want:
+            return
+        if (self.state.get("modelProvider") == want["provider"]
+                and self.state.get("modelId") == want["id"]):
+            return
+        self.send_pi({"type": "set_model", "provider": want["provider"],
+                      "modelId": want["id"]})
+
     def on_response(self, ev):
         cmd, data = ev.get("command"), ev.get("data") or {}
 
@@ -1209,12 +1247,18 @@ class Bridge:
             return
 
         if cmd == "get_state":
+            m = data.get("model") or {}
             self.state.update(
                 sessionName=data.get("sessionName"),
                 sessionFile=data.get("sessionFile"),
-                model=(data.get("model") or {}).get("name"),
+                model=m.get("name"),
+                modelId=m.get("id"),
+                modelProvider=m.get("provider"),
                 thinking=data.get("thinkingLevel"))
             persist(self.cwd, self.state.get("sessionFile"))
+            # pi resuelve su propio default al arrancar cada sesion; si el
+            # usuario fijo uno, lo imponemos aqui (cada pi nuevo, cada sesion)
+            self.apply_default_model()
             self.push_state()
 
         elif cmd == "get_session_stats":
@@ -1299,6 +1343,12 @@ class Bridge:
 
         elif cmd == "set_model":
             self.state["model"] = data.get("name")
+            self.state["modelId"] = data.get("id")
+            self.state["modelProvider"] = data.get("provider")
+            # si el usuario eligio este modelo desde la app, queda como su
+            # default: se re-impondra en cada sesion nueva (apply_default_model)
+            if data.get("id"):
+                save_default_model(data.get("provider"), data.get("id"))
             self.push_state()
 
         elif cmd == "set_thinking_level":

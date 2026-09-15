@@ -378,7 +378,9 @@ crash left over from last night costs nothing at log on.
 ## Functions
 
 The settings menu has a **Functions** page: optional switches that enrich the
-app, each remembered per browser.
+app, each remembered per browser. A **Model** card on the settings root picks
+the active model; the choice is remembered and reapplied to every new
+session.
 
 - **Show reasoning**: the agent's thinking as a collapsible "Thought for N
   seconds" block, closed by default.

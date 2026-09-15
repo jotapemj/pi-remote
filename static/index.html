@@ -1142,6 +1142,17 @@ footer > *{position:relative; z-index:1}
 }
 .usebtn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .pick small.mk{color:var(--amber)}
+/* seleccion de modelo animada: al elegir, el texto se desplaza a la derecha y
+   el check entra; el modelo que se deselecciona hace el movimiento inverso */
+.mrow{position:relative; overflow:hidden}
+.mrow .chkslot{
+  position:absolute; left:14px; top:50%; display:flex; color:var(--amber);
+  transform:translateY(-50%) translateX(-8px); opacity:0;
+  transition:opacity .2s ease, transform .3s cubic-bezier(.34,1.4,.64,1);
+}
+.mrow.sel .chkslot{opacity:1; transform:translateY(-50%) translateX(0)}
+.mrow .txt{transition:transform .3s cubic-bezier(.4,0,.2,1)}
+.mrow.sel .txt{transform:translateX(28px)}
 /* elegir mensaje para el fork: cards altas (mensaje entero), separadas */
 .forklist{display:flex; flex-direction:column; gap:10px; padding:2px 0 4px}
 .fork-card{
@@ -1707,6 +1718,7 @@ const ICONS = {
   session:"M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z",
   copy:"M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z",
   stats:"M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z",
+  chip:"M15 9H9v6h6V9zm-2 4h-2v-2h2v2zm8-2V9h-2V7c0-1.1-.9-2-2-2h-2V3h-2v2h-2V3H9v2H7c-1.1 0-2 .9-2 2v2H3v2h2v2H3v2h2v2c0 1.1.9 2 2 2h2v2h2v-2h2v2h2v-2h2c1.1 0 2-.9 2-2v-2h2v-2h-2v-2h2zm-4 6H7V7h10v10z",
   check:"M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z",
   lang:"M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z",
   close:"M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z",
@@ -4605,7 +4617,8 @@ const STR = {
       thinking:"Thinking\u2026", thoughtFor:"Thought for {n} {u}",
       secOne:"second", secMany:"seconds", minOne:"minute", minMany:"minutes",
       reasoning:"Reasoning",
-      functions:"Functions", showThinking:"Show reasoning",
+      functions:"Functions", model:"Model", loadingModels:"loading models…",
+      showThinking:"Show reasoning",
       suggest:"Response suggestions",
       stopsum:"Summary on agent stop",
       stopsumWarn:"Asks the agent, in the background, for a one-line summary of what it was doing until the user stopped it. It increases the context.",
@@ -4673,7 +4686,8 @@ const STR = {
       thinking:"Pensando\u2026", thoughtFor:"Pens\u00f3 durante {n} {u}",
       secOne:"segundo", secMany:"segundos", minOne:"minuto", minMany:"minutos",
       reasoning:"Razonamiento",
-      functions:"Funciones", showThinking:"Mostrar razonamiento",
+      functions:"Funciones", model:"Modelo", loadingModels:"cargando modelos…",
+      showThinking:"Mostrar razonamiento",
       suggest:"Sugerencias de respuesta",
       stopsum:"Resumen al detener agente",
       stopsumWarn:"Pide en segundo plano un resumen en una línea de lo que el agente estaba haciendo hasta que el usuario lo detuvo. Aumenta el contexto.",
@@ -4740,7 +4754,8 @@ const STR = {
       thinking:"Denkt\u2026", thoughtFor:"{n} {u} nachgedacht",
       secOne:"Sekunde", secMany:"Sekunden", minOne:"Minute", minMany:"Minuten",
       reasoning:"Gedankengang",
-      functions:"Funktionen", showThinking:"Argumentation zeigen",
+      functions:"Funktionen", model:"Modell", loadingModels:"Modelle werden geladen…",
+      showThinking:"Argumentation zeigen",
       suggest:"Antwortvorschl\u00e4ge",
       stopsum:"Zusammenfassung beim Stoppen des Agenten",
       stopsumWarn:"Fordert im Hintergrund eine einzeilige Zusammenfassung dessen an, was der Agent gerade tat, bis der Benutzer ihn stoppte. Das erh\u00f6ht den Kontext.",
@@ -4806,7 +4821,8 @@ const STR = {
       thinking:"R\u00e9flexion\u2026", thoughtFor:"r\u00e9fl\u00e9chi pendant {n} {u}",
       secOne:"seconde", secMany:"secondes", minOne:"minute", minMany:"minutes",
       reasoning:"Raisonnement",
-      functions:"Fonctions", showThinking:"Afficher le raisonnement",
+      functions:"Fonctions", model:"Modèle", loadingModels:"chargement des modèles…",
+      showThinking:"Afficher le raisonnement",
       suggest:"Suggestions de r\u00e9ponse",
       stopsum:"Résumé à l'arrêt de l'agent",
       stopsumWarn:"Demande en arri\u00e8re-plan un r\u00e9sum\u00e9 en une ligne de ce que l'agent faisait jusqu'\u00e0 ce que l'utilisateur l'arr\u00eate. Le contexte augmente.",
@@ -4872,7 +4888,8 @@ const STR = {
       thinking:"A pensar\u2026", thoughtFor:"pensou durante {n} {u}",
       secOne:"segundo", secMany:"segundos", minOne:"minuto", minMany:"minutos",
       reasoning:"Racioc\u00ednio",
-      functions:"Fun\u00e7\u00f5es", showThinking:"Mostrar raciocínio",
+      functions:"Fun\u00e7\u00f5es", model:"Modelo", loadingModels:"a carregar modelos\u2026",
+      showThinking:"Mostrar raciocínio",
       suggest:"Sugest\u00f5es de resposta",
       stopsum:"Resumo ao parar o agente",
       stopsumWarn:"Pede em segundo plano um resumo numa linha do que o agente estava a fazer até o utilizador o parar. Aumenta o contexto.",
@@ -4937,7 +4954,8 @@ const STR = {
       thinking:"思考中…", thoughtFor:"思考了 {n} {u}",
       secOne:"秒", secMany:"秒", minOne:"分钟", minMany:"分钟",
       reasoning:"推理",
-      functions:"功能", showThinking:"显示推理",
+      functions:"功能", model:"模型", loadingModels:"正在加载模型…",
+      showThinking:"显示推理",
       suggest:"回复建议",
       stopsum:"停止代理时摘要",
       stopsumWarn:"在后台请求代理用一行总结用户停止它之前它正在做的事。这会增加上下文。",
@@ -5685,8 +5703,9 @@ function sizeCard(body){
   body.appendChild(card);
 }
 
-/* el menu es un cuaderno de paginas: raiz, apariencia, idioma */
+/* el menu es un cuaderno de paginas: raiz, apariencia, idioma, modelo */
 let sheetPage = "root";
+let models = [];          // modelos disponibles, cacheados al pedirlos
 function paintSheet(page){
   sheetPage = page;
   $("#sheet").classList.remove("forkmode");
@@ -5797,11 +5816,45 @@ function paintSheet(page){
       run: () => { setLang(l); turnTo("root", -1); }})));
     return;
   }
+  if(page === "model"){
+    $("#sheetTitle").textContent = T("model");
+    if(!models.length){                 // aun no cargados: pedirlos y esperar
+      send({type:"get_available_models"});
+      const h = document.createElement("div");
+      h.className = "shead"; h.textContent = T("loadingModels");
+      body.appendChild(h);
+      return;
+    }
+    models.forEach(m => {
+      const sel = m.provider === state.modelProvider && m.id === state.modelId;
+      const b = document.createElement("button");
+      b.className = "pick mrow" + (sel ? " sel" : "");
+      b.innerHTML = `<span class="chkslot">${ico("check")}</span>`
+        + `<span class="txt">` + mqSpan("span", m.name || m.id)
+        + (m.contextWindow ? mqSpan("small", kilo(m.contextWindow) + " ctx") : "")
+        + `</span>`;
+      b.onclick = () => {
+        if(b.classList.contains("sel")) return;   // ya elegido
+        send({type:"set_model", provider:m.provider, modelId:m.id});
+        // animar sin reconstruir: el viejo hace el movimiento inverso y el
+        // nuevo desplaza su texto y saca el check
+        body.querySelectorAll(".mrow.sel").forEach(x => x.classList.remove("sel"));
+        b.classList.add("sel");
+        state.modelProvider = m.provider; state.modelId = m.id;
+        state.model = m.name || m.id;
+      };
+      body.appendChild(b);
+    });
+    return;
+  }
 
   $("#sheetTitle").textContent = T("menu");
   act("appearance", "palette", () => turnTo("appearance", 1));
   act("language", "lang", () => turnTo("language", 1));
   act("functions", "tool", () => turnTo("functions", 1));
+  body.appendChild(pickBtn({icon:"chip", label:T("model"),
+    val: state.model ? "| " + state.model : null,
+    chevron:true, run: () => turnTo("model", 1)}));
   head("\u00a0");
   body.appendChild(pickBtn({icon:"help", label:T("help"),
     run: () => helpModal()}));
@@ -6139,10 +6192,16 @@ async function browse(path){
 
 function onRpc(m){
   const d = m.data || {};
-  if(m.command === "get_available_models")
-    return sheet("model", (d.models||[]).map(x=>({
-      label:x.name, hint:`${x.provider}  ·  ${x.contextWindow||"?"} ctx`,
+  if(m.command === "get_available_models"){
+    models = d.models || [];
+    // la card de ajustes (pagina "model") repinta con la lista; el comando
+    // /model, que no fija sheetPage, cae al picker rapido de siempre
+    if($("#sheet").classList.contains("open") && sheetPage === "model")
+      return paintSheet("model");
+    return sheet("model", models.map(x=>({
+      label:x.name || x.id, hint:`${x.provider}  ·  ${kilo(x.contextWindow||0)} ctx`,
       run:()=>send({type:"set_model", provider:x.provider, modelId:x.id})})));
+  }
   if(m.command === "get_available_thinking_levels")
     return sheet("thinking", (d.levels||[]).map(l=>({
       label:l, run:()=>send({type:"set_thinking_level", level:l})})));

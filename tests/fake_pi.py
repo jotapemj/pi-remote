@@ -362,8 +362,16 @@ MESSAGES = [
 
 TOKENS = 9000
 
-STATE = {"model": {"id": "qwen3-8b", "name": "Qwen3 8B", "provider": "local",
-                   "contextWindow": 32768},
+MODELS = [
+    {"id": "qwen3-8b", "name": "Qwen3 8B", "provider": "local",
+     "contextWindow": 32768},
+    {"id": "swift-27b", "name": "swift-27b", "provider": "swift",
+     "contextWindow": 150000},
+    {"id": "ornith15", "name": "ornith15", "provider": "ornith",
+     "contextWindow": 132000},
+]
+
+STATE = {"model": MODELS[0],
          "thinkingLevel": "medium", "isStreaming": False,
          "sessionName": "fake session", "sessionId": "abc123",
          "sessionFile": "/tmp/fake.jsonl", "messageCount": 4}
@@ -398,7 +406,18 @@ for line in sys.stdin:
              "data": {"messages": MESSAGES}})
     elif t == "get_available_models":
         out({"type": "response", "command": "get_available_models",
-             "success": True, "data": {"models": [STATE["model"]]}})
+             "success": True, "data": {"models": MODELS}})
+    elif t == "set_model":
+        found = next((m for m in MODELS if m["provider"] == cmd.get("provider")
+                      and m["id"] == cmd.get("modelId")), None)
+        if found:
+            STATE["model"] = found
+            out({"type": "response", "command": "set_model",
+                 "success": True, "data": found})
+        else:
+            out({"type": "response", "command": "set_model", "success": False,
+                 "error": "Model not found: %s/%s"
+                          % (cmd.get("provider"), cmd.get("modelId"))})
     elif t == "abort":
         ABORT.set()
         out({"type": "response", "command": "abort", "success": True})
