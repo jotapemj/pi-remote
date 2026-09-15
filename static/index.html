@@ -2866,10 +2866,9 @@ function paint(){
     } else if(state.sessionName){
       title(state.sessionName);
     } else {
-      // sesion sin nombre (RPC sin /name): en blanco, nunca "sin titulo"
-      const el = $("#title").firstElementChild;
-      if(el.textContent) el.textContent = "";
-      el.classList.remove("out");
+      // sesion sin nombre: mascara en el idioma activo; el nombre real
+      // llega luego con /name (autonombrado o manual)
+      title(T("untitled"));
     }
     $("#sub").firstElementChild.textContent =
       CWD.split(/[\\/]/).filter(Boolean).pop() || CWD;
@@ -2952,9 +2951,9 @@ function resolveTitle(){
   clearTimeout(titleGrace);
   sessLoading = false;
   const el = $("#title").firstElementChild;
-  // nunca "sesion sin titulo": si aun no hay nombre, en blanco (el nombre
-  // entrara luego con fade). El subtitulo ya muestra la carpeta.
-  el.textContent = state.sessionName || "";
+  // sin nombre: la mascara en el idioma activo; el nombre real entra luego
+  // con fade. El subtitulo ya muestra la carpeta.
+  el.textContent = state.sessionName || T("untitled");
   el.classList.add("out");                                 // parte invisible
   requestAnimationFrame(()=> el.classList.remove("out"));  // y funde a la vista
   marqueeAll($("#title").parentNode);
@@ -4618,6 +4617,7 @@ const STR = {
       notifBlocked:"Notifications are blocked. Enable them for this site in the browser settings.",
       notifUnsupported:"This browser doesn't support notifications. On iOS, install the app to the home screen first.",
       movement:"Smooth generation",
+      untitled:"Untitled session",
       motion_fade:"Fade", motion_instant:"Instant", image:"Image",
       output:"output", noOutput:"no output", command:"command",
       pasted:"Pasted text {n} lines", prefilling:"prefilling",
@@ -4685,6 +4685,7 @@ const STR = {
       notifBlocked:"Notificaciones bloqueadas. Actívalas para este sitio en los ajustes del navegador.",
       notifUnsupported:"Este navegador no soporta notificaciones. En iOS, instala antes la app en la pantalla de inicio.",
       movement:"Generación suave",
+      untitled:"Sesión sin título",
       motion_fade:"Fundido", motion_instant:"Directo", image:"Imagen",
       ranN:"Ejecutados {n} comandos", ranNShown:"{n} comandos",
       statsTitle:"Estad\u00edsticas de respuesta", stGen:"Generaci\u00f3n",
@@ -4751,6 +4752,7 @@ const STR = {
       notifBlocked:"Benachrichtigungen sind blockiert. Aktiviere sie f\u00fcr diese Seite in den Browsereinstellungen.",
       notifUnsupported:"Dieser Browser unterst\u00fctzt keine Benachrichtigungen. Auf iOS zuerst die App zum Startbildschirm hinzuf\u00fcgen.",
       movement:"Sanfte Generierung",
+      untitled:"Unbenannte Sitzung",
       motion_fade:"Einblenden", motion_instant:"Sofort", image:"Bild",
       ranN:"{n} Befehle ausgef\u00fchrt", ranNShown:"{n} Befehle",
       statsTitle:"Antwort-Statistik", stGen:"Generierung",
@@ -4816,6 +4818,7 @@ const STR = {
       notifBlocked:"Notifications bloqu\u00e9es. Active-les pour ce site dans les r\u00e9glages du navigateur.",
       notifUnsupported:"Ce navigateur ne g\u00e8re pas les notifications. Sur iOS, installe d'abord l'app sur l'\u00e9cran d'accueil.",
       movement:"Génération fluide",
+      untitled:"Session sans titre",
       motion_fade:"fondu", motion_instant:"instantan\u00e9", image:"image",
       ranN:"{n} commandes ex\u00e9cut\u00e9es", ranNShown:"{n} commandes",
       statsTitle:"Statistiques de la r\u00e9ponse", stGen:"G\u00e9n\u00e9ration",
@@ -4881,6 +4884,7 @@ const STR = {
       notifBlocked:"Notifica\u00e7\u00f5es bloqueadas. Ativa-as para este site nas defini\u00e7\u00f5es do navegador.",
       notifUnsupported:"Este navegador n\u00e3o suporta notifica\u00e7\u00f5es. No iOS, instala primeiro a app no ecr\u00e3 inicial.",
       movement:"Geração suave",
+      untitled:"Sessão sem título",
       motion_fade:"fundido", motion_instant:"instant\u00e2neo", image:"imagem",
       ranN:"{n} comandos executados", ranNShown:"{n} comandos",
       statsTitle:"Estat\u00edsticas da resposta", stGen:"Gera\u00e7\u00e3o",
@@ -4945,6 +4949,7 @@ const STR = {
       notifBlocked:"通知已被阻止。请在浏览器设置中为本站点启用。",
       notifUnsupported:"此浏览器不支持通知。在 iOS 上，请先将应用添加到主屏幕。",
       movement:"平滑生成",
+      untitled:"未命名会话",
       motion_fade:"淡入", motion_instant:"即时", image:"图片",
       ranN:"执行了 {n} 条命令", ranNShown:"{n} 条命令",
       statsTitle:"回答统计", stGen:"生成",

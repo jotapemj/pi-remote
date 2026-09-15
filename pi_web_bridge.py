@@ -14,7 +14,7 @@ Then open http://<tailscale-name>:8770
 Env:
     PI_CMD        path to pi           (default: auto-detected)
     PI_RESUME     new | continue       (default: new)
-    PI_SESSION    session name         (default: web)
+    PI_SESSION    session name         (default: none; sessions start unnamed)
     PI_WEB_HOST   bind address         (default: 0.0.0.0)
     PI_WEB_PORT   port                 (default: 8770)
     PI_WEB_TOKEN  shared secret        (default: one is generated;
@@ -44,7 +44,9 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 
 PI_CMD = os.environ.get("PI_CMD") or shutil.which("pi") or "pi"
 RESUME = os.environ.get("PI_RESUME", "new")
-SESSION_NAME = os.environ.get("PI_SESSION", "web")
+# antes se imponia "web" a cada sesion; ahora arrancan sin nombre y el cliente
+# pinta "Untitled session" como mascara hasta que llega el titulo (auto o /name)
+SESSION_NAME = os.environ.get("PI_SESSION")
 HOST = os.environ.get("PI_WEB_HOST", "0.0.0.0")
 PORT = int(os.environ.get("PI_WEB_PORT", "8770"))
 # Un puente sin secreto deja ejecutar a cualquiera que alcance el puerto,
@@ -813,7 +815,7 @@ class Bridge:
             pass                      # switch_session below picks the file
         elif RESUME == "continue":
             args.append("-c")
-        else:
+        elif SESSION_NAME:
             args += ["--name", SESSION_NAME]
         try:
             self.proc = subprocess.Popen(

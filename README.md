@@ -91,7 +91,7 @@ the fonts, all served locally so the page never calls out to anyone.
 |---|---|---|
 | `PI_CMD` | auto-detected | path to the pi executable |
 | `PI_RESUME` | `new` | `continue` picks up the latest session here |
-| `PI_SESSION` | `web` | session name for a fresh session |
+| `PI_SESSION` | none | sessions start unnamed; set to name fresh ones |
 | `PI_WEB_HOST` | `0.0.0.0` | bind address |
 | `PI_WEB_PORT` | `8770` | port |
 | `PI_WEB_TOKEN` | generated | shared secret, appended as `?token=`. `off` drops the bridge to read only |
