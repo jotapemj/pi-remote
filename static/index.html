@@ -3668,7 +3668,11 @@ function paintCtx(){
   const c = state.context, bar = $("#bar");
   const fill = bar.firstElementChild, label = bar.lastElementChild;
   if(!c || c.percent == null){
-    fill.style.width = "0%"; label.textContent = ""; return;
+    // sin percent (recien compactar): guiones, la ventana sigue sabiendose
+    fill.style.width = "0%";
+    label.textContent = c && c.window != null
+      ? "- %  |  -/" + kilo(c.window) : "";
+    return;
   }
   const p = Math.max(0, Math.min(100, c.percent));
   if(!ctxIntro) fill.style.width = p + "%";   // durante la entrada: a cero
