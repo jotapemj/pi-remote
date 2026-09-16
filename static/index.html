@@ -1291,15 +1291,23 @@ main:has(#spin) .empty{display:none}
 }
 .addp.ghost:hover{background:var(--surface)}
 /* ---------- buscar conversacion: pantalla completa sobre el rail ---------- */
+/* papelera y busqueda: bottom sheet con el mismo cromo que el picker de
+   fork (superficie, borde, radio arriba, velo detras) */
 .searchview{
-  position:fixed; inset:0; z-index:40; background:var(--panel);
+  position:fixed; left:0; right:0; bottom:0; z-index:40;
+  background:var(--surface); border:1px solid var(--rule); border-bottom:none;
+  border-radius:12px 12px 0 0; width:100%; max-width:760px; margin:0 auto;
+  box-sizing:border-box; max-height:78vh;
   display:flex; flex-direction:column;
   transform:translateY(102%); visibility:hidden;
-  transition:transform .26s cubic-bezier(.2,.8,.2,1),
-             visibility 0s linear .26s;
+  transition:transform .3s cubic-bezier(.32,.72,0,1),
+             visibility 0s linear .3s;
 }
 .searchview.on{transform:none; visibility:visible;
-  transition:transform .26s cubic-bezier(.2,.8,.2,1)}
+  transition:transform .3s cubic-bezier(.32,.72,0,1)}
+/* la X de borrar texto aparece con fade cuando hay texto */
+#searchX{opacity:0; transition:opacity .18s ease; pointer-events:none}
+#searchX.on{opacity:1; pointer-events:auto}
 .sbar2{
   display:flex; align-items:center; gap:10px; flex:none;
   padding:calc(10px + env(safe-area-inset-top)) 14px 11px;
@@ -1317,9 +1325,11 @@ main:has(#spin) .empty{display:none}
 }
 .xb:hover{background:var(--surface); color:var(--ink)}
 .xb svg{width:20px;height:20px}
-#searchList{
-  flex:1; overflow-y:auto;
+#searchList, #trashList{
+  flex:1; min-height:0; overflow-y:auto;
   padding:6px 14px calc(18px + env(safe-area-inset-bottom));
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 22px);
+  mask-image:linear-gradient(to bottom, transparent 0, #000 22px);
 }
 .srow{
   display:flex; align-items:baseline; gap:10px; width:100%; text-align:left;
@@ -1333,8 +1343,6 @@ main:has(#spin) .empty{display:none}
 /* papelera: titulo arriba, ruta debajo */
 .sbar2 .stitle{flex:1; min-width:0; color:var(--ink);
   font:600 15px/1.3 var(--sans)}
-#trashList{flex:1; overflow-y:auto;
-  padding:6px 14px calc(18px + env(safe-area-inset-bottom))}
 .trow{
   display:flex; align-items:center; gap:8px; width:100%;
   padding:9px 2px; border-bottom:1px solid var(--rule);
@@ -1682,10 +1690,10 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
 
 <div class="searchview" id="searchView">
   <div class="sbar2">
-    <span class="sic" id="searchIco"></span>
+    <button class="xb" id="searchBack" aria-label="back"></button>
     <input id="searchInput" type="text" autocomplete="off"
            autocapitalize="off" spellcheck="false" data-t-ph="searchHint">
-    <button class="xb" id="searchX" aria-label="close"></button>
+    <button class="xb" id="searchX" aria-label="clear"></button>
   </div>
   <div id="searchList"></div>
 </div>
@@ -3059,22 +3067,31 @@ function emptyState(has){
     + `<b>${esc(T("noProject"))}</b>${esc(T("noProjectHint"))}`;
 }
 
-/* ---------- side rail ---------- */
-function openRail(){
-  const sc = $("#scrim");
+/* velo detras de las bottom sheets (busqueda, papelera). Generacion para
+   que un closeRail a medias no mate el velo de la sheet que abre despues */
+let scrimGen = 0;
+function showScrim(){
+  const g = ++scrimGen, sc = $("#scrim");
   sc.hidden = false;
   void sc.offsetWidth;              // force layout, or the class lands too soon
-  requestAnimationFrame(()=> requestAnimationFrame(()=>{
-    sc.classList.add("on");
-    $("#rail").classList.add("on");
-  }));
+  requestAnimationFrame(()=>{ if(g === scrimGen) sc.classList.add("on"); });
+}
+function hideScrim(){
+  const g = ++scrimGen, sc = $("#scrim");
+  sc.classList.remove("on");
+  setTimeout(()=>{ if(g === scrimGen) sc.hidden = true; }, 300);
+}
+
+/* ---------- side rail ---------- */
+function openRail(){
+  showScrim();
+  $("#rail").classList.add("on");
   // a mitad del deslizamiento los anchos aun no valen: medir al terminar
   setTimeout(()=> marqueeAll($("#rail")), 320);
 }
 function closeRail(){
   $("#rail").classList.remove("on");
-  $("#scrim").classList.remove("on");
-  setTimeout(()=>{ $("#scrim").hidden = true; }, 300);
+  hideScrim();
 }
 /* hold a row instead of tapping it: same gesture as a long press */
 function longPress(el, run){
@@ -3229,26 +3246,30 @@ async function doSearch(){
   (d.results || []).forEach(x => list.appendChild(searchRow(x)));
 }
 function openSearch(){
-  closeRail();
+  closeRail(); showScrim();
   $("#searchView").classList.add("on");
   $("#searchInput").value = "";
+  $("#searchX").classList.remove("on");
   doSearch();
-  setTimeout(()=> $("#searchInput").focus(), 280);   // al terminar el slide
+  setTimeout(()=> $("#searchInput").focus(), 300);   // al terminar el slide
 }
 function closeSearch(){
   $("#searchView").classList.remove("on");
+  hideScrim();
   $("#searchInput").blur();
 }
 $("#searchBtn").insertAdjacentHTML("afterbegin", ico("search"));
-$("#searchIco").innerHTML = ico("search");
+$("#searchBack").innerHTML = ico("back");
 $("#searchX").innerHTML = ico("close");
 $("#searchBtn").onclick = openSearch;
-$("#searchX").onclick = () => {
+$("#searchBack").onclick = closeSearch;      // flecha izquierda: dismiss
+$("#searchX").onclick = () => {              // X a la derecha: borra el texto
   const i = $("#searchInput");
-  if(i.value){ i.value = ""; doSearch(); }   // con texto: lo borra
-  else closeSearch();                        // vacio: cierra la vista
+  i.value = ""; $("#searchX").classList.remove("on");
+  doSearch(); i.focus();
 };
 $("#searchInput").addEventListener("input", () => {
+  $("#searchX").classList.toggle("on", !!$("#searchInput").value);
   clearTimeout(searchT);
   searchT = setTimeout(doSearch, 250);       // no pedir por tecla
 });
@@ -3289,8 +3310,8 @@ async function loadTrash(){
   if(!res.length) return trashEmpty();
   res.forEach(x => list.appendChild(trashRow(x)));
 }
-function openTrash(){ closeRail(); $("#trashView").classList.add("on"); loadTrash(); }
-function closeTrash(){ $("#trashView").classList.remove("on"); }
+function openTrash(){ closeRail(); showScrim(); $("#trashView").classList.add("on"); loadTrash(); }
+function closeTrash(){ $("#trashView").classList.remove("on"); hideScrim(); }
 function restoreConfirm(x){
   openModal(T("restoreQ").replace("{name}", x.label || ""), "",
             () => send({type:"restore_session", path:x.path}), {plain:true});
@@ -3435,7 +3456,11 @@ const railWidthNow = () => parseInt(
     .getPropertyValue("--rail-w"), 10) || 292;
 
 $("#railBtn").onclick = () => WIDE.matches ? setFolded(false) : openRail();
-$("#scrim").onclick = closeRail;
+$("#scrim").onclick = () => {
+  if($("#searchView").classList.contains("on")) return closeSearch();
+  if($("#trashView").classList.contains("on")) return closeTrash();
+  closeRail();
+};
 $("#addBtn").onclick = () => { closeRail(); browse(""); };
 
 /* ---------- modal dialogs ---------- */

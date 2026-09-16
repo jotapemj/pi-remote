@@ -155,10 +155,16 @@ async def main():
                      s0[4] is False),
                 ]
 
+                # X sin texto: no hace nada; la flecha izquierda cierra
                 await js("$('#searchX').click()")
                 await asyncio.sleep(0.4)
+                stay = await js("$('#searchView').classList.contains('on')")
+                checks.append(("la X sin texto no cierra la vista",
+                               stay is True))
+                await js("$('#searchBack').click()")
+                await asyncio.sleep(0.4)
                 closed = await js("$('#searchView').classList.contains('on')")
-                checks.append(("la X con el texto vacio cierra la vista",
+                checks.append(("la flecha izquierda cierra la vista",
                                closed is False))
 
                 await js("openSearch()")
