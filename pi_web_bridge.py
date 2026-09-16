@@ -859,6 +859,9 @@ class Bridge:
 
         self.log = deque(maxlen=LOG_CAP)     # transcript for reconnects
         self.seq = 0
+        # PI_DEBUG_DELTA=1: deltas crudos a fichero, para atrapar bugs de stream
+        self.delta_log = (open(HERE / "delta_log.jsonl", "a", encoding="utf-8")
+                          if os.environ.get("PI_DEBUG_DELTA") else None)
         self.state = {
             "running": False, "startedAt": 0, "tool": None,
             "sessionName": None, "model": None,
@@ -1132,6 +1135,18 @@ class Bridge:
         self.note("error", "pi_exited", "pi exited. reopen the project.")
         self.push_state()
 
+    def _dbg_delta(self, delta):
+        if not self.delta_log:
+            return
+        try:
+            with self.lock:
+                self.delta_log.write(json.dumps(
+                    {"id": self.cur["id"] if self.cur else None,
+                     "d": delta}, ensure_ascii=False) + "\n")
+                self.delta_log.flush()
+        except Exception:                            # noqa: BLE001
+            pass
+
     def close_think(self):
         """Cierra el bloque de pensamiento abierto y anota cuanto duro."""
         if not self.think:
@@ -1172,6 +1187,7 @@ class Bridge:
                 if self.think:            # el texto real cierra el pensamiento
                     self.close_think()
                 delta = d.get("delta", "")
+                self._dbg_delta(delta)
                 now = time.time()
                 self.gen_last = now          # cada token de texto mueve el final
                 if self.cur is None:

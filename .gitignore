@@ -17,3 +17,4 @@ __pycache__/
 Thumbs.db
 desktop.ini
 bridge-restart.log
+delta_log.jsonl
