@@ -624,6 +624,30 @@ def browse_root():
     return Path.home().parent if os.name == "nt" else Path.home()
 
 
+BLOCKED_PARTS = {"windows", "program files", "program files (x86)",
+                 "programdata"}
+
+
+def is_blocked(d):
+    """Zonas sensibles fuera del picker: el sistema, los datos de apps y la
+    raiz de la unidad. El agente no necesita mirar alli."""
+    try:
+        p = Path(d).resolve()
+    except OSError:
+        return True
+    # raiz de unidad (C:\): sin nada debajo que valga la pena
+    if getattr(p, "drive", "") and len(p.parts) == 1:
+        return True
+    parts = [x.lower() for x in p.parts]
+    if any(x in BLOCKED_PARTS for x in parts):
+        return True
+    # C:\Users\<usuario>\AppData (y sus subcarpetas): appdata solo vive
+    # bajo un perfil de usuario, la combinacion no da falsos positivos
+    if "users" in parts and "appdata" in parts:
+        return True
+    return False
+
+
 def looks_like_project(d):
     """A hint on the card, so you recognise the folder you want."""
     for mark in (".git", "build.gradle", "build.gradle.kts", "settings.gradle",
@@ -647,6 +671,8 @@ def list_dirs(path):
                 continue
             d.iterdir()                      # unreadable folders stay hidden
         except OSError:
+            continue
+        if is_blocked(d):
             continue
         out.append({"name": d.name, "path": str(d),
                     "mark": looks_like_project(d)})
@@ -1966,6 +1992,8 @@ async def browse(path: str = Query(""), token: str = Query("")):
         here = root
     if not here.is_dir():
         here = root
+    if is_blocked(here):
+        return JSONResponse({"error": "blocked folder"}, status_code=403)
     return {"path": str(here), "root": str(root),
             "parent": "" if here == here.parent else str(here.parent),
             "dirs": list_dirs(here), "mark": looks_like_project(here)}
