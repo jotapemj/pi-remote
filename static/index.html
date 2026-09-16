@@ -1257,6 +1257,9 @@ main:has(#spin) .empty{display:none}
   will-change:transform;
 }
 .rail.on{transform:none}
+/* en movil el envoltorio no existe; el rail fino no aparece */
+.railfull{display:contents}
+.slim{display:none}
 /* la lista scrollea; la cabecera (anadir/buscar) y el pie (papelera) fijos */
 .railscroll{flex:1; min-height:0; overflow-y:auto}
 .railfoot{
@@ -1558,14 +1561,33 @@ main:has(#spin) .empty{display:none}
   }
   .rail{
     position:static; transform:none; min-width:0;
-    width:var(--rail-w,292px);
-    grid-area:1/1; z-index:1; overflow-x:hidden;
-    transition:width .3s cubic-bezier(.32,.72,0,1), opacity .18s ease;
+    width:var(--rail-w,292px); padding:0;
+    grid-area:1/1; z-index:1; overflow:hidden;
+    transition:width .3s cubic-bezier(.32,.72,0,1);
   }
-  body.folded .rail{
-    width:0; opacity:0; pointer-events:none;
-    padding-left:0; padding-right:0; border-right-width:0;
+  /* plegado: el rail se hace fino y muestra la columna de iconos. El
+     contenido completo y los iconos se funden entre si */
+  body.folded .rail{width:64px}
+  .railfull, .slim{
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    transition:opacity .18s ease;
   }
+  .railfull{padding:calc(15px + env(safe-area-inset-top)) 11px 0}
+  .slim{
+    align-items:center; padding:16px 0 calc(14px + env(safe-area-inset-bottom));
+    opacity:0; pointer-events:none;
+  }
+  body.folded .railfull{opacity:0; pointer-events:none}
+  body.folded .slim{opacity:1; pointer-events:auto}
+  .slimb{
+    width:40px; height:40px; margin:3px 0; border-radius:10px;
+    border:none; background:none; color:var(--dim); cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .slimb:hover{background:var(--raise); color:var(--ink)}
+  .slimb svg{width:20px;height:20px}
+  .slimb.logo{font:600 21px/1 var(--mono); color:var(--amber)}
+  .slimfoot{margin-top:auto}
   body.dragging .rail{transition:none}   /* el tirador manda al instante */
   .scrim{display:none!important}
   body:not(.folded) #railBtn{display:none}
@@ -1679,19 +1701,29 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
 
 <div class="scrim" id="scrim" hidden></div>
 <aside class="rail" id="rail">
-  <div class="railtop"><span>pi remote</span>
-    <button class="foldb" id="foldBtn" aria-label="fold"></button>
+  <div class="railfull" id="railFull">
+    <div class="railtop"><span>pi remote</span>
+      <button class="foldb" id="foldBtn" aria-label="fold"></button>
+    </div>
+    <button class="addp" id="addBtn"><span data-t="addProject"></span></button>
+    <button class="addp ghost" id="searchBtn"><span data-t="searchConv"></span></button>
+    <div class="railscroll">
+      <div class="shead" id="chatHead" data-t="recent"></div>
+      <div id="chats"></div>
+      <div class="shead" id="projHead" data-t="projects"></div>
+      <div id="recents"></div>
+    </div>
+    <div class="railfoot">
+      <button class="trashb" id="trashBtn" aria-label="trash"></button>
+    </div>
   </div>
-  <button class="addp" id="addBtn"><span data-t="addProject"></span></button>
-  <button class="addp ghost" id="searchBtn"><span data-t="searchConv"></span></button>
-  <div class="railscroll">
-    <div class="shead" id="chatHead" data-t="recent"></div>
-    <div id="chats"></div>
-    <div class="shead" id="projHead" data-t="projects"></div>
-    <div id="recents"></div>
-  </div>
-  <div class="railfoot">
-    <button class="trashb" id="trashBtn" aria-label="trash"></button>
+  <!-- rail fino de iconos: solo escritorio, con el rail plegado -->
+  <div class="slim" id="slimRail">
+    <button class="slimb logo" id="slimLogo" title="pi remote">&pi;</button>
+    <button class="slimb" id="slimNew" aria-label="new session"></button>
+    <button class="slimb" id="slimSearch" aria-label="search"></button>
+    <button class="slimb" id="slimChat" aria-label="projects"></button>
+    <div class="slimfoot"><button class="slimb" id="slimTrash" aria-label="trash"></button></div>
   </div>
 </aside>
 <div class="grip" id="grip"></div>
@@ -1795,6 +1827,8 @@ const ICONS = {
   chevron:"M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z",
   // tres puntos verticales (more_vert)
   more:"M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z",
+  // bocadillo de conversacion
+  chat:"M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z",
   up:"M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z",
   // flecha curva descendente a la derecha (subdirectory_arrow_right)
   subdir:"M19 15l-6 6-1.42-1.42L15.17 16H4V4h2v10h9.17l-3.58-3.58L13 9l6 6z",
@@ -3427,6 +3461,30 @@ if(folded()) document.body.classList.add("folded");
 $("#foldBtn").innerHTML = ico("panel");
 $("#statsIcon").innerHTML = ico("stats");
 $("#foldBtn").onclick = () => setFolded(true);
+
+/* rail fino: los iconos hacen lo mismo que sus botones del rail completo */
+$("#slimNew").innerHTML = ico("add");
+$("#slimSearch").innerHTML = ico("search");
+$("#slimChat").innerHTML = ico("chat");
+$("#slimTrash").innerHTML = ico("remove");
+$("#slimLogo").onclick = () => setFolded(false);
+$("#slimNew").onclick = () => {
+  if(state.cwd) send({type:"new_session"});
+  else browse("");                 // sin proyecto: primero elegir carpeta
+};
+$("#slimSearch").onclick = openSearch;
+$("#slimChat").onclick = () => browse("");
+$("#slimTrash").onclick = openTrash;
+/* pasar el raton por el logo despliega; salir del rail vuelve a plegar */
+let hoverUnfold = false;
+$("#slimLogo").addEventListener("mouseenter", () => {
+  if(document.body.classList.contains("folded")){
+    hoverUnfold = true; setFolded(false);
+  }
+});
+$("#rail").addEventListener("mouseleave", () => {
+  if(hoverUnfold){ hoverUnfold = false; setFolded(true); }
+});
 
 (() => {                                  // arrastrar la linea divisoria
   const grip = $("#grip");

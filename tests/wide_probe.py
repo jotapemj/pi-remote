@@ -90,9 +90,9 @@ async def wide(p, js):
     c = await js(LAYOUT)
     print("  plegado : %s | menu=%s" % (c["cols"], c["menu"]))
     checks += [
-        ("plegar deja la barra sin sitio", c["railAncho"] == 0),
+        ("plegar deja la barra en su rail fino", c["railAncho"] == 64),
         ("y devuelve el boton de menu", c["menu"] != "none"),
-        ("el chat ocupa todo", c["chatIzq"] == 0),
+        ("el chat ocupa el resto", c["chatIzq"] == 64),
     ]
     await js("$('#railBtn').click()")
     await asyncio.sleep(0.35)

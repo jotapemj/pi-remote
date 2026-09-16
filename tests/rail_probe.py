@@ -312,6 +312,48 @@ async def main():
                                dots[0] is True and dots[1] is True))
                 await js("closeModal()")
 
+            # rail fino: solo en escritorio
+            async with Page(port=9307, width=1280, height=800,
+                            mobile=False) as d:
+                dj = d.js
+                await d.go()
+                await dj("try{if(ws)ws.onmessage=null;}catch(e){}")
+                await dj(SEED % (json.dumps(A), json.dumps(B)))
+                await asyncio.sleep(0.4)
+                op = await dj("[getComputedStyle($('#slimRail')).opacity,"
+                              " getComputedStyle($('#railFull')).opacity]")
+                checks.append(("desplegado: iconos ocultos, contenido a la vista",
+                               op == ["0", "1"]))
+                await dj("setFolded(true)")
+                await asyncio.sleep(0.6)
+                st = await dj("[Number($('#rail').getBoundingClientRect().width),"
+                              " getComputedStyle($('#slimRail')).opacity,"
+                              " getComputedStyle($('#railFull')).opacity,"
+                              " document.querySelectorAll('#slimRail .slimb')"
+                              ".length]")
+                checks.append(("plegado: rail de 64 px con los iconos",
+                               st[0] == 64 and st[1] == "1" and st[2] == "0"
+                               and st[3] == 5))
+                await dj("$('#slimLogo')"
+                         ".dispatchEvent(new Event('mouseenter'))")
+                await asyncio.sleep(0.5)
+                checks.append(("el logo despliega al pasar el raton",
+                               await dj("!document.body"
+                                        ".classList.contains('folded')")
+                               is True))
+                await dj("$('#rail').dispatchEvent(new Event('mouseleave'))")
+                await asyncio.sleep(0.5)
+                checks.append(("salir del rail vuelve a plegar",
+                               await dj("document.body"
+                                        ".classList.contains('folded')")
+                               is True))
+                await dj("$('#slimLogo').click()")
+                await asyncio.sleep(0.5)
+                checks.append(("el clic en el logo despliega de verdad",
+                               await dj("!document.body"
+                                        ".classList.contains('folded')")
+                               is True))
+
                 return report(checks)
 
 raise SystemExit(asyncio.run(main()))
