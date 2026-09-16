@@ -1,5 +1,5 @@
 """Barra lateral: chats recientes arriba, proyectos debajo, acordeon de
-sesiones anidadas y pulsacion larga.
+sesiones anidadas, clic derecho y boton de tres puntos.
 
 Cuenta sesiones, nunca imprime sus etiquetas. Sin prompts."""
 import asyncio
@@ -33,8 +33,8 @@ GROUP = """(() => {
 
 HOLD = """(() => {
   const h = document.querySelectorAll('.pgroup')[%d].querySelector('.proj');
-  h.dispatchEvent(new PointerEvent('pointerdown',
-    {clientX: 20, clientY: 20, bubbles: true}));
+  h.dispatchEvent(new MouseEvent('contextmenu',
+    {bubbles: true, cancelable: true}));
 })()"""
 
 async def main():
@@ -282,7 +282,7 @@ async def main():
                      luego[3] == antes[3] and luego[4] == ""),
                 ]
 
-                # pulsacion larga
+                # clic derecho en la carpeta
                 await js("closeModal()")
                 await js(HOLD % 0)
                 await asyncio.sleep(0.75)
@@ -290,10 +290,27 @@ async def main():
                                 " $('#modalTitle').textContent,"
                                 " [...document.querySelectorAll('#modalBody .mrow')]"
                                 ".map(b=>b.textContent)]")
-                print("  pulsacion larga:", menu[1], menu[2])
-                checks.append(("la pulsacion larga abre el dialogo",
+                print("  clic derecho:", menu[1], menu[2])
+                checks.append(("el clic derecho abre el dialogo",
                                menu[0] is True))
                 checks.append(("con dos opciones", len(menu[2]) == 2))
+                await js("closeModal()")
+
+                # tres puntos en la carpeta y en una sesion
+                dots = await js("""(() => {
+                  const d = document.querySelectorAll('.pgroup')[0]
+                    .querySelector('.proj .dotsb');
+                  d.click();
+                  const m1 = $('#modal').classList.contains('open');
+                  closeModal();
+                  const s = document.querySelectorAll('.pgroup')[1]
+                    .querySelector('.sess .dotsb');
+                  s.click();
+                  return [m1, $('#modal').classList.contains('open')];
+                })()""")
+                checks.append(("los tres puntos abren el menu (carpeta y sesion)",
+                               dots[0] is True and dots[1] is True))
+                await js("closeModal()")
 
                 return report(checks)
 

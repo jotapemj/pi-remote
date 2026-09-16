@@ -1156,6 +1156,14 @@ footer > *{position:relative; z-index:1}
 }
 .pick .txt{flex:1;min-width:0}
 .pick .ch{width:16px;height:16px;color:var(--faint)}
+/* tres puntos: sin borde, solo hover redondo */
+.dotsb{
+  flex:none; display:flex; align-items:center; justify-content:center;
+  width:28px; height:28px; margin-right:2px; border-radius:50%;
+  color:var(--faint); cursor:pointer;
+}
+.dotsb:hover{background:var(--surface); color:var(--ink)}
+.dotsb svg{width:18px;height:18px}
 .pick:hover{border-color:var(--amber)}
 .pick small{display:block;font:400 11px/1.4 var(--mono);color:var(--faint);
   margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1785,6 +1793,8 @@ const ICONS = {
   warn:"M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z",
   error:"M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z",
   chevron:"M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z",
+  // tres puntos verticales (more_vert)
+  more:"M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z",
   up:"M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z",
   // flecha curva descendente a la derecha (subdirectory_arrow_right)
   subdir:"M19 15l-6 6-1.42-1.42L15.17 16H4V4h2v10h9.17l-3.58-3.58L13 9l6 6z",
@@ -3093,23 +3103,10 @@ function closeRail(){
   $("#rail").classList.remove("on");
   hideScrim();
 }
-/* hold a row instead of tapping it: same gesture as a long press */
-function longPress(el, run){
-  let timer = null, fired = false, x = 0, y = 0;
-  const stop = () => { clearTimeout(timer); timer = null; };
-  el.addEventListener("pointerdown", e=>{
-    fired = false; x = e.clientX; y = e.clientY;
-    timer = setTimeout(()=>{ fired = true; stop(); run(); }, 480);
-  });
-  el.addEventListener("pointermove", e=>{
-    if(timer && Math.hypot(e.clientX - x, e.clientY - y) > 10) stop();
-  });
-  ["pointerup","pointerleave","pointercancel"].forEach(k=>
-    el.addEventListener(k, stop));
-  el.addEventListener("contextmenu", e=> e.preventDefault());
-  el.addEventListener("click", e=>{
-    if(fired){ e.preventDefault(); e.stopPropagation(); fired = false; }
-  }, true);
+/* clic derecho en una fila: su menu (el gesto de escritorio;
+   en movil lo da el boton de tres puntos) */
+function ctxMenu(el, run){
+  el.addEventListener("contextmenu", e=>{ e.preventDefault(); run(); });
 }
 
 let openProj = "";                 // one folder unfolded at a time
@@ -3203,9 +3200,10 @@ async function loadChats(){
     const b = pickBtn({
       cls:"sess", label:x.label,
       hint:new Date(x.mtime*1000).toLocaleString(),
+      dots: () => sessMenu(x.cwd, x),
       run: () => { closeRail();
         send({type:"open_project", path:x.cwd, session:x.path}); }});
-    longPress(b, () => sessMenu(x.cwd, x));
+    ctxMenu(b, () => sessMenu(x.cwd, x));
     list.appendChild(b);
   });
   $("#chatHead").hidden = !(d.results || []).length;
@@ -3226,10 +3224,13 @@ function searchRow(x){
   const b = document.createElement("button");
   b.className = "srow";
   b.innerHTML = `<span>${esc(x.label)}</span>`
-    + `<small>${new Date(x.mtime*1000).toLocaleDateString()}</small>`;
+    + `<small>${new Date(x.mtime*1000).toLocaleDateString()}</small>`
+    + `<span class="dotsb" role="button" aria-label="${esc(T("menu"))}">` + ico("more") + `</span>`;
   b.onclick = () => { closeSearch();
     send({type:"open_project", path:x.cwd, session:x.path}); };
-  longPress(b, () => sessMenu(x.cwd, x));
+  b.querySelector(".dotsb").onclick = e => {
+    e.stopPropagation(); sessMenu(x.cwd, x); };
+  ctxMenu(b, () => sessMenu(x.cwd, x));
   return b;
 }
 async function doSearch(){
@@ -3339,8 +3340,9 @@ function paintRail(){
     const head = pickBtn({
       cls: "proj" + (r.path === state.cwd ? " on" : ""),
       icon: "folder", label: r.name, hint: r.path, chevron: true,
+      dots: () => projMenu(r),
       run: () => toggleProj(r.path)});
-    longPress(head, () => projMenu(r));
+    ctxMenu(head, () => projMenu(r));
     group.appendChild(head);
 
     const subs = document.createElement("div");
@@ -3376,9 +3378,10 @@ function fillSubs(group, path){
     const b = pickBtn({
       cls:"sess", label:x.label,
       hint:new Date(x.mtime*1000).toLocaleString(),
+      dots: () => sessMenu(path, x),
       run: () => { closeRail();
         send({type:"open_project", path, session:x.path}); }});
-    longPress(b, () => sessMenu(path, x));
+    ctxMenu(b, () => sessMenu(path, x));
     inner.appendChild(b);
   });
   marqueeAll(inner);
@@ -4820,6 +4823,7 @@ const STR = {
       font:"Schriftart",
       openSession:"\u00f6ffnen", deleteSession:"Sitzung entfernen",
       forkFrom:"Von einer Nachricht abzweigen",
+      menu:"Menü",
       forkTitle:"Es wird eine Kopie des Gespr\u00e4chs bis zu dieser Nachricht erstellt:",
       forkTrash:"Urspr\u00fcngliches Gespr\u00e4ch in den Papierkorb verschieben", forkDo:"Abzweigen",
       trashTitle:"Papierkorb", restoreQ:"{name} wiederherstellen?", restore:"Wiederherstellen",
@@ -6292,9 +6296,14 @@ function pickBtn(o){
           + `<span class="pval">${esc(o.val)}</span></span>`
         : mqSpan("span", o.label))
     + (o.hint ? mqSpan("small", o.hint) : "") + "</span>"
+    + (o.dots ? `<span class="dotsb" role="button" aria-label="${esc(T("menu"))}">` + ico("more") + `</span>` : "")
     + (o.rightIcon ? ico(o.rightIcon, "ch")
        : (o.chevron ? ico("chevron", "ch") : ""));
   b.onclick = o.run;
+  if(o.dots){
+    // los puntos abren el menu sin disparar la accion de la fila
+    b.querySelector(".dotsb").onclick = e => { e.stopPropagation(); o.dots(); };
+  }
   return b;
 }
 function sheet(title, rows){
