@@ -6287,8 +6287,12 @@ $("#sheet").onclick = e => {
   if(e.target.id === "sheet") e.target.classList.remove("open");
 };
 addEventListener("keydown", e => {
+  if($("#modal").classList.contains("open")){
+    // Enter acepta, Esc cancela: el dialogo responde al teclado
+    if(e.key === "Enter"){ e.preventDefault(); $("#modalOk").click(); return; }
+    if(e.key === "Escape") return closeModal();
+  }
   if(e.key !== "Escape") return;
-  if($("#modal").classList.contains("open")) return closeModal();
   if($("#statsheet").classList.contains("open"))
     return $("#statsheet").classList.remove("open");
   if($("#searchView").classList.contains("on"))
