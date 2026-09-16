@@ -1512,7 +1512,7 @@ main:has(#spin) .empty{display:none}
 .track input:focus-visible::-webkit-slider-thumb{border-color:var(--amber)}
 .shead{
   font:700 10px/1 var(--sans); letter-spacing:.11em; text-transform:uppercase;
-  color:var(--faint); margin:15px 0 9px;
+  color:var(--faint); margin:26px 0 9px;
 }
 .shead:first-child{margin-top:0}
 .shead[hidden]{display:none}
@@ -3184,7 +3184,7 @@ async function loadChats(){
   list.innerHTML = "";
   (d.results || []).slice(0, 4).forEach(x=>{
     const b = pickBtn({
-      cls:"sess", icon:"session", label:x.label,
+      cls:"sess", label:x.label,
       hint:new Date(x.mtime*1000).toLocaleString(),
       run: () => { closeRail();
         send({type:"open_project", path:x.cwd, session:x.path}); }});
@@ -3353,7 +3353,7 @@ function fillSubs(group, path){
   if(!cached.length) return note(T("noSessionsYet"));
   cached.forEach(x=>{
     const b = pickBtn({
-      cls:"sess", icon:"session", label:x.label,
+      cls:"sess", label:x.label,
       hint:new Date(x.mtime*1000).toLocaleString(),
       run: () => { closeRail();
         send({type:"open_project", path, session:x.path}); }});
