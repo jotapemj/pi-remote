@@ -3244,7 +3244,7 @@ function menuModal(title, rows){
 /* menu contextual flotante: anclado a la fila que lo llamo, no al centro.
    Se cierra con clic fuera, Esc o eligiendo una opcion */
 let ctxPop = null;
-function ctxPopup(anchor, rows){
+function ctxPopup(anchor, rows, fromDots){
   closeCtxPop();
   if(!rows.length) return;
   const pop = document.createElement("div");
@@ -3258,9 +3258,11 @@ function ctxPopup(anchor, rows){
   });
   document.body.appendChild(pop);
   ctxPop = pop;
-  const a = anchor.getBoundingClientRect();
+  const a = (fromDots || anchor).getBoundingClientRect();
   const pw = pop.offsetWidth, ph = pop.offsetHeight;
-  let x = a.right + 6, y = a.top - 4;   // a la derecha de la fila
+  let x, y;
+  if(fromDots){ x = a.left; y = a.top; }   // esquina arriba-izq sobre el boton
+  else { x = a.right + 6; y = a.top - 4; } // a la derecha de la fila
   if(x + pw > innerWidth - 8) x = Math.max(8, a.left + 12);
   if(y + ph > innerHeight - 8) y = innerHeight - ph - 8;
   if(y < 8) y = 8;
@@ -3278,7 +3280,7 @@ document.addEventListener("pointerdown", e => {
 }, true);
 addEventListener("keydown", e => { if(e.key === "Escape") closeCtxPop(); });
 
-function projMenu(anchor, r){
+function projMenu(anchor, r, dots){
   ctxPopup(anchor, [
     {icon:"newchat", label:T("newSession"), run:()=>{
       closeRail();
@@ -3287,10 +3289,10 @@ function projMenu(anchor, r){
     {icon:"remove", bad:true, label:T("removeProject"), run:()=>
       confirmModal(T("removeQ"), esc(T("removeB")),
                    ()=>send({type:"forget_project", path:r.path}))},
-  ]);
+  ], dots);
 }
 
-function sessMenu(anchor, projPath, x){
+function sessMenu(anchor, projPath, x, dots){
   ctxPopup(anchor, [
     {icon:"session", label:T("openSession"), run:()=>{
       closeRail();
@@ -3298,7 +3300,7 @@ function sessMenu(anchor, projPath, x){
     {icon:"remove", bad:true, label:T("deleteSession"), run:()=>
       confirmModal(T("deleteQ"), esc(T("deleteB")),
                    ()=>send({type:"delete_session", path:x.path}))},
-  ]);
+  ], dots);
 }
 
 let chatsKey = null;                 // solo repintar cuando cambia el conjunto
@@ -3314,7 +3316,7 @@ async function loadChats(){
     const b = pickBtn({
       cls:"sess", label:x.label,
       hint:new Date(x.mtime*1000).toLocaleString(),
-      dots: () => sessMenu(b, x.cwd, x),
+      dots: d => sessMenu(b, x.cwd, x, d),
       run: () => { closeRail();
         send({type:"open_project", path:x.cwd, session:x.path}); }});
     ctxMenu(b, () => sessMenu(b, x.cwd, x));
@@ -3342,8 +3344,9 @@ function searchRow(x){
     + `<span class="dotsb" role="button" aria-label="${esc(T("menu"))}">` + ico("more") + `</span>`;
   b.onclick = () => { closeSearch();
     send({type:"open_project", path:x.cwd, session:x.path}); };
-  b.querySelector(".dotsb").onclick = e => {
-    e.stopPropagation(); sessMenu(b, x.cwd, x); };
+  const dots = b.querySelector(".dotsb");
+  dots.onclick = e => { e.stopPropagation();
+    sessMenu(b, x.cwd, x, dots); };
   ctxMenu(b, () => sessMenu(b, x.cwd, x));
   return b;
 }
@@ -3454,7 +3457,7 @@ function paintRail(){
     const head = pickBtn({
       cls: "proj" + (r.path === state.cwd ? " on" : ""),
       icon: "folder", label: r.name, hint: r.path, chevron: true,
-      dots: () => projMenu(head, r),
+      dots: d => projMenu(head, r, d),
       run: () => toggleProj(r.path)});
     ctxMenu(head, () => projMenu(head, r));
     group.appendChild(head);
@@ -3492,7 +3495,7 @@ function fillSubs(group, path){
     const b = pickBtn({
       cls:"sess", label:x.label,
       hint:new Date(x.mtime*1000).toLocaleString(),
-      dots: () => sessMenu(b, path, x),
+      dots: d => sessMenu(b, path, x, d),
       run: () => { closeRail();
         send({type:"open_project", path, session:x.path}); }});
     ctxMenu(b, () => sessMenu(b, path, x));
@@ -6444,7 +6447,8 @@ function pickBtn(o){
   b.onclick = o.run;
   if(o.dots){
     // los puntos abren el menu sin disparar la accion de la fila
-    b.querySelector(".dotsb").onclick = e => { e.stopPropagation(); o.dots(); };
+    const dots = b.querySelector(".dotsb");
+    dots.onclick = e => { e.stopPropagation(); o.dots(dots); };
   }
   return b;
 }
