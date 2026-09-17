@@ -32,6 +32,7 @@ import socket
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import urllib.request
@@ -635,6 +636,10 @@ def is_blocked(d):
         p = Path(d).resolve()
     except OSError:
         return True
+    # whitelist primero: dentro de una ruta permitida pasa, aunque caiga
+    # en zona bloqueada (el temp del sistema va fijo: los tests viven alli)
+    if is_allowed(p):
+        return False
     # raiz de unidad (C:\): sin nada debajo que valga la pena
     if getattr(p, "drive", "") and len(p.parts) == 1:
         return True
@@ -646,6 +651,84 @@ def is_blocked(d):
     if "users" in parts and "appdata" in parts:
         return True
     return False
+
+
+def allowed_file():
+    return AGENT_DIR / "allowed_dirs.json"
+
+
+def system_allowed():
+    """Entradas fijas, no borrables desde la UI. El temp del sistema es zona
+    de trabajo legitima: no hay credenciales ni sistema alli."""
+    return [str(Path(tempfile.gettempdir()).resolve())]
+
+
+def _user_allowed():
+    try:
+        with open(allowed_file(), encoding="utf-8") as fh:
+            d = json.load(fh)
+        return [str(x) for x in d] if isinstance(d, list) else []
+    except (OSError, ValueError):
+        return []
+
+
+def read_allowed():
+    """Lista para la UI: fijas primero, luego las del usuario."""
+    out = [{"path": p, "fixed": True} for p in system_allowed()]
+    seen = {p.lower() for p in system_allowed()}
+    for p in _user_allowed():
+        k = p.lower()
+        if k not in seen:
+            seen.add(k)
+            out.append({"path": p, "fixed": False})
+    return out
+
+
+def is_allowed(p):
+    """El path es igual a una ruta permitida o vive debajo de ella. Prefijo
+    estricto con separador: no abre el resto de la zona bloqueada."""
+    try:
+        q = Path(str(p)).resolve()
+    except (OSError, TypeError):
+        return False
+    for entry in system_allowed() + _user_allowed():
+        e = str(Path(entry).resolve()).rstrip("/\\")
+        s = str(q).rstrip("/\\")
+        if s.lower() == e.lower() or s.lower().startswith(e.lower() + os.sep):
+            return True
+    return False
+
+
+def add_allowed(d):
+    """Añade una ruta a la whitelist. Round-trip: el resto se conserva."""
+    try:
+        p = Path(d).resolve()
+    except (OSError, TypeError):
+        return "bad path"
+    if not p.is_dir():
+        return "not a directory"
+    key = str(p)
+    if any(x.lower() == key.lower() for x in _user_allowed()):
+        return None
+    lst = _user_allowed() + [key]
+    try:
+        with open(allowed_file(), "w", encoding="utf-8") as fh:
+            json.dump(lst, fh, indent=2)
+    except OSError as exc:
+        return "cannot write allowed_dirs.json: %s" % exc
+    return None
+
+
+def remove_allowed(d):
+    """Quita una ruta de la whitelist. Las fijas no se tocan."""
+    key = str(Path(d).resolve()) if d else ""
+    lst = [x for x in _user_allowed() if x.lower() != key.lower()]
+    try:
+        with open(allowed_file(), "w", encoding="utf-8") as fh:
+            json.dump(lst, fh, indent=2)
+    except OSError as exc:
+        return "cannot write allowed_dirs.json: %s" % exc
+    return None
 
 
 def looks_like_project(d):
@@ -784,6 +867,97 @@ def save_model_params(provider, model_id, context_window, max_tokens):
                 return "cannot write models.json: %s" % exc
             return None
     return "model not found: %s/%s" % (provider, model_id)
+
+
+# ------------------------------------------------------------------ trust y
+# settings por proyecto. Pi carga los recursos locales de un proyecto
+# (.pi/settings.json, skills, extensions) solo si la carpeta o una de sus
+# padres tiene decision guardada en trust.json; en modo RPC no hay prompt,
+# asi que el puente pregunta antes y escribe la decision.
+
+def _read_json(p):
+    try:
+        with open(p, encoding="utf-8") as fh:
+            d = json.load(fh)
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def trust_file():
+    return AGENT_DIR / "trust.json"
+
+
+def trust_decision(path):
+    """Primera decision subiendo del proyecto a la raiz de la unidad.
+    Devuelve (bool o None, carpeta donde vive la decision o None)."""
+    table = {str(k).replace("\\", "/").lower(): v
+             for k, v in _read_json(trust_file()).items()}
+    try:
+        p = Path(path).resolve()
+    except OSError:
+        return None, None
+    while True:
+        key = str(p).replace("\\", "/").lower()
+        if key in table:
+            return bool(table[key]), str(p)
+        if p == p.parent:
+            return None, None
+        p = p.parent
+
+
+def set_trust(path, decision):
+    """Decision explicita sobre una carpeta. Round-trip: el resto de
+    trust.json se conserva."""
+    if is_blocked(path):
+        return "blocked path"
+    try:
+        p = Path(path).resolve()
+    except OSError:
+        return "bad path"
+    if not p.is_dir():
+        return "not a directory"
+    t = _read_json(trust_file())
+    t[str(p)] = bool(decision)
+    try:
+        with open(trust_file(), "w", encoding="utf-8") as fh:
+            json.dump(t, fh, indent=2)
+    except OSError as exc:
+        return "cannot write trust.json: %s" % exc
+    return None
+
+
+def project_settings_path(cwd):
+    return Path(cwd) / ".pi" / "settings.json"
+
+
+def read_project_settings(cwd):
+    return _read_json(project_settings_path(cwd))
+
+
+def save_project_settings(cwd, patch):
+    """Fusiona claves en el .pi/settings.json del proyecto (round-trip: el
+    resto del fichero se conserva). None borra la clave: asi se limpia un
+    override. Pi lo lee al arrancar cada sesion."""
+    if is_blocked(cwd):
+        return "blocked path"
+    root = Path(cwd)
+    if not root.is_dir():
+        return "not a directory"
+    p = project_settings_path(cwd)
+    d = _read_json(p)
+    for k, v in (patch or {}).items():
+        if v is None:
+            d.pop(k, None)
+        else:
+            d[k] = v
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with open(p, "w", encoding="utf-8") as fh:
+            json.dump(d, fh, indent=2)
+    except OSError as exc:
+        return "cannot write .pi/settings.json: %s" % exc
+    return None
 
 
 def model_endpoint(provider):
@@ -1819,6 +1993,54 @@ class Bridge:
                                     cw, mt)
             self.emit({"type": "rpc", "command": t,
                        "data": {"error": err} if err else {}})
+            return
+
+        if t == "trust_status":
+            decision, at = trust_decision(msg.get("path") or "")
+            self.emit({"type": "rpc", "command": t,
+                       "data": {"decision": decision, "trustedPath": at}})
+            return
+
+        if t == "trust_set":
+            err = set_trust(msg.get("path"), msg.get("decision"))
+            self.emit({"type": "rpc", "command": t,
+                       "data": {"error": err} if err else {}})
+            return
+
+        if t == "project_settings_get":
+            self.emit({"type": "rpc", "command": t,
+                       "data": {"settings":
+                                read_project_settings(msg.get("cwd") or "")}})
+            return
+
+        if t == "project_settings_save":
+            patch = msg.get("settings")
+            if not isinstance(patch, dict):
+                self.emit({"type": "rpc", "command": t,
+                           "data": {"error": "settings must be an object"}})
+                return
+            err = save_project_settings(msg.get("cwd"), patch)
+            self.emit({"type": "rpc", "command": t,
+                       "data": {"error": err} if err else {}})
+            return
+
+        if t == "whitelist_get":
+            self.emit({"type": "rpc", "command": t,
+                       "data": {"dirs": read_allowed()}})
+            return
+
+        if t == "whitelist_add":
+            err = add_allowed(msg.get("path"))
+            self.emit({"type": "rpc", "command": t,
+                       "data": {"error": err} if err else {},
+                       "dirs": read_allowed()})
+            return
+
+        if t == "whitelist_remove":
+            err = remove_allowed(msg.get("path"))
+            self.emit({"type": "rpc", "command": t,
+                       "data": {"error": err} if err else {},
+                       "dirs": read_allowed()})
             return
 
         if t in PASSTHROUGH:
