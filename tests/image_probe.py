@@ -71,7 +71,7 @@ async def in_page():
             await js(MAKE_FILE)
             await asyncio.sleep(0.3)
             th = await js("[document.querySelectorAll('#thumbs .thumb').length,"
-                          " !$('#thumbs').hidden,"
+                          " $('#thumbs').classList.contains('open'),"
                           " !!document.querySelector('#thumbs .thx svg'),"
                           " $('#field').classList.contains('hasimg'),"
                           " Number(getComputedStyle($('#send')).opacity)]")
@@ -121,7 +121,7 @@ async def in_page():
                             ".opacity) < 1] : [false, false];})()")
             await asyncio.sleep(0.3)
             gone = await js("[document.querySelectorAll('#thumbs .thumb').length,"
-                            " $('#thumbs').hidden,"
+                            " !$('#thumbs').classList.contains('open'),"
                             " $('#field').classList.contains('hasimg')]")
             print("  quitar: entra=%s sale=%s -> quedan=%s hidden=%s hasimg=%s"
                   % (enter, outc, gone[0], gone[1], gone[2]))

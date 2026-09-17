@@ -920,8 +920,15 @@ footer > *{position:relative; z-index:1}
 .pmi .i{width:20px; height:20px; color:var(--dim)}
 .pmi:focus-visible{outline:2px solid var(--amber); outline-offset:-2px}
 /* miniaturas sobre el compositor */
-.thumbs{display:flex; flex-wrap:wrap; gap:8px; padding:2px var(--gut) 8px}
-.thumbs[hidden]{display:none}
+/* la fila de miniaturas respira: el alto del compositor se anima al
+   ampliar y al compactar, no salta */
+.thumbs{display:grid; grid-template-rows:0fr;
+        transition:grid-template-rows .28s cubic-bezier(.32,.72,0,1)}
+.thumbs.open{grid-template-rows:1fr}
+.thumbsin{min-height:0; overflow:hidden; display:flex; flex-wrap:wrap;
+          gap:8px; padding:0 var(--gut)}
+/* el padding vertical solo con la fila abierta: cerrado, alto cero exacto */
+.thumbs.open .thumbsin{padding-top:2px; padding-bottom:8px}
 .thumb{
   position:relative; width:56px; height:56px; flex:none;
   border-radius:10px; overflow:hidden;
@@ -1718,7 +1725,7 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
     <div class="phead" id="phead">commands</div>
     <div id="plist"></div>
   </div>
-  <div class="thumbs" id="thumbs" hidden></div>
+  <div class="thumbs" id="thumbs"><div class="thumbsin" id="thumbsIn"></div></div>
   <div class="entry">
     <div class="field" id="field">
       <button class="slashb" id="slashBtn" aria-label="add"></button>
@@ -4601,7 +4608,8 @@ box.addEventListener("focusout", e => {
 
 // el '+' abre un popup con Commands e Image; el '/' teclado sigue valiendo
 $("#slashBtn").innerHTML = ico("add");
-const plusMenu = $("#plusMenu"), imgInput = $("#imgInput"), thumbs = $("#thumbs");
+const plusMenu = $("#plusMenu"), imgInput = $("#imgInput"), thumbs = $("#thumbs"),
+      thumbsIn = $("#thumbsIn");
 plusMenu.querySelectorAll(".pmi-ic").forEach(s => s.innerHTML = ico(s.dataset.ic));
 function plusOpen(on){
   $("#slashBtn").classList.toggle("on", on);   // borde ambar solo con menu abierto
@@ -4655,9 +4663,9 @@ function addImage(im){
   el.className = "thumb"; el.__img = im;
   el.innerHTML = `<img src="${im.url}" alt="">`
     + `<button class="thx" aria-label="${esc(T("remove"))}">${ico("close")}</button>`;
-  thumbs.hidden = false;
+  thumbs.classList.add("open");
   $("#field").classList.add("hasimg");
-  thumbs.appendChild(el);
+  thumbsIn.appendChild(el);
   requestAnimationFrame(()=> el.classList.add("in"));   // anima la entrada
 }
 function removeImage(el){
@@ -4667,7 +4675,7 @@ function removeImage(el){
   el.classList.remove("in"); el.classList.add("out");   // anima la salida
   setTimeout(()=>{
     el.remove();
-    if(last){ thumbs.hidden = true;                      // vuelve a lo normal
+    if(last){ thumbs.classList.remove("open");           // el alto se compacta
               $("#field").classList.remove("hasimg"); }
   }, 200);
 }
@@ -4677,7 +4685,7 @@ thumbs.onclick = e => {
 };
 function clearThumbs(){                 // al enviar: la burbuja releva a la fila
   pendingImages = [];
-  thumbs.innerHTML = ""; thumbs.hidden = true;
+  thumbsIn.innerHTML = ""; thumbs.classList.remove("open");
   $("#field").classList.remove("hasimg");
 }
 // el blur solo cierra la paleta si esta abierta (no al soltar el foco por '+')
