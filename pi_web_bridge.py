@@ -960,6 +960,22 @@ def save_project_settings(cwd, patch):
     return None
 
 
+def project_default_model(cwd):
+    """El modelo propio del proyecto, si lo hay (confiado + configurado).
+
+    Pi lo aplica al arrancar cada sesion (settings fusionados: proyecto >
+    global). Si existe, el puente no debe pisarlo con el default global:
+    la cadena de prioridad es proyecto > puente > pi."""
+    trusted, _ = trust_decision(cwd)
+    if trusted is not True:
+        return None
+    d = read_project_settings(cwd)
+    provider, mid = d.get("defaultProvider"), d.get("defaultModel")
+    if isinstance(provider, str) and provider and isinstance(mid, str) and mid:
+        return {"provider": provider, "id": mid}
+    return None
+
+
 def model_endpoint(provider):
     """baseUrl y apiKey del provider actual, para la peticion del titulo."""
     p = (read_models_json().get("providers") or {}).get(provider) or {}
@@ -1538,9 +1554,13 @@ class Bridge:
 
     def apply_default_model(self):
         """Imponer el modelo por defecto del usuario si la sesion no esta en el.
-        Con la guarda (solo si difiere), se aplica una vez por pi/sesion nueva
-        y no entra en bucle: la respuesta de set_model deja el estado en el
-        default y el siguiente get_state ya coincide."""
+        Cadena de prioridad: proyecto > puente > pi. Si el proyecto (confiado)
+        tiene su propio modelo, pi ya lo aplico al arrancar y no se toca. Con
+        la guarda (solo si difiere), se aplica una vez por pi/sesion nueva y no
+        entra en bucle: la respuesta de set_model deja el estado en el default
+        y el siguiente get_state ya coincide."""
+        if project_default_model(self.cwd):
+            return
         want = read_default_model()
         if not want:
             return
