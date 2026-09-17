@@ -268,8 +268,8 @@ last session (as long as that `.jsonl` still exists; otherwise a fresh one).
 The rail lists your projects in the order they were added; tapping one unfolds
 its sessions, and *new session* starts a fresh one. A **recents** section on
 top collects the last few sessions used across all projects. **Search** filters
-every known session by name. **Long-press** a project or a session for its
-actions (new session, remove).
+every known session by name. Right-click a project or a session (or tap its
+three dots) for its actions (new session, remove).
 
 Removing a session does not delete it: pi has no delete over RPC, so the
 `.jsonl` is moved to a `_trash` folder beside it (the open session is refused).
