@@ -282,35 +282,57 @@ async def main():
                      luego[3] == antes[3] and luego[4] == ""),
                 ]
 
-                # clic derecho en la carpeta
-                await js("closeModal()")
+                # clic derecho en la carpeta: popup flotante, no dialog
                 await js(HOLD % 0)
                 await asyncio.sleep(0.75)
-                menu = await js("[$('#modal').classList.contains('open'),"
-                                " $('#modalTitle').textContent,"
-                                " [...document.querySelectorAll('#modalBody .mrow')]"
-                                ".map(b=>b.textContent)]")
-                print("  clic derecho:", menu[1], menu[2])
-                checks.append(("el clic derecho abre el dialogo",
-                               menu[0] is True))
-                checks.append(("con dos opciones", len(menu[2]) == 2))
-                await js("closeModal()")
+                menu = await js("[!!document.querySelector('.ctxpop'),"
+                                " [...document.querySelectorAll('.ctxrow')]"
+                                ".map(b=>b.textContent),"
+                                " document.querySelector('.ctxpop')?.style.left]")
+                print("  clic derecho:", menu[1])
+                checks.append(("el clic derecho abre el popup flotante",
+                               menu[0] is True and len(menu[1]) == 2
+                               and menu[2] not in (None, "")))
+                await js("closeCtxPop()")
 
                 # tres puntos en la carpeta y en una sesion
                 dots = await js("""(() => {
                   const d = document.querySelectorAll('.pgroup')[0]
                     .querySelector('.proj .dotsb');
                   d.click();
-                  const m1 = $('#modal').classList.contains('open');
-                  closeModal();
+                  const m1 = !!document.querySelector('.ctxpop');
+                  closeCtxPop();
                   const s = document.querySelectorAll('.pgroup')[1]
                     .querySelector('.sess .dotsb');
                   s.click();
-                  return [m1, $('#modal').classList.contains('open')];
+                  const m2 = !!document.querySelector('.ctxpop');
+                  closeCtxPop();
+                  return [m1, m2];
                 })()""")
-                checks.append(("los tres puntos abren el menu (carpeta y sesion)",
+                checks.append(("los tres puntos abren el popup (carpeta y sesion)",
                                dots[0] is True and dots[1] is True))
-                await js("closeModal()")
+
+                # el popup se cierra con clic fuera y con Esc
+                await js("document.querySelectorAll('.pgroup')[0]"
+                        ".querySelector('.proj .dotsb').click()")
+                await asyncio.sleep(0.3)
+                abrio = await js("!!document.querySelector('.ctxpop.on')")
+                await js("document.body"
+                         ".dispatchEvent(new PointerEvent('pointerdown'))")
+                await asyncio.sleep(0.3)
+                checks.append(("clic fuera cierra el popup",
+                               abrio and not await js(
+                                   "!!document.querySelector('.ctxpop')")))
+                await js("document.querySelectorAll('.pgroup')[0]"
+                        ".querySelector('.proj .dotsb').click()")
+                await asyncio.sleep(0.3)
+                abrio = await js("!!document.querySelector('.ctxpop.on')")
+                await js("window.dispatchEvent(new KeyboardEvent('keydown',"
+                         " {key:'Escape'}))")
+                await asyncio.sleep(0.3)
+                checks.append(("Esc cierra el popup",
+                               abrio and not await js(
+                                   "!!document.querySelector('.ctxpop')")))
 
             # rail fino: solo en escritorio
             async with Page(port=9307, width=1280, height=800,
@@ -334,16 +356,15 @@ async def main():
                 checks.append(("plegado: rail de 64 px con los iconos",
                                st[0] == 64 and st[1] == "1" and st[2] == "0"
                                and st[3] == 5))
+                # el logo lleva el cubo de pi remote; el hover solo cambia
+                # el icono, no despliega
+                logo = await dj("[!!$('#slimLogo img'), !!$('#slimLogo .hov svg')]")
+                checks.append(("el logo es el icono de pi remote",
+                               logo == [True, True]))
                 await dj("$('#slimLogo')"
                          ".dispatchEvent(new Event('mouseenter'))")
                 await asyncio.sleep(0.5)
-                checks.append(("el logo despliega al pasar el raton",
-                               await dj("!document.body"
-                                        ".classList.contains('folded')")
-                               is True))
-                await dj("$('#rail').dispatchEvent(new Event('mouseleave'))")
-                await asyncio.sleep(0.5)
-                checks.append(("salir del rail vuelve a plegar",
+                checks.append(("el hover no despliega la barra",
                                await dj("document.body"
                                         ".classList.contains('folded')")
                                is True))
@@ -353,6 +374,18 @@ async def main():
                                await dj("!document.body"
                                         ".classList.contains('folded')")
                                is True))
+
+                # el bocadillo lista las conversaciones del proyecto abierto
+                await dj("setFolded(true)")
+                await asyncio.sleep(0.4)
+                await dj("state.cwd = %s" % json.dumps(B))
+                await dj("$('#slimChat').click()")
+                await asyncio.sleep(0.8)
+                ch = await dj("[!!document.querySelector('.ctxpop'),"
+                              " document.querySelectorAll('.ctxrow').length]")
+                checks.append(("el bocadillo abre el popup con los chats",
+                               ch[0] is True and ch[1] >= 1))
+                await dj("closeCtxPop()")
 
                 return report(checks)
 

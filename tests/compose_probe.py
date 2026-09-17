@@ -102,25 +102,28 @@ async def main():
             print("  tras pulsar bajar: faltan %s px" % bajado)
             checks.append(("el boton baja al final", bajado < 40))
 
-            # fancybox en vez de bottom sheet
-            await js("openRail(); projMenu(state.recent[0])")
+            # popup flotante anclado, no dialog ni bottom sheet
+            await js("openRail(); projMenu($('#rail'), state.recent[0])")
             await asyncio.sleep(0.4)
-            fancy = await js("[$('#modal').classList.contains('open'),"
+            fancy = await js("[!!document.querySelector('.ctxpop'),"
+                             " $('#modal').classList.contains('open'),"
                              " $('#sheet').classList.contains('open'),"
-                             " document.querySelectorAll('#modalBody .mrow')"
+                             " document.querySelectorAll('.ctxrow')"
                              ".length]")
-            print("  long press: modal=%s sheet=%s filas=%s" % tuple(fancy))
-            checks.append(("el menu es un dialogo, no un panel",
+            print("  menu: popup=%s modal=%s sheet=%s filas=%s" % tuple(fancy))
+            checks.append(("el menu es un popup, no un dialogo",
                            fancy[0] is True and fancy[1] is False
-                           and fancy[2] == 2))
+                           and fancy[2] is False and fancy[3] == 2))
 
-            await js("closeModal(); sessMenu('X', {label:'s', path:'y.jsonl'})")
+            await js("closeCtxPop();"
+                     " sessMenu($('#rail'), 'X', {label:'s', path:'y.jsonl'})")
             await asyncio.sleep(0.4)
-            sm = await js("[document.querySelectorAll('#modalBody .mrow').length,"
-                          " !!document.querySelector('#modalBody .mrow.bad')]")
+            sm = await js("[document.querySelectorAll('.ctxrow').length,"
+                          " !!document.querySelector('.ctxrow.bad')]")
             print("  menu de sesion: filas=%s con una en rojo=%s" % tuple(sm))
             checks.append(("la sesion ofrece abrir y quitar",
                            sm[0] == 2 and sm[1] is True))
+            await js("closeCtxPop()")
 
             # los mensajes largos del usuario se pliegan; los cortos no
             longtext = " ".join(["palabra%d" % i for i in range(90)])

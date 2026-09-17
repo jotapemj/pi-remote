@@ -816,6 +816,26 @@ footer > *{position:relative; z-index:1}
 .mrow.bad{color:var(--coral)}
 .mrow.bad .i{color:var(--coral)}
 .mrow .i{color:var(--faint)}
+/* menu contextual flotante: anclado a la fila, sin ocupar el centro */
+.ctxpop{
+  position:fixed; z-index:60; min-width:190px; max-width:280px;
+  background:var(--surface); border:1px solid var(--rule); border-radius:12px;
+  box-shadow:0 12px 34px #0007; padding:6px;
+  opacity:0; transform:scale(.97); transform-origin:top left;
+  transition:opacity .14s ease, transform .14s ease;
+}
+.ctxpop.on{opacity:1; transform:none}
+.ctxrow{
+  display:flex; align-items:center; gap:10px; width:100%;
+  background:none; border:none; cursor:pointer; text-align:left;
+  padding:9px 10px; border-radius:8px;
+  font:400 13.5px/1.2 var(--sans); color:var(--ink);
+}
+.ctxrow:hover{background:var(--raise)}
+.ctxrow svg{width:17px;height:17px;color:var(--dim);flex:none}
+.ctxrow span{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;
+  white-space:nowrap}
+.ctxrow.bad, .ctxrow.bad svg{color:var(--coral)}
 /* pie del selector de tema: switch Auto sobre el toggle claro/oscuro */
 .tmode{margin:15px -20px 10px; padding:15px 20px 0;
   border-top:1px solid var(--rule);   /* separador de borde a borde, centrado */
@@ -1586,7 +1606,13 @@ main:has(#spin) .empty{display:none}
   }
   .slimb:hover{background:var(--raise); color:var(--ink)}
   .slimb svg{width:20px;height:20px}
-  .slimb.logo{font:600 21px/1 var(--mono); color:var(--amber)}
+  /* logo: el cubo de pi remote; al pasar el raton se convierte en el
+     icono de barra lateral (el clic es lo que despliega, no el hover) */
+  .slimb.logo img{width:26px; height:26px; border-radius:7px}
+  .slimb.logo .hov{display:none; align-items:center; justify-content:center}
+  .slimb.logo .hov svg{width:20px;height:20px}
+  .slimb.logo:hover img{display:none}
+  .slimb.logo:hover .hov{display:flex}
   .slimfoot{margin-top:auto}
   body.dragging .rail{transition:none}   /* el tirador manda al instante */
   .scrim{display:none!important}
@@ -1608,7 +1634,7 @@ main:has(#spin) .empty{display:none}
   body.dragging{user-select:none; cursor:col-resize; transition:none}
 
   /* el compositor se alinea con el texto, no con la columna entera */
-  footer .entry,footer .cmeta,.readout,.palette{
+  footer .entry,footer .cmeta,footer .thumbs,.readout,.palette{
     max-width:760px; margin-left:auto; margin-right:auto;
   }
   .palette{left:0; right:0; width:min(760px,100%)}
@@ -1618,6 +1644,18 @@ main:has(#spin) .empty{display:none}
     align-items:center;
     -webkit-backdrop-filter:blur(7px); backdrop-filter:blur(7px);
   }
+  /* papelera y busqueda: dialog centrado con velo difuminado, como el fork */
+  #scrim{-webkit-backdrop-filter:blur(7px); backdrop-filter:blur(7px)}
+  .searchview{
+    left:50%; right:auto; top:50%; bottom:auto;
+    width:min(92vw,540px); max-height:70vh; margin:0;
+    border-radius:16px; box-shadow:0 24px 60px #0009;
+    transform:translate(-50%,-46%) scale(.985);
+    transition:transform .2s cubic-bezier(.32,.72,0,1), opacity .18s ease;
+    opacity:0;
+  }
+  .searchview.on{transform:translate(-50%,-50%) scale(1); opacity:1}
+
   .sheet .card{
     max-width:470px; border-radius:16px; max-height:76vh;
     padding:18px 20px 20px;
@@ -1719,10 +1757,13 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
   </div>
   <!-- rail fino de iconos: solo escritorio, con el rail plegado -->
   <div class="slim" id="slimRail">
-    <button class="slimb logo" id="slimLogo" title="pi remote">&pi;</button>
+    <button class="slimb logo" id="slimLogo" title="pi remote">
+      <img src="/icons/icon-48.png" alt="">
+      <span class="hov" aria-hidden="true"></span>
+    </button>
     <button class="slimb" id="slimNew" aria-label="new session"></button>
     <button class="slimb" id="slimSearch" aria-label="search"></button>
-    <button class="slimb" id="slimChat" aria-label="projects"></button>
+    <button class="slimb" id="slimChat" aria-label="chats"></button>
     <div class="slimfoot"><button class="slimb" id="slimTrash" aria-label="trash"></button></div>
   </div>
 </aside>
@@ -1829,6 +1870,8 @@ const ICONS = {
   more:"M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z",
   // bocadillo de conversacion
   chat:"M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z",
+  // cuadrito con lapiz (edit_square): chat nuevo
+  newchat:"M9 15v-4.25l9.175-9.175q.3-.3.675-.45t.75-.15q.4 0 .763.15t.662.45L22.425 3q.275.3.425.663T23 4.4t-.137.738t-.438.662L13.25 15zm10.6-9.2l1.425-1.4l-1.4-1.4L18.2 4.4zM5 21q-.825 0-1.412-.587T3 19V5q0-.825.588-1.412T5 3h8.925L7 9.925V17h7.05L21 10.05V19q0 .825-.587 1.413T19 21z",
   up:"M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z",
   // flecha curva descendente a la derecha (subdirectory_arrow_right)
   subdir:"M19 15l-6 6-1.42-1.42L15.17 16H4V4h2v10h9.17l-3.58-3.58L13 9l6 6z",
@@ -3198,9 +3241,46 @@ function menuModal(title, rows){
   });
 }
 
-function projMenu(r){
-  menuModal(r.name, [
-    {icon:"add", label:T("newSession"), run:()=>{
+/* menu contextual flotante: anclado a la fila que lo llamo, no al centro.
+   Se cierra con clic fuera, Esc o eligiendo una opcion */
+let ctxPop = null;
+function ctxPopup(anchor, rows){
+  closeCtxPop();
+  if(!rows.length) return;
+  const pop = document.createElement("div");
+  pop.className = "ctxpop";
+  rows.forEach(r => {
+    const b = document.createElement("button");
+    b.className = "ctxrow" + (r.bad ? " bad" : "");
+    b.innerHTML = (r.icon ? ico(r.icon) : "") + `<span>${esc(r.label)}</span>`;
+    b.onclick = () => { closeCtxPop(); r.run(); };
+    pop.appendChild(b);
+  });
+  document.body.appendChild(pop);
+  ctxPop = pop;
+  const a = anchor.getBoundingClientRect();
+  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  let x = a.right + 6, y = a.top - 4;   // a la derecha de la fila
+  if(x + pw > innerWidth - 8) x = Math.max(8, a.left + 12);
+  if(y + ph > innerHeight - 8) y = innerHeight - ph - 8;
+  if(y < 8) y = 8;
+  pop.style.left = x + "px"; pop.style.top = y + "px";
+  requestAnimationFrame(() => pop.classList.add("on"));
+}
+function closeCtxPop(){
+  if(!ctxPop) return;
+  const p = ctxPop; ctxPop = null;
+  p.classList.remove("on");
+  setTimeout(() => p.remove(), 140);
+}
+document.addEventListener("pointerdown", e => {
+  if(ctxPop && !ctxPop.contains(e.target)) closeCtxPop();
+}, true);
+addEventListener("keydown", e => { if(e.key === "Escape") closeCtxPop(); });
+
+function projMenu(anchor, r){
+  ctxPopup(anchor, [
+    {icon:"newchat", label:T("newSession"), run:()=>{
       closeRail();
       if(r.path === state.cwd) send({type:"new_session"});   // pi vive
       else send({type:"open_project", path:r.path}); }},
@@ -3210,8 +3290,8 @@ function projMenu(r){
   ]);
 }
 
-function sessMenu(projPath, x){
-  menuModal(x.label, [
+function sessMenu(anchor, projPath, x){
+  ctxPopup(anchor, [
     {icon:"session", label:T("openSession"), run:()=>{
       closeRail();
       send({type:"open_project", path:projPath, session:x.path}); }},
@@ -3234,10 +3314,10 @@ async function loadChats(){
     const b = pickBtn({
       cls:"sess", label:x.label,
       hint:new Date(x.mtime*1000).toLocaleString(),
-      dots: () => sessMenu(x.cwd, x),
+      dots: () => sessMenu(b, x.cwd, x),
       run: () => { closeRail();
         send({type:"open_project", path:x.cwd, session:x.path}); }});
-    ctxMenu(b, () => sessMenu(x.cwd, x));
+    ctxMenu(b, () => sessMenu(b, x.cwd, x));
     list.appendChild(b);
   });
   $("#chatHead").hidden = !(d.results || []).length;
@@ -3263,8 +3343,8 @@ function searchRow(x){
   b.onclick = () => { closeSearch();
     send({type:"open_project", path:x.cwd, session:x.path}); };
   b.querySelector(".dotsb").onclick = e => {
-    e.stopPropagation(); sessMenu(x.cwd, x); };
-  ctxMenu(b, () => sessMenu(x.cwd, x));
+    e.stopPropagation(); sessMenu(b, x.cwd, x); };
+  ctxMenu(b, () => sessMenu(b, x.cwd, x));
   return b;
 }
 async function doSearch(){
@@ -3374,9 +3454,9 @@ function paintRail(){
     const head = pickBtn({
       cls: "proj" + (r.path === state.cwd ? " on" : ""),
       icon: "folder", label: r.name, hint: r.path, chevron: true,
-      dots: () => projMenu(r),
+      dots: () => projMenu(head, r),
       run: () => toggleProj(r.path)});
-    ctxMenu(head, () => projMenu(r));
+    ctxMenu(head, () => projMenu(head, r));
     group.appendChild(head);
 
     const subs = document.createElement("div");
@@ -3412,10 +3492,10 @@ function fillSubs(group, path){
     const b = pickBtn({
       cls:"sess", label:x.label,
       hint:new Date(x.mtime*1000).toLocaleString(),
-      dots: () => sessMenu(path, x),
+      dots: () => sessMenu(b, path, x),
       run: () => { closeRail();
         send({type:"open_project", path, session:x.path}); }});
-    ctxMenu(b, () => sessMenu(path, x));
+    ctxMenu(b, () => sessMenu(b, path, x));
     inner.appendChild(b);
   });
   marqueeAll(inner);
@@ -3463,7 +3543,8 @@ $("#statsIcon").innerHTML = ico("stats");
 $("#foldBtn").onclick = () => setFolded(true);
 
 /* rail fino: los iconos hacen lo mismo que sus botones del rail completo */
-$("#slimNew").innerHTML = ico("add");
+$("#slimLogo .hov").innerHTML = ico("panel");
+$("#slimNew").innerHTML = ico("newchat");
 $("#slimSearch").innerHTML = ico("search");
 $("#slimChat").innerHTML = ico("chat");
 $("#slimTrash").innerHTML = ico("remove");
@@ -3473,18 +3554,17 @@ $("#slimNew").onclick = () => {
   else browse("");                 // sin proyecto: primero elegir carpeta
 };
 $("#slimSearch").onclick = openSearch;
-$("#slimChat").onclick = () => browse("");
+/* el bocadillo lista las conversaciones del proyecto abierto */
+$("#slimChat").onclick = () => {
+  if(!state.cwd) return browse("");
+  fetchSessions(state.cwd).then(list => {
+    ctxPopup($("#slimChat"), (list || []).map(x => ({
+      icon: "session", label: x.label,
+      run: () => send({type:"open_project", path:state.cwd, session:x.path})
+    })));
+  });
+};
 $("#slimTrash").onclick = openTrash;
-/* pasar el raton por el logo despliega; salir del rail vuelve a plegar */
-let hoverUnfold = false;
-$("#slimLogo").addEventListener("mouseenter", () => {
-  if(document.body.classList.contains("folded")){
-    hoverUnfold = true; setFolded(false);
-  }
-});
-$("#rail").addEventListener("mouseleave", () => {
-  if(hoverUnfold){ hoverUnfold = false; setFolded(true); }
-});
 
 (() => {                                  // arrastrar la linea divisoria
   const grip = $("#grip");
