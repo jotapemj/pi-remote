@@ -138,19 +138,20 @@ async def ui():
                 checks.append(("allowed_dirs.json escrito por el puente",
                                af.exists()))
 
-                # ---- UI: card en Functions, pagina con la lista ----
+                # ---- UI: fila en pi remote settings, pagina con la lista ----
                 # el idioma se fija antes de pintar ninguna hoja
                 await js("setLang('en')")
-                await js("paintSheet('functions')")
+                await js("paintSheet('premote')")
                 has = await js("[...document.querySelectorAll('#sheetBody .pick')]"
-                               ".some(b => /pi remote settings/i.test(b.textContent))")
-                checks.append(("Functions lista 'pi remote settings'", has is True))
+                               ".some(b => /Trusted paths/i.test(b.textContent))")
+                checks.append(("pi remote settings lista 'Trusted paths'",
+                               has is True))
                 await js("(async()=>{[...document.querySelectorAll('#sheetBody .pick')]"
-                         ".find(b => /pi remote settings/i.test(b.textContent)).click();"
+                         ".find(b => /Trusted paths/i.test(b.textContent)).click();"
                          " await new Promise(r=>setTimeout(r,400));})()")
                 checks.append(("la pagina lleva el titulo",
                                (await js("document.querySelector('#sheetTitle').textContent"))
-                               == "pi remote settings"))
+                               == "Trusted paths"))
 
                 # sembrar una entrada de usuario para verla en la lista
                 r = await js("(async()=>{send({type:'whitelist_add', path:%s});"

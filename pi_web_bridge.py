@@ -755,10 +755,10 @@ def list_dirs(path):
             d.iterdir()                      # unreadable folders stay hidden
         except OSError:
             continue
-        if is_blocked(d):
-            continue
+        blocked = is_blocked(d)
         out.append({"name": d.name, "path": str(d),
-                    "mark": looks_like_project(d)})
+                    "mark": None if blocked else looks_like_project(d),
+                    "blocked": blocked})
     return out
 
 
@@ -888,6 +888,37 @@ def trust_file():
     return AGENT_DIR / "trust.json"
 
 
+# entradas de .pi que pi pone tras la puerta de confianza (trust-manager.js)
+TRUST_REQUIRING = ("settings.json", "extensions", "skills", "prompts",
+                   "themes", "SYSTEM.md", "APPEND_SYSTEM.md")
+
+
+def needs_trust(path):
+    """El proyecto tiene recursos que pi pone tras la confianza.
+
+    Espejo del check de pi: una .pi con alguna de esas entradas, o un
+    .agents/skills subiendo hasta la raiz. Sin ellos pi confia por defecto
+    y no hace falta ningun dialogo."""
+    try:
+        p = Path(path).resolve()
+    except (OSError, ValueError):
+        return False
+    cfg = p / ".pi"
+    if any((cfg / e).exists() for e in TRUST_REQUIRING):
+        return True
+    home_skills = (Path.home() / ".agents" / "skills").resolve()
+    while True:
+        s = p / ".agents" / "skills"
+        try:
+            if s.resolve() != home_skills and s.exists():
+                return True
+        except OSError:
+            pass
+        if p == p.parent:
+            return False
+        p = p.parent
+
+
 def trust_decision(path):
     """Primera decision subiendo del proyecto a la raiz de la unidad.
     Devuelve (bool o None, carpeta donde vive la decision o None)."""
@@ -957,6 +988,22 @@ def save_project_settings(cwd, patch):
             json.dump(d, fh, indent=2)
     except OSError as exc:
         return "cannot write .pi/settings.json: %s" % exc
+    return None
+
+
+def delete_project_settings(cwd):
+    """Toggle off: el fichero de ajustes del proyecto desaparece."""
+    if is_blocked(cwd):
+        return "blocked path"
+    root = Path(cwd)
+    if not root.is_dir():
+        return "not a directory"
+    p = project_settings_path(cwd)
+    try:
+        if p.exists():
+            p.unlink()
+    except OSError as exc:
+        return "cannot remove .pi/settings.json: %s" % exc
     return None
 
 
@@ -1085,6 +1132,9 @@ class Bridge:
             "context": None, "queue": {"steering": [], "followUp": []},
             "alive": True, "cwd": "", "waiting": False, "recent": [],
             "sessionFile": None, "summarizing": False,
+            # settings y confianza del proyecto abierto: procedencia del
+            # readout (Global/Proyecto) y pagina de ajustes por proyecto
+            "projSettings": {}, "projTrusted": False,
             # como servicio nadie lee la consola: el aviso va a la pantalla
             "readOnly": READ_ONLY, "tokenMade": TOKEN_MADE, "version": VERSION,
         }
@@ -1173,6 +1223,7 @@ class Bridge:
         self.state.update(alive=True, running=False, tool=None, cwd=cwd,
                           context=None, sessionName=None, waiting=False,
                           recent=remember(cwd))
+        self.refresh_proj_state()
         threading.Thread(target=self.reader, args=(self.proc, self.gen),
                          daemon=True).start()
         self.note("info", "project", f"project: {cwd}", path=cwd)
@@ -1552,6 +1603,14 @@ class Bridge:
         elif t == "response":
             self.on_response(ev)
 
+    def refresh_proj_state(self):
+        """Settings y confianza del proyecto abierto al estado: el readout
+        pinta la procedencia (Global/Proyecto) y la pagina de ajustes por
+        proyecto arranca con lo que ya hay en disco."""
+        self.state["projSettings"] = read_project_settings(self.cwd)
+        trusted, _ = trust_decision(self.cwd)
+        self.state["projTrusted"] = bool(trusted)
+
     def apply_default_model(self):
         """Imponer el modelo por defecto del usuario si la sesion no esta en el.
         Cadena de prioridad: proyecto > puente > pi. Si el proyecto (confiado)
@@ -1600,6 +1659,7 @@ class Bridge:
             # pi resuelve su propio default al arrancar cada sesion; si el
             # usuario fijo uno, lo imponemos aqui (cada pi nuevo, cada sesion)
             self.apply_default_model()
+            self.refresh_proj_state()
             self.push_state()
 
         elif cmd == "get_session_stats":
@@ -2016,9 +2076,11 @@ class Bridge:
             return
 
         if t == "trust_status":
-            decision, at = trust_decision(msg.get("path") or "")
+            p = msg.get("path") or ""
+            decision, at = trust_decision(p)
             self.emit({"type": "rpc", "command": t,
-                       "data": {"decision": decision, "trustedPath": at}})
+                       "data": {"decision": decision, "trustedPath": at,
+                                "needsTrust": needs_trust(p)}})
             return
 
         if t == "trust_set":
@@ -2039,9 +2101,14 @@ class Bridge:
                 self.emit({"type": "rpc", "command": t,
                            "data": {"error": "settings must be an object"}})
                 return
-            err = save_project_settings(msg.get("cwd"), patch)
+            err = (delete_project_settings(msg.get("cwd"))
+                   if msg.get("delete")
+                   else save_project_settings(msg.get("cwd"), patch))
             self.emit({"type": "rpc", "command": t,
                        "data": {"error": err} if err else {}})
+            if not err and same_path(msg.get("cwd") or "", self.cwd):
+                self.refresh_proj_state()
+                self.push_state()
             return
 
         if t == "whitelist_get":
@@ -2236,8 +2303,10 @@ async def browse(path: str = Query(""), token: str = Query("")):
         here = root
     if is_blocked(here):
         return JSONResponse({"error": "blocked folder"}, status_code=403)
+    parent = "" if here == here.parent else str(here.parent)
     return {"path": str(here), "root": str(root),
-            "parent": "" if here == here.parent else str(here.parent),
+            "parent": parent,
+            "upBlocked": bool(parent) and is_blocked(Path(parent)),
             "dirs": list_dirs(here), "mark": looks_like_project(here)}
 
 

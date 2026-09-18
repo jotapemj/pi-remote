@@ -61,25 +61,26 @@ async def ui():
                      "queue:{steering:[],followUp:[]},recent:[]}; CWD='C:/x'; paint()")
             await js("window.__sent=[]; ws.send=s=>window.__sent.push(JSON.parse(s))")
 
-            # el menu raiz tiene la fila Modelo, bajo Funciones, con el actual
+            # el menu de pi agent lleva la fila global con el modelo actual
             await js("menuSheet()")
             await asyncio.sleep(0.1)
+            await js("(async()=>{[...document.querySelectorAll('#sheetBody .pick')]"
+                     ".find(b => /pi agent/.test(b.textContent)).click();"
+                     " await new Promise(r=>setTimeout(r,400));})()")
             row = await js("""(()=>{
               const b=[...document.querySelectorAll('#sheetBody .pick')];
-              const fi=b.findIndex(x=>x.textContent.includes('Funciones'));
               const mi=b.findIndex(x=>x.querySelector('.pval'));
               const m=b[mi];
               return m?[m.querySelector('.txt span').textContent,
                         !!m.querySelector('svg'),
-                        m.querySelector('.pval').textContent,
-                        mi===fi+1]:null;})()""")
-            print("  fila modelo: %r" % row)
+                        m.querySelector('.pval').textContent]:null;})()""")
+            print("  fila global: %r" % row)
             checks += [
-                ("existe la fila «Modelo» con icono",
-                 bool(row) and row[0].startswith("Modelo") and row[1] is True),
+                ("existe la fila «Ajustes globales» con icono",
+                 bool(row) and row[0].startswith("Ajustes globales")
+                 and row[1] is True),
                 ("muestra el modelo actual en gris (val)",
                  bool(row) and "Qwen3 8B" in (row[2] or "")),
-                ("va justo debajo de «Funciones»", bool(row) and row[3] is True),
             ]
 
             # entrar a la pagina de modelo: pide la lista (mock la respuesta)
@@ -141,19 +142,19 @@ async def ui():
                 ("la marca pasa al nuevo modelo, y solo uno",
                  after["sel"] == ["swift-27b"]),
                 ("la vista de modelo sigue abierta (sin dismiss)",
-                 after["open"] is True and after["page"] == "Modelo"),
+                 after["open"] is True and after["page"] == "Ajustes globales"),
                 ("marca el nuevo modelo de forma optimista",
                  after["stateId"] == "swift-27b"),
             ]
 
-            # volver a la raiz: el gris de la fila refleja el modelo nuevo
-            await js("paintSheet('root')")
+            # volver a pi agent: el gris de la fila refleja el modelo nuevo
+            await js("paintSheet('pagent')")
             await asyncio.sleep(0.05)
             back = await js("""(()=>{const b=[...document.querySelectorAll('#sheetBody .pick')];
               const m=b.find(x=>x.querySelector('.pval'));
               return m?m.querySelector('.pval').textContent:null;})()""")
             print("  fila tras elegir: %r" % back)
-            checks.append(("la fila raiz muestra ya el modelo elegido",
+            checks.append(("la fila global muestra ya el modelo elegido",
                            back and "swift-27b" in back))
             checks.append(("sin errores de consola", not p.problems))
     return checks

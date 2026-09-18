@@ -1192,6 +1192,11 @@ footer > *{position:relative; z-index:1}
 .dotsb:hover{background:var(--surface); color:var(--ink)}
 .dotsb svg{width:18px;height:18px}
 .pick:hover{border-color:var(--amber)}
+/* bloqueado en el picker: gris oscuro, no se puede entrar */
+.pick.off{background:var(--surface); color:var(--dim); cursor:default;
+  box-shadow:none}
+.pick.off .ch,.pick.off small{color:var(--faint)}
+.iconbtn:disabled{color:var(--dim); border-color:var(--rule); cursor:default}
 .pick small{display:block;font:400 11px/1.4 var(--mono);color:var(--faint);
   margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* etiqueta con el valor actual al lado, en gris tenue (p.ej. Tema | Klaude) */
@@ -3028,7 +3033,13 @@ function paint(){
     $("#sub").firstElementChild.textContent =
       CWD.split(/[\\/]/).filter(Boolean).pop() || CWD;
     $("#sub").classList.add("on");
-    const meta = [state.model || T("noModel"), state.thinking || "-"];
+    // procedencia: si el proyecto confiado trae overrides, son suyos
+    const ps = state.projSettings || {};
+    const prov = state.projTrusted
+      && (ps.defaultModel || ps.defaultThinkingLevel)
+      ? T("provProject") : T("provGlobal");
+    const meta = [prov + ":  " + (state.model || T("noModel")),
+                  state.thinking || "-"];
     if(state.queue && (state.queue.followUp||[]).length)
       meta.push(state.queue.followUp.length + " " + T("queued"));
     $("#cmeta").textContent = meta.join("  ·  ");
@@ -3633,7 +3644,7 @@ function openModal(title, body, run, opts){
   $("#modalTitle").textContent = title;
   $("#modalBody").innerHTML = body;
   const no = $("#modalNo"), ok = $("#modalOk");
-  no.textContent = T("cancel");
+  no.textContent = opts.no || T("cancel");
   no.hidden = !run;                        // informativo: un solo boton
   ok.textContent = opts.ok || T("ok");
   ok.classList.toggle("danger", !!run && !opts.plain);
@@ -4099,6 +4110,20 @@ function applyState(m){
   placeActions();     // coloca (o quita) acciones y sugerencias del turno
 }
 const send = o => ws && ws.readyState === 1 && ws.send(JSON.stringify(o));
+/* rpc con promesa: intercepta la respuesta del comando pedido y deja pasar
+   el resto al handler normal */
+function rpc(type, data){
+  return new Promise(res => {
+    const om = ws.onmessage;
+    ws.onmessage = e => {
+      const m = JSON.parse(e.data);
+      if(m.type === "rpc" && m.command === type){
+        ws.onmessage = om; res(m.data || {});
+      } else om.call(ws, e);
+    };
+    send(Object.assign({type}, data));
+  });
+}
 
 /* ---------- commands ---------- */
 const CMDS = [
@@ -4873,6 +4898,18 @@ const STR = {
       movement:"Smooth generation",
       autoname:"Auto-name sessions", experimental:"Experimental",
       autonameWarn:"This feature asks your local model for a session name. This is an experimental feature and may fail.",
+      piRemoteSettings:"pi remote settings", piAgentSettings:"pi agent settings",
+      globalSettings:"Global settings", projectSettings:"Project settings",
+      enableProjectSettings:"Enable project settings", trustedPaths:"Trusted paths",
+      trustToggleWarn:"The project {p} is not trusted by pi. Project settings will not apply until it is trusted. Trust this project?",
+      trustYes:"Trust", trustNo:"Don't trust",
+      projectTrustTitle:"Project trust",
+      projectTrustB:"This allows pi to load .pi settings and resources, install missing project packages, and execute project extensions.",
+      useGlobal:"Use global",
+      saveProjQ:"Save project settings?",
+      saveProjB:"This writes <em>.pi/settings.json</em> in the project folder.",
+      unsavedQ:"Save changes?",
+      provGlobal:"Global", provProject:"Project",
       untitled:"Untitled session",
       motion_fade:"Fade", motion_instant:"Instant", image:"Image",
       output:"output", noOutput:"no output", command:"command",
@@ -4950,6 +4987,18 @@ const STR = {
       movement:"Generación suave",
       autoname:"Nombres de sesión automáticos", experimental:"Experimental",
       autonameWarn:"Esta función pide al modelo local un nombre de sesión. Es una función experimental y puede fallar.",
+      piRemoteSettings:"ajustes de pi remote", piAgentSettings:"ajustes de pi agent",
+      globalSettings:"Ajustes globales", projectSettings:"Ajustes de proyecto",
+      enableProjectSettings:"Activar ajustes de proyecto", trustedPaths:"Rutas de confianza",
+      trustToggleWarn:"El proyecto {p} no está confiado por pi. La configuración por proyecto no aplicará hasta que se confíe. ¿Desea confiar en este proyecto?",
+      trustYes:"Confiar", trustNo:"No confiar",
+      projectTrustTitle:"Confianza del proyecto",
+      projectTrustB:"Esto permite a pi cargar los ajustes y recursos .pi, instalar paquetes del proyecto que falten y ejecutar extensiones del proyecto.",
+      useGlobal:"Usar global",
+      saveProjQ:"¿Guardar ajustes de proyecto?",
+      saveProjB:"Esto escribe <em>.pi/settings.json</em> en la carpeta del proyecto.",
+      unsavedQ:"¿Guardar cambios?",
+      provGlobal:"Global", provProject:"Proyecto",
       untitled:"Sesión sin título",
       motion_fade:"Fundido", motion_instant:"Directo", image:"Imagen",
       ranN:"Ejecutados {n} comandos", ranNShown:"{n} comandos",
@@ -5027,6 +5076,18 @@ const STR = {
       movement:"Sanfte Generierung",
       autoname:"Sitzungen automatisch benennen", experimental:"Experimentell",
       autonameWarn:"Diese Funktion bittet das lokale Modell um einen Sitzungsnamen. Dies ist eine experimentelle Funktion und kann fehlschlagen.",
+      piRemoteSettings:"pi remote Einstellungen", piAgentSettings:"pi agent Einstellungen",
+      globalSettings:"Globale Einstellungen", projectSettings:"Projekteinstellungen",
+      enableProjectSettings:"Projekteinstellungen aktivieren", trustedPaths:"Vertrauenswürdige Pfade",
+      trustToggleWarn:"Das Projekt {p} ist von pi nicht vertrauenswürdig. Projekteinstellungen werden erst angewendet, nachdem es vertraut wurde. Dieses Projekt vertrauen?",
+      trustYes:"Vertrauen", trustNo:"Nicht vertrauen",
+      projectTrustTitle:"Projektvertrauen",
+      projectTrustB:"Dies erlaubt pi, .pi-Einstellungen und -Ressourcen zu laden, fehlende Projektpakete zu installieren und Projekt-Erweiterungen auszuführen.",
+      useGlobal:"Global verwenden",
+      saveProjQ:"Projekteinstellungen speichern?",
+      saveProjB:"Dies schreibt <em>.pi/settings.json</em> in den Projektordner.",
+      unsavedQ:"Änderungen speichern?",
+      provGlobal:"Global", provProject:"Projekt",
       untitled:"Unbenannte Sitzung",
       motion_fade:"Einblenden", motion_instant:"Sofort", image:"Bild",
       ranN:"{n} Befehle ausgef\u00fchrt", ranNShown:"{n} Befehle",
@@ -5102,6 +5163,18 @@ const STR = {
       movement:"Génération fluide",
       autoname:"Noms de session automatiques", experimental:"Expérimental",
       autonameWarn:"Cette fonction demande au modèle local un nom de session. C'est une fonction expérimentale et peut échouer.",
+      piRemoteSettings:"paramètres de pi remote", piAgentSettings:"paramètres de pi agent",
+      globalSettings:"Paramètres globaux", projectSettings:"Paramètres du projet",
+      enableProjectSettings:"Activer les paramètres du projet", trustedPaths:"Chemins de confiance",
+      trustToggleWarn:"Le projet {p} n'est pas approuvé par pi. Les paramètres du projet ne s'appliqueront pas avant qu'il soit approuvé. Approuver ce projet ?",
+      trustYes:"Approuver", trustNo:"Ne pas approuver",
+      projectTrustTitle:"Confiance du projet",
+      projectTrustB:"Cela permet à pi de charger les paramètres et ressources .pi, d'installer les packages manquants du projet et d'exécuter les extensions du projet.",
+      useGlobal:"Utiliser le global",
+      saveProjQ:"Enregistrer les paramètres du projet ?",
+      saveProjB:"Cela écrit <em>.pi/settings.json</em> dans le dossier du projet.",
+      unsavedQ:"Enregistrer les modifications ?",
+      provGlobal:"Global", provProject:"Projet",
       untitled:"Session sans titre",
       motion_fade:"fondu", motion_instant:"instantan\u00e9", image:"image",
       ranN:"{n} commandes ex\u00e9cut\u00e9es", ranNShown:"{n} commandes",
@@ -5177,6 +5250,18 @@ const STR = {
       movement:"Geração suave",
       autoname:"Nomes de sessão automáticos", experimental:"Experimental",
       autonameWarn:"Esta função pede ao modelo local um nome de sessão. É uma função experimental e pode falhar.",
+      piRemoteSettings:"ajustes de pi remote", piAgentSettings:"ajustes de pi agent",
+      globalSettings:"Ajustes globais", projectSettings:"Ajustes do projeto",
+      enableProjectSettings:"Ativar ajustes do projeto", trustedPaths:"Caminhos confiáveis",
+      trustToggleWarn:"O projeto {p} não é confiável para o pi. Os ajustes do projeto não serão aplicados até que seja confiável. Confiar neste projeto?",
+      trustYes:"Confiar", trustNo:"Não confiar",
+      projectTrustTitle:"Confiança do projeto",
+      projectTrustB:"Isso permite que o pi carregue configurações e recursos .pi, instale pacotes do projeto em falta e execute extensões do projeto.",
+      useGlobal:"Usar global",
+      saveProjQ:"Salvar ajustes do projeto?",
+      saveProjB:"Isso escreve <em>.pi/settings.json</em> na pasta do projeto.",
+      unsavedQ:"Salvar alterações?",
+      provGlobal:"Global", provProject:"Projeto",
       untitled:"Sessão sem título",
       motion_fade:"fundido", motion_instant:"instant\u00e2neo", image:"imagem",
       ranN:"{n} comandos executados", ranNShown:"{n} comandos",
@@ -5251,6 +5336,18 @@ const STR = {
       movement:"平滑生成",
       autoname:"自动命名会话", experimental:"实验性",
       autonameWarn:"此功能会请求本地模型为会话命名。这是实验性功能，可能会失败。",
+      piRemoteSettings:"pi remote 设置", piAgentSettings:"pi agent 设置",
+      globalSettings:"全局设置", projectSettings:"项目设置",
+      enableProjectSettings:"启用项目设置", trustedPaths:"受信任路径",
+      trustToggleWarn:"项目 {p} 未获得 pi 的信任。在信任之前，项目设置不会生效。是否信任此项目？",
+      trustYes:"信任", trustNo:"不信任",
+      projectTrustTitle:"项目信任",
+      projectTrustB:"这将允许 pi 加载 .pi 设置和资源、安装缺失的项目包并执行项目扩展。",
+      useGlobal:"使用全局",
+      saveProjQ:"保存项目设置？",
+      saveProjB:"这将在项目文件夹中写入 <em>.pi/settings.json</em>。",
+      unsavedQ:"保存更改？",
+      provGlobal:"全局", provProject:"项目",
       untitled:"未命名会话",
       motion_fade:"淡入", motion_instant:"即时", image:"图片",
       ranN:"执行了 {n} 条命令", ranNShown:"{n} 条命令",
@@ -5992,6 +6089,157 @@ let sheetPage = "root";
 let sheetStack = [];        // paginas para volver con atras, una por nivel
 let models = [];          // modelos disponibles, cacheados al pedirlos
 let editModel = null;     // el modelo que se esta editando en modelEdit
+
+/* ---------- ajustes por proyecto: fase hasta el check ---------- */
+let projStaged = null;    // {model:{provider,id}|null, thinking:str|null}
+let projRef = null;       // fingerprint del ultimo estado guardado (dirty)
+let projSavedKey = null;  // fingerprint de los settings que trajo el puente
+let thinkLevels = [];     // niveles disponibles, cacheados
+
+function projInit(){
+  const saved = state.projSettings || {};
+  const key = JSON.stringify(saved);
+  if(projSavedKey !== key){
+    projSavedKey = key;
+    projStaged = {
+      model: (saved.defaultProvider && saved.defaultModel)
+        ? {provider:saved.defaultProvider, id:saved.defaultModel} : null,
+      thinking: saved.defaultThinkingLevel || null};
+    projRef = JSON.stringify(projStaged);
+  }
+}
+/* staged nulo = nada en fase (tras descartar): no es dirty, o el guard
+   reabriria el dialogo en bucle al volver */
+function projDirty(){
+  return projStaged ? JSON.stringify(projStaged) !== projRef : false;
+}
+
+/* confianza antes de abrir: espejo del dialogo de pi (Trust / Don't trust).
+   Solo se muestra si el proyecto tiene recursos que pi pone tras la puerta
+   (needsTrust) y no hay decision previa. */
+async function trustAsk(path){
+  const d = await rpc("trust_status", {path});
+  if(d.decision === true) return true;
+  if(d.decision === false || !d.needsTrust) return false;
+  return new Promise(res => openModal(T("projectTrustTitle"),
+    `<p><em>${esc(path)}</em></p><p>${esc(T("projectTrustB"))}</p>`,
+    () => { send({type:"trust_set", path, decision:true}); res(true); },
+    {ok: T("trustYes"), no: T("trustNo"), cancel: () => res(false)}));
+}
+
+function saveProjSet(){
+  const s = projStaged;
+  const del = !s.model && !s.thinking;
+  send({type:"project_settings_save", cwd:CWD, delete:del,
+        settings:{defaultProvider: s.model ? s.model.provider : null,
+                  defaultModel: s.model ? s.model.id : null,
+                  defaultThinkingLevel: s.thinking || null}});
+  projRef = JSON.stringify(s);   // optimista: el puente empuja el estado
+  if(!del){
+    // aplicar al agente de la sesion si los valores efectivos cambian
+    if(s.model && (s.model.provider !== state.modelProvider
+                   || s.model.id !== state.modelId))
+      send({type:"set_model", provider:s.model.provider, modelId:s.model.id});
+    if(s.thinking && s.thinking !== state.thinking)
+      send({type:"set_thinking_level", level:s.thinking});
+  }
+  if(sheetPage === "projset") paintSheet("projset");
+}
+
+function paintProjSet(){
+  projInit();
+  const body = $("#sheetBody");
+  const on = !!(projStaged.model || projStaged.thinking);
+  const card = document.createElement("div");
+  card.className = "fcard";
+  card.innerHTML = `<div class="frow"><div class="ftext">`
+    + `<div class="flbl">${esc(T("enableProjectSettings"))}</div></div>`
+    + `<button class="sw" role="switch" aria-label="${esc(T("enableProjectSettings"))}"`
+    + ` aria-checked="${on}"><span class="knob"></span></button>`;
+  const sw = card.querySelector(".sw");
+  sw.onclick = async () => {
+    const turningOn = sw.getAttribute("aria-checked") !== "true";
+    if(turningOn && !state.projTrusted){
+      // sin confianza pi ignora el fichero: preguntar antes
+      const ok = await trustAsk(CWD);
+      if(!ok) return;               // no confio: el toggle queda off
+      state.projTrusted = true;
+    }
+    if(turningOn){
+      // plantilla: los valores globales actuales
+      projStaged = {model: (state.modelProvider && state.modelId)
+        ? {provider:state.modelProvider, id:state.modelId} : null,
+        thinking: state.thinking || null};
+    } else projStaged = {model:null, thinking:null};
+    paintSheet("projset");
+  };
+  body.appendChild(card);
+  const mname = projStaged.model
+    ? ((models.find(m => m.provider === projStaged.model.provider
+        && m.id === projStaged.model.id) || {}).name
+       || projStaged.model.id)
+    : T("useGlobal");
+  body.appendChild(pickBtn({icon:"chip", label:T("model"),
+    val: on ? "| " + mname : null, chevron:on, off:!on,
+    run:()=>goPage("projmodel")}));
+  const tval = projStaged.thinking || T("useGlobal");
+  body.appendChild(pickBtn({icon:"thinkO", label:T("reasoning"),
+    val: on ? "| " + tval : null, chevron:on, off:!on,
+    run:()=>goPage("projthink")}));
+  const okb = $("#sheetOk");
+  okb.hidden = !projDirty();
+  okb.onclick = () => openModal(T("saveProjQ"), `<p>${T("saveProjB")}</p>`,
+    () => saveProjSet(), {ok: T("ok")});
+}
+
+function paintProjModels(){
+  projInit();
+  const body = $("#sheetBody");
+  if(!models.length){
+    send({type:"get_available_models"});
+    const h = document.createElement("div");
+    h.className = "shead"; h.textContent = T("loadingModels");
+    body.appendChild(h);
+    return;
+  }
+  // "usar global": borra el override
+  body.appendChild(pickBtn({icon:"check", label:T("useGlobal"),
+    run:()=>{ projStaged.model = null; goBack(); }}));
+  models.forEach(m => {
+    const sel = projStaged.model && m.provider === projStaged.model.provider
+      && m.id === projStaged.model.id;
+    const b = document.createElement("button");
+    b.className = "pick mrow" + (sel ? " sel" : "");
+    b.innerHTML = `<span class="chkslot">${ico("check")}</span>`
+      + `<span class="txt">` + mqSpan("span", m.name || m.id)
+      + (m.contextWindow ? mqSpan("small", kilo(m.contextWindow) + " ctx") : "")
+      + `</span>`;
+    b.onclick = () => { if(!sel){ projStaged.model = {provider:m.provider, id:m.id}; goBack(); } };
+    body.appendChild(b);
+  });
+}
+
+function paintProjThink(){
+  projInit();
+  const body = $("#sheetBody");
+  const draw = () => {
+    body.innerHTML = "";
+    body.appendChild(pickBtn({icon:"check", label:T("useGlobal"),
+      run:()=>{ projStaged.thinking = null; goBack(); }}));
+    (thinkLevels.length ? thinkLevels : [state.thinking].filter(Boolean))
+      .forEach(l => {
+        const sel = l === projStaged.thinking;
+        const b = document.createElement("button");
+        b.className = "pick mrow" + (sel ? " sel" : "");
+        b.innerHTML = `<span class="chkslot">${ico("check")}</span>`
+          + `<span class="txt">${esc(l)}</span>`;
+        b.onclick = () => { if(!sel){ projStaged.thinking = l; goBack(); } };
+        body.appendChild(b);
+      });
+  };
+  if(thinkLevels.length) draw();
+  else send({type:"get_available_thinking_levels"});   // onRpc repinta
+}
 function paintSheet(page){
   sheetPage = page;
   $("#sheet").classList.remove("forkmode");
@@ -6105,13 +6353,10 @@ function paintSheet(page){
     };
     body.appendChild(acard);
 
-    // ajustes del puente: la whitelist es su primera seccion
-    body.appendChild(pickBtn({icon:"shield", label:T("bridgeSettings"),
-                              chevron:true, run:()=>goPage("settings")}));
     return;
   }
   if(page === "settings"){
-    $("#sheetTitle").textContent = T("bridgeSettings");
+    $("#sheetTitle").textContent = T("trustedPaths");
     head(T("whitelist"));
     body.appendChild(pickBtn({icon:"add", label:T("addDir"),
                               run:()=>{ browsePick = true; browse(); }}));
@@ -6185,8 +6430,37 @@ function paintSheet(page){
       run: () => { setLang(l); goBack(); }})));
     return;
   }
-  if(page === "model"){
+  if(page === "premote"){
+    $("#sheetTitle").textContent = T("piRemoteSettings");
+    act("functions", "tool", () => goPage("functions"));
+    act("trustedPaths", "shield", () => goPage("settings"));
+    return;
+  }
+  if(page === "pagent"){
+    $("#sheetTitle").textContent = T("piAgentSettings");
+    body.appendChild(pickBtn({icon:"chip", label:T("globalSettings"),
+      val: state.model ? "| " + state.model : null,
+      chevron:true, run: () => goPage("model")}));
+    act("projectSettings", "folder", () => goPage("projset"));
+    return;
+  }
+  if(page === "projset"){
+    $("#sheetTitle").textContent = T("projectSettings");
+    paintProjSet();
+    return;
+  }
+  if(page === "projmodel"){
     $("#sheetTitle").textContent = T("model");
+    paintProjModels();
+    return;
+  }
+  if(page === "projthink"){
+    $("#sheetTitle").textContent = T("reasoning");
+    paintProjThink();
+    return;
+  }
+  if(page === "model"){
+    $("#sheetTitle").textContent = T("globalSettings");
     if(!models.length){                 // aun no cargados: pedirlos y esperar
       send({type:"get_available_models"});
       const h = document.createElement("div");
@@ -6228,10 +6502,8 @@ function paintSheet(page){
   $("#sheetTitle").textContent = T("menu");
   act("appearance", "palette", () => goPage("appearance"));
   act("language", "lang", () => goPage("language"));
-  act("functions", "tool", () => goPage("functions"));
-  body.appendChild(pickBtn({icon:"chip", label:T("model"),
-    val: state.model ? "| " + state.model : null,
-    chevron:true, run: () => goPage("model")}));
+  act("piRemoteSettings", "shield", () => goPage("premote"));
+  act("piAgentSettings", "chip", () => goPage("pagent"));
   head("\u00a0");
   body.appendChild(pickBtn({icon:"help", label:T("help"),
     run: () => helpModal()}));
@@ -6252,7 +6524,18 @@ function goPage(page){
   turnTo(page, 1);
 }
 function goBack(){
+  if(projGuard()) return;
   turnTo(sheetStack.pop() || "root", -1);
+}
+/* salir de ajustes por proyecto con cambios sin guardar: preguntar */
+function projGuard(){
+  if(!["projset","projmodel","projthink"].includes(sheetPage)) return false;
+  if(!projDirty()) return false;
+  openModal(T("unsavedQ"), "",
+    () => { saveProjSet(); goBack(); },
+    {ok: T("yes"), no: T("no"),
+     cancel: () => { projStaged = null; projSavedKey = null; goBack(); }});
+  return true;
 }
 
 function turnTo(page, dir){
@@ -6476,7 +6759,7 @@ const mqSpan = (cls, text) =>
 
 function pickBtn(o){
   const b = document.createElement("button");
-  b.className = o.cls || "pick";
+  b.className = (o.cls || "pick") + (o.off ? " off" : "");
   b.innerHTML = (o.icon ? ico(o.icon) : "")
     + `<span class="txt">`
     + (o.val
@@ -6488,6 +6771,7 @@ function pickBtn(o){
     + (o.rightIcon ? ico(o.rightIcon, "ch")
        : (o.chevron ? ico("chevron", "ch") : ""));
   b.onclick = o.run;
+  if(o.off) b.disabled = true;
   if(o.dots){
     // los puntos abren el menu sin disparar la accion de la fila
     const dots = b.querySelector(".dotsb");
@@ -6551,7 +6835,8 @@ async function browse(path){
   let d;
   try { d = await (await fetch(u)).json(); }
   catch(e){ return note("cannot reach the bridge"); }
-  if(d.error) return note(d.error);
+  // carpeta prohibida: no hay nota en el chat, la fila ya sale deshabilitada
+  if(d.error) return;
 
   $("#sheetTitle").textContent = T("project");
   const body = $("#sheetBody"); body.innerHTML = "";
@@ -6560,7 +6845,8 @@ async function browse(path){
   nav.className = "nav";
   const up = document.createElement("button");
   up.className = "iconbtn ico"; up.innerHTML = ico("up");
-  up.title = up.ariaLabel = T("up"); up.disabled = !d.parent;
+  up.title = up.ariaLabel = T("up");
+  up.disabled = !d.parent || d.upBlocked;   // subir a zona prohibida: off
   up.onclick = () => browse(d.parent);
   const where = document.createElement("span");
   where.className = "path"; where.textContent = d.path;
@@ -6569,7 +6855,9 @@ async function browse(path){
   const use = document.createElement("button");
   use.className = "usebtn";
   use.textContent = T("useFolder") + (d.mark ? "  (" + d.mark + ")" : "");
-  use.onclick = () => {
+  use.onclick = async () => {
+    // confianza antes de abrir: espejo del dialogo de pi
+    if(!browsePick) await trustAsk(d.path);
     $("#sheet").classList.remove("open");
     if(browsePick){ browsePick = false; send({type:"whitelist_add", path:d.path}); }
     else send({type:"open_project", path:d.path});
@@ -6577,6 +6865,10 @@ async function browse(path){
   body.appendChild(use);
 
   (d.dirs||[]).forEach(x=>{
+    if(x.blocked){                 // zona prohibida: gris oscuro, sin entrar
+      body.appendChild(pickBtn({icon:"folder", label:x.name, off:true}));
+      return;
+    }
     const b = pickBtn({icon:"folder", label:x.name, chevron:true,
                        run:()=>browse(x.path)});
     if(x.mark) b.querySelector(".txt").insertAdjacentHTML("beforeend",
@@ -6632,15 +6924,19 @@ function onRpc(m){
     models = d.models || [];
     // la card de ajustes (pagina "model") repinta con la lista; el comando
     // /model, que no fija sheetPage, cae al picker rapido de siempre
-    if($("#sheet").classList.contains("open") && sheetPage === "model")
-      return paintSheet("model");
+    if($("#sheet").classList.contains("open")
+       && (sheetPage === "model" || sheetPage === "projmodel"))
+      return paintSheet(sheetPage);
     return sheet("model", models.map(x=>({
       label:x.name || x.id, hint:`${x.provider}  ·  ${kilo(x.contextWindow||0)} ctx`,
       run:()=>send({type:"set_model", provider:x.provider, modelId:x.id})})));
   }
-  if(m.command === "get_available_thinking_levels")
-    return sheet("thinking", (d.levels||[]).map(l=>({
+  if(m.command === "get_available_thinking_levels"){
+    thinkLevels = d.levels || [];
+    if(sheetPage === "projthink") return paintSheet("projthink");
+    return sheet("thinking", thinkLevels.map(l=>({
       label:l, run:()=>send({type:"set_thinking_level", level:l})})));
+  }
   if(m.command === "get_fork_messages")
     return forkPicker(d.messages || []);
   if(m.command === "delete_session"){     // el arbol se quedaba con la borrada

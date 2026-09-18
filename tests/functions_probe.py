@@ -16,11 +16,18 @@ async def main():
             await p.go()
             await js("setLang('es')")
 
-            # la raiz del menu ofrece 'Funciones'
+            # la raiz del menu ofrece 'pi remote settings', con Funciones dentro
             await js("paintSheet('root')")
             has = await js("[...document.querySelectorAll('#sheetBody .pick')]"
-                           ".some(b => /Funciones/.test(b.textContent))")
-            checks.append(("la raiz de ajustes lista 'Funciones'", has is True))
+                           ".some(b => /pi remote/.test(b.textContent))")
+            checks.append(("la raiz de ajustes lista 'pi remote settings'",
+                           has is True))
+            await js("(async()=>{[...document.querySelectorAll('#sheetBody .pick')]"
+                     ".find(b => /pi remote/.test(b.textContent)).click();"
+                     " await new Promise(r=>setTimeout(r,400));})()")
+            has2 = await js("[...document.querySelectorAll('#sheetBody .pick')]"
+                            ".some(b => /Funciones/.test(b.textContent))")
+            checks.append(("'pi remote settings' lista 'Funciones'", has2 is True))
 
             # la pagina Functions: una card con el switch, encendido por defecto
             await js("paintSheet('functions')")

@@ -165,7 +165,7 @@ async def ui():
                 checks += [
                     ("confirmar escribe models.json", m["contextWindow"] == 65536),
                     ("vuelve a la card de modelos",
-                     back[0] == "Modelo" and back[1] is True),
+                     back[0] == "Ajustes globales" and back[1] is True),
                 ]
 
                 # atras por niveles: modelEdit -> model -> raiz
@@ -180,7 +180,7 @@ async def ui():
                 print("  atras: %r -> %r" % (t1, t2))
                 checks += [
                     ("atras desde modelEdit vuelve a la card de modelos",
-                     t1 == "Modelo"),
+                     t1 == "Ajustes globales"),
                     ("atras desde model vuelve a la raiz del menu",
                      t2 == "men\u00fa"),
                 ]
