@@ -258,6 +258,23 @@ def turn(text, nimg=0):
     out({"type": "tool_execution_end", "toolCallId": "c1", "toolName": "bash",
          "result": {"content": [{"type": "text", "text": "total 48\ndrwx 4 x"}]},
          "isError": False})
+    if "compactfail" in text:
+        # pi no pudo compactar: compaction_end sin result, con el error.
+        # (session_compact_failed solo va a las extensiones, no aqui)
+        out({"type": "compaction_start"})
+        time.sleep(0.2)
+        out({"type": "compaction_end", "reason": "overflow",
+             "aborted": False, "willRetry": False,
+             "errorMessage": "Auto-compaction failed: empty summary"})
+        finish()
+        return
+    if "compactabort" in text:
+        out({"type": "compaction_start"})
+        time.sleep(0.2)
+        out({"type": "compaction_end", "reason": "overflow",
+             "aborted": True, "willRetry": False, "result": None})
+        finish()
+        return
     if "compact" in text:
         global TOKENS
         out({"type": "compaction_start"})

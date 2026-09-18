@@ -1672,23 +1672,39 @@ class Bridge:
                                         "compacting the context...")
 
         elif t == "compaction_end":
-            r = ev.get("result") or {}
-            before, after = r.get("tokensBefore"), r.get("estimatedTokensAfter")
-            if self.compacting:               # la misma nota, ahora resuelta
-                self.patch(self.compacting, key="compacted",
-                           args={"before": before, "after": after},
-                           text=f"context compacted: {before} to {after} tokens")
-                self.compacting = None
+            r = ev.get("result")
+            if not r:            # abortada o con error: pi no compacto nada.
+                # el fallo real (session_compact_failed) solo va a las
+                # extensiones; aqui llega como compaction_end sin result. No
+                # mentir "compacted" ni pisar el contexto: sacar el motivo.
+                why = ev.get("errorMessage") or (
+                    "aborted" if ev.get("aborted") else "failed")
+                if self.compacting:
+                    self.patch(self.compacting, level="warn",
+                               key="compact_failed", args={"why": why},
+                               text=why)
+                    self.compacting = None
+                else:
+                    self.note("warn", "compact_failed", why, why=why)
+                self.poll_stats()             # el contexto sigue como estaba
             else:
-                self.note("info", "compacted",
-                          f"context compacted: {before} to {after} tokens",
-                          before=before, after=after)
-            window = (self.state.get("context") or {}).get("window")
-            self.state["context"] = {
-                "tokens": after, "window": window,
-                "percent": pct(after, window), "cost": None}
-            self.push_state()
-            self.poll_stats()                 # y a ver subir el prefill
+                before = r.get("tokensBefore")
+                after = r.get("estimatedTokensAfter")
+                if self.compacting:           # la misma nota, ahora resuelta
+                    self.patch(self.compacting, key="compacted",
+                               args={"before": before, "after": after},
+                               text=f"context compacted: {before} to {after} tokens")
+                    self.compacting = None
+                else:
+                    self.note("info", "compacted",
+                              f"context compacted: {before} to {after} tokens",
+                              before=before, after=after)
+                window = (self.state.get("context") or {}).get("window")
+                self.state["context"] = {
+                    "tokens": after, "window": window,
+                    "percent": pct(after, window), "cost": None}
+                self.push_state()
+                self.poll_stats()             # y a ver subir el prefill
 
         elif t == "auto_retry_start":
             self.note("warn", "retrying",

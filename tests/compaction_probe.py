@@ -104,8 +104,95 @@ async def ui():
     return checks
 
 
+async def notes():
+    """La nota del evento compaction_end. Exito: pinta «compacted» y baja el
+    contexto. Fallo/abort (pi manda compaction_end SIN result: el evento
+    session_compact_failed solo va a las extensiones): pinta un aviso warn con
+    el motivo real y NO vacia la barra. El bug era tratar las tres formas como
+    exito -> «compacted:  to  tokens» y contexto a None."""
+    import websockets
+    checks = []
+
+    async def turn(ws, message, seconds=6.0):
+        await ws.send(json.dumps({"type": "prompt", "message": message}))
+        notes_by_id, ctxs = {}, []
+        loop = asyncio.get_event_loop()
+        end = loop.time() + seconds
+        while True:
+            rem = end - loop.time()
+            if rem <= 0:
+                break
+            try:
+                m = json.loads(await asyncio.wait_for(ws.recv(), rem))
+            except asyncio.TimeoutError:
+                break
+            t = m.get("type")
+            if t == "item" and (m.get("item") or {}).get("kind") == "note":
+                it = m["item"]
+                notes_by_id[it["id"]] = dict(it)
+            elif t == "patch":
+                notes_by_id.setdefault(m["id"], {}).update(m.get("fields") or {})
+            elif t == "state":
+                st = m.get("state") or {}
+                if "context" in st:
+                    ctxs.append(st.get("context"))
+        return notes_by_id, ctxs
+
+    td = tempfile.mkdtemp(prefix="compaction_notes_")   # dir propio, no el de ui()
+    try:
+        proj = Path(td) / "proj"
+        proj.mkdir()
+        with Bridge(extra={"PI_AGENT_DIR": td}):
+            async with websockets.connect(WS_URL) as ws:
+                await ws.recv()                       # snapshot inicial
+                await ws.send(json.dumps({"type": "open_project",
+                                          "path": str(proj)}))
+                await asyncio.sleep(1.5)              # pi arranca
+
+                # --- fallo: compaction_end sin result, con errorMessage ---
+                fnotes, fctxs = await turn(ws, "compactfail ahora")
+                cf = [n for n in fnotes.values()
+                      if n.get("key") == "compact_failed"]
+                blanked = any(isinstance(c, dict) and c.get("tokens") is None
+                              for c in fctxs)
+                real = any(isinstance(c, dict) and c.get("tokens")
+                           for c in fctxs)
+                print("  fallo: notas=%d compact_failed=%s blanked=%s"
+                      % (len(fnotes), bool(cf), blanked))
+                checks += [
+                    ("el fallo pinta una nota compact_failed", len(cf) == 1),
+                    ("la nota de fallo es warn, no info",
+                     bool(cf) and cf[0].get("level") == "warn"),
+                    ("la nota lleva el motivo real de pi",
+                     bool(cf) and "Auto-compaction failed"
+                     in (cf[0].get("text") or "")),
+                    ("no queda una nota «compacted» fantasma",
+                     not any(n.get("key") == "compacted"
+                             for n in fnotes.values())),
+                    ("el fallo NO vacia el contexto (nunca tokens None)",
+                     real and not blanked),
+                ]
+
+                # --- exito: compaction_end con result, baja la barra ---
+                snotes, sctxs = await turn(ws, "compact ahora")
+                ok = [n for n in snotes.values()
+                      if n.get("key") == "compacted"]
+                dropped = any(isinstance(c, dict) and c.get("tokens") == 5200
+                              for c in sctxs)
+                print("  exito: compacted=%s bajo_a_5200=%s"
+                      % (bool(ok), dropped))
+                checks += [
+                    ("el exito sigue pintando «compacted»", len(ok) == 1),
+                    ("el exito baja el contexto a estimatedTokensAfter",
+                     dropped),
+                ]
+    finally:
+        shutil.rmtree(td, ignore_errors=True)
+    return checks
+
+
 async def main():
-    out = backend() + await ui()
+    out = backend() + await ui() + await notes()
     return out
 
 
