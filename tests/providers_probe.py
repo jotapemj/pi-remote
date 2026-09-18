@@ -74,6 +74,25 @@ def backend():
                  B.provider_add("nuevo", "http://x",
                                 "openai-completions", None) is not None),
             ]
+            err = B.model_add("local", "qwen3-14b", "Qwen3 14B", 32768,
+                              8192, True)
+            d = json.loads(mj.read_text(encoding="utf-8"))
+            m = d["providers"]["local"]["models"][-1]
+            checks += [
+                ("model_add añade el modelo completo", err is None
+                 and m == {"id": "qwen3-14b", "name": "Qwen3 14B",
+                           "contextWindow": 32768, "maxTokens": 8192,
+                           "reasoning": True}),
+                ("model_add duplicado da error",
+                 B.model_add("local", "qwen3-14b", None, 1000, 100,
+                             False) is not None),
+                ("model_add id invalido da error",
+                 B.model_add("local", "a/b", None, 1000, 100, False)
+                 is not None),
+                ("model_add a provider inexistente da error",
+                 B.model_add("nope", "m", None, 1000, 100, False)
+                 is not None),
+            ]
         finally:
             os.environ.pop("PI_MODELS_JSON", None)
     return checks
@@ -163,6 +182,43 @@ async def ui():
                     ("la clave sigue intacta en disco",
                      d["providers"]["local"]["apiKey"] == "secreta"),
                 ]
+
+                # ---- añadir modelo desde la pagina de edicion ----
+                await js("""(()=>{[...document.querySelectorAll('#sheetBody .prow')]
+                  .find(r=>/local/.test(r.textContent))
+                  .querySelector('.pick').click();})()""")
+                await asyncio.sleep(0.5)
+                hasbtn = await js("""[...document.querySelectorAll(
+                  '#sheetBody .pick')].some(b=>/Add model/.test(
+                  b.textContent))""")
+                checks.append(("la pagina de edicion ofrece 'Add model'",
+                               bool(hasbtn)))
+                await js("""(()=>{[...document.querySelectorAll('#sheetBody .pick')]
+                  .find(b=>/Add model/.test(b.textContent)).click();})()""")
+                await asyncio.sleep(0.5)
+                okvis = await js("""(()=>{
+                  const ins=[...document.querySelectorAll(
+                    '#sheetBody .mfield input')];
+                  ins[0].value='qwen3-14b';
+                  ins[0].dispatchEvent(new Event('input'));
+                  ins[2].value='32768';
+                  ins[2].dispatchEvent(new Event('input'));
+                  ins[3].value='8192';
+                  ins[3].dispatchEvent(new Event('input'));
+                  return $('#sheetOk').hidden;})()""")
+                checks.append(("el check exige id y numeros", okvis is False))
+                await js("$('#sheetOk').click()")
+                await asyncio.sleep(0.15)
+                await js("$('#modalOk').click()")
+                ok = await js("""(async()=>{
+                  for(let i=0;i<50;i++){
+                    if([...document.querySelectorAll('#sheetBody .prow')]
+                      .some(r=>/qwen3-14b/.test(r.textContent))) return true;
+                    await new Promise(r=>setTimeout(r,100));
+                  }
+                  return false;})()""")
+                checks.append(("el nuevo modelo sale en la fila del provider",
+                               bool(ok)))
     return checks
 
 

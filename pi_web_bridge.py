@@ -924,6 +924,29 @@ def provider_save(provider_id, base_url, api):
     return _write_models(d)
 
 
+def model_add(provider_id, model_id, name, context_window, max_tokens,
+              reasoning):
+    """Añadir un modelo a un provider existente (round-trip). Pi lo relee
+    al arrancar: el cambio aplica tras /restart."""
+    if not model_id or "/" in model_id:
+        return "invalid model id"
+    try:
+        with open(_models_json_path(), encoding="utf-8") as fh:
+            d = json.load(fh)
+    except (OSError, ValueError) as exc:
+        return "cannot read models.json: %s" % exc
+    pv = (d.get("providers") or {}).get(provider_id)
+    if not isinstance(pv, dict):
+        return "provider not found: %s" % provider_id
+    ms = pv.setdefault("models", [])
+    if any(m.get("id") == model_id for m in ms if isinstance(m, dict)):
+        return "model exists: %s/%s" % (provider_id, model_id)
+    ms.append({"id": model_id, "name": name or model_id,
+               "contextWindow": context_window, "maxTokens": max_tokens,
+               "reasoning": bool(reasoning)})
+    return _write_models(d)
+
+
 def provider_add(provider_id, base_url, api, api_key):
     """Crear un provider nuevo sin modelos (round-trip)."""
     if not provider_id or "/" in provider_id or " " in provider_id:
@@ -2175,6 +2198,21 @@ class Bridge:
         if t == "providers_get":
             self.emit({"type": "rpc", "command": t,
                        "data": {"providers": providers_get()}})
+            return
+
+        if t == "model_add":
+            cw, mt = msg.get("contextWindow"), msg.get("maxTokens")
+            if not (isinstance(cw, int) and isinstance(mt, int)
+                    and cw > 0 and mt > 0):
+                self.emit({"type": "rpc", "command": t,
+                           "data": {"error":
+                                    "parameters must be positive integers"}})
+                return
+            err = model_add(msg.get("provider"), msg.get("id"),
+                            msg.get("name"), cw, mt, msg.get("reasoning"))
+            self.emit({"type": "rpc", "command": t,
+                       "data": {"error": err} if err
+                       else {"providers": providers_get()}})
             return
 
         if t in ("provider_save", "provider_add"):

@@ -4925,6 +4925,7 @@ const STR = {
       providers:"Providers", addProvider:"Add provider", providerEdit:"Edit provider",
       baseUrl:"Base URL", apiType:"API type", apiKey:"API key",
       keySet:"configured", applyRestart:"These changes apply after a restart (/restart).",
+      addModel:"Add model", reasoning:"Reasoning", modelName:"Model name",
       untitled:"Untitled session",
       motion_fade:"Fade", motion_instant:"Instant", image:"Image",
       output:"output", noOutput:"no output", command:"command",
@@ -5017,6 +5018,7 @@ const STR = {
       providers:"Proveedores", addProvider:"Añadir proveedor", providerEdit:"Editar proveedor",
       baseUrl:"URL base", apiType:"Tipo de API", apiKey:"Clave API",
       keySet:"configurada", applyRestart:"Los cambios se aplican al reiniciar (/restart).",
+      addModel:"Añadir modelo", reasoning:"Razonamiento", modelName:"Nombre del modelo",
       untitled:"Sesión sin título",
       motion_fade:"Fundido", motion_instant:"Directo", image:"Imagen",
       ranN:"Ejecutados {n} comandos", ranNShown:"{n} comandos",
@@ -5109,6 +5111,7 @@ const STR = {
       providers:"Provider", addProvider:"Provider hinzufügen", providerEdit:"Provider bearbeiten",
       baseUrl:"Basis-URL", apiType:"API-Typ", apiKey:"API-Schlüssel",
       keySet:"konfiguriert", applyRestart:"Änderungen werden nach einem Neustart (/restart) wirksam.",
+      addModel:"Modell hinzufügen", reasoning:"Reasoning", modelName:"Modellname",
       untitled:"Unbenannte Sitzung",
       motion_fade:"Einblenden", motion_instant:"Sofort", image:"Bild",
       ranN:"{n} Befehle ausgef\u00fchrt", ranNShown:"{n} Befehle",
@@ -5199,6 +5202,7 @@ const STR = {
       providers:"Fournisseurs", addProvider:"Ajouter un fournisseur", providerEdit:"Modifier le fournisseur",
       baseUrl:"URL de base", apiType:"Type d'API", apiKey:"Clé API",
       keySet:"configurée", applyRestart:"Les modifications s'appliquent après redémarrage (/restart).",
+      addModel:"Ajouter un modèle", reasoning:"Raisonnement", modelName:"Nom du modèle",
       untitled:"Session sans titre",
       motion_fade:"fondu", motion_instant:"instantan\u00e9", image:"image",
       ranN:"{n} commandes ex\u00e9cut\u00e9es", ranNShown:"{n} commandes",
@@ -5289,6 +5293,7 @@ const STR = {
       providers:"Provedores", addProvider:"Adicionar provedor", providerEdit:"Editar provedor",
       baseUrl:"URL base", apiType:"Tipo de API", apiKey:"Chave API",
       keySet:"configurada", applyRestart:"As alterações aplicam-se após reiniciar (/restart).",
+      addModel:"Adicionar modelo", reasoning:"Raciocínio", modelName:"Nome do modelo",
       untitled:"Sessão sem título",
       motion_fade:"fundido", motion_instant:"instant\u00e2neo", image:"imagem",
       ranN:"{n} comandos executados", ranNShown:"{n} comandos",
@@ -5378,6 +5383,7 @@ const STR = {
       providers:"提供商", addProvider:"添加提供商", providerEdit:"编辑提供商",
       baseUrl:"基础 URL", apiType:"API 类型", apiKey:"API 密钥",
       keySet:"已配置", applyRestart:"更改将在重启（/restart）后生效。",
+      addModel:"添加模型", reasoning:"推理", modelName:"模型名称",
       untitled:"未命名会话",
       motion_fade:"淡入", motion_instant:"即时", image:"图片",
       ranN:"执行了 {n} 条命令", ranNShown:"{n} 条命令",
@@ -6491,6 +6497,11 @@ function paintSheet(page){
     paintProvForm(page);
     return;
   }
+  if(page === "modelAdd"){
+    $("#sheetTitle").textContent = T("addModel");
+    paintModelAdd();
+    return;
+  }
   if(page === "projset"){
     $("#sheetTitle").textContent = T("projectSettings");
     paintProjSet();
@@ -6992,6 +7003,8 @@ function paintProvForm(page){
     const lbl = document.createElement("label");
     lbl.textContent = T("apiKey");
     f.append(inp, lbl); body.appendChild(f);
+    body.appendChild(pickBtn({icon:"add", label:T("addModel"),
+      run: () => goPage("modelAdd")}));
   }
   provFormValid();
   okb.onclick = () => openModal(
@@ -7005,6 +7018,65 @@ function paintProvForm(page){
         send({type:"provider_save", id: fields.id, baseUrl: fields.baseUrl,
               api: fields.api});
     },
+    {ok: T("confirm")});
+}
+function paintModelAdd(){
+  const body = $("#sheetBody");
+  const okb = $("#sheetOk");
+  const fields = {modelId: "", modelName: "", contextWindow: null,
+                  maxTokens: null, reasoning: true};
+  const modelAddValid = () => {
+    okb.hidden = !(fields.modelId && fields.contextWindow
+                   && fields.maxTokens);
+  };
+  const txtRow = key => {
+    const f = document.createElement("div");
+    f.className = "mfield";
+    const inp = document.createElement("input");
+    inp.placeholder = " ";
+    inp.addEventListener("input", () => { fields[key] = inp.value.trim();
+      modelAddValid(); });
+    const lbl = document.createElement("label");
+    lbl.textContent = T(key);
+    f.append(inp, lbl); body.appendChild(f);
+  };
+  const numRow = key => {
+    const f = document.createElement("div");
+    f.className = "mfield";
+    const inp = document.createElement("input");
+    inp.placeholder = " "; inp.type = "number"; inp.min = "1"; inp.step = "1";
+    inp.addEventListener("input", () => {
+      const v = parseInt(inp.value, 10);
+      fields[key] = (isFinite(v) && v > 0) ? v : null;
+      modelAddValid();
+    });
+    const lbl = document.createElement("label");
+    lbl.textContent = T(key);
+    f.append(inp, lbl); body.appendChild(f);
+  };
+  txtRow("modelId");
+  txtRow("modelName");
+  numRow("contextWindow");
+  numRow("maxTokens");
+  const card = document.createElement("div");
+  card.className = "fcard";
+  card.innerHTML = `<div class="frow"><div class="ftext">` +
+    `<div class="flbl">${esc(T("reasoning"))}</div></div>` +
+    `<button class="sw" role="switch" aria-checked="true"` +
+    ` aria-label="${esc(T("reasoning"))}"><span class="knob"></span></button>`;
+  const sw = card.querySelector(".sw");
+  sw.onclick = () => {
+    fields.reasoning = !fields.reasoning;
+    sw.setAttribute("aria-checked", String(fields.reasoning));
+  };
+  body.appendChild(card);
+  modelAddValid();
+  okb.onclick = () => openModal(
+    T("addModel"), `<p>${T("applyRestart")}</p>`,
+    () => send({type:"model_add", provider: provEditId,
+                id: fields.modelId, name: fields.modelName,
+                contextWindow: fields.contextWindow,
+                maxTokens: fields.maxTokens, reasoning: fields.reasoning}),
     {ok: T("confirm")});
 }
 // filas de la whitelist: las fijas van atenuadas y sin papelera
@@ -7036,10 +7108,11 @@ function onRpc(m){
     return;
   }
   if(m.command === "providers_get" || m.command === "provider_save"
-     || m.command === "provider_add"){
+     || m.command === "provider_add" || m.command === "model_add"){
     if(d && d.error) return note(d.error);
     provList = m.providers || d.providers || [];
-    if(sheetPage === "provEdit" || sheetPage === "provAdd")
+    if(sheetPage === "provEdit" || sheetPage === "provAdd"
+       || sheetPage === "modelAdd")
       turnTo("providers", -1);     // guardado: de vuelta a la lista
     else if(sheetPage === "providers") paintProvRows();
     return;
