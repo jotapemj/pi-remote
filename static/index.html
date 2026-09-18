@@ -4922,6 +4922,9 @@ const STR = {
       saveProjB:"This writes <em>.pi/settings.json</em> in the project folder.",
       unsavedQ:"Save changes?",
       provGlobal:"Global", provProject:"Project",
+      providers:"Providers", addProvider:"Add provider", providerEdit:"Edit provider",
+      baseUrl:"Base URL", apiType:"API type", apiKey:"API key",
+      keySet:"configured", applyRestart:"These changes apply after a restart (/restart).",
       untitled:"Untitled session",
       motion_fade:"Fade", motion_instant:"Instant", image:"Image",
       output:"output", noOutput:"no output", command:"command",
@@ -5011,6 +5014,9 @@ const STR = {
       saveProjB:"Esto escribe <em>.pi/settings.json</em> en la carpeta del proyecto.",
       unsavedQ:"¿Guardar cambios?",
       provGlobal:"Global", provProject:"Proyecto",
+      providers:"Proveedores", addProvider:"Añadir proveedor", providerEdit:"Editar proveedor",
+      baseUrl:"URL base", apiType:"Tipo de API", apiKey:"Clave API",
+      keySet:"configurada", applyRestart:"Los cambios se aplican al reiniciar (/restart).",
       untitled:"Sesión sin título",
       motion_fade:"Fundido", motion_instant:"Directo", image:"Imagen",
       ranN:"Ejecutados {n} comandos", ranNShown:"{n} comandos",
@@ -5100,6 +5106,9 @@ const STR = {
       saveProjB:"Dies schreibt <em>.pi/settings.json</em> in den Projektordner.",
       unsavedQ:"Änderungen speichern?",
       provGlobal:"Global", provProject:"Projekt",
+      providers:"Provider", addProvider:"Provider hinzufügen", providerEdit:"Provider bearbeiten",
+      baseUrl:"Basis-URL", apiType:"API-Typ", apiKey:"API-Schlüssel",
+      keySet:"konfiguriert", applyRestart:"Änderungen werden nach einem Neustart (/restart) wirksam.",
       untitled:"Unbenannte Sitzung",
       motion_fade:"Einblenden", motion_instant:"Sofort", image:"Bild",
       ranN:"{n} Befehle ausgef\u00fchrt", ranNShown:"{n} Befehle",
@@ -5187,6 +5196,9 @@ const STR = {
       saveProjB:"Cela écrit <em>.pi/settings.json</em> dans le dossier du projet.",
       unsavedQ:"Enregistrer les modifications ?",
       provGlobal:"Global", provProject:"Projet",
+      providers:"Fournisseurs", addProvider:"Ajouter un fournisseur", providerEdit:"Modifier le fournisseur",
+      baseUrl:"URL de base", apiType:"Type d'API", apiKey:"Clé API",
+      keySet:"configurée", applyRestart:"Les modifications s'appliquent après redémarrage (/restart).",
       untitled:"Session sans titre",
       motion_fade:"fondu", motion_instant:"instantan\u00e9", image:"image",
       ranN:"{n} commandes ex\u00e9cut\u00e9es", ranNShown:"{n} commandes",
@@ -5274,6 +5286,9 @@ const STR = {
       saveProjB:"Isso escreve <em>.pi/settings.json</em> na pasta do projeto.",
       unsavedQ:"Salvar alterações?",
       provGlobal:"Global", provProject:"Projeto",
+      providers:"Provedores", addProvider:"Adicionar provedor", providerEdit:"Editar provedor",
+      baseUrl:"URL base", apiType:"Tipo de API", apiKey:"Chave API",
+      keySet:"configurada", applyRestart:"As alterações aplicam-se após reiniciar (/restart).",
       untitled:"Sessão sem título",
       motion_fade:"fundido", motion_instant:"instant\u00e2neo", image:"imagem",
       ranN:"{n} comandos executados", ranNShown:"{n} comandos",
@@ -5360,6 +5375,9 @@ const STR = {
       saveProjB:"这将在项目文件夹中写入 <em>.pi/settings.json</em>。",
       unsavedQ:"保存更改？",
       provGlobal:"全局", provProject:"项目",
+      providers:"提供商", addProvider:"添加提供商", providerEdit:"编辑提供商",
+      baseUrl:"基础 URL", apiType:"API 类型", apiKey:"API 密钥",
+      keySet:"已配置", applyRestart:"更改将在重启（/restart）后生效。",
       untitled:"未命名会话",
       motion_fade:"淡入", motion_instant:"即时", image:"图片",
       ranN:"执行了 {n} 条命令", ranNShown:"{n} 条命令",
@@ -6454,6 +6472,23 @@ function paintSheet(page){
       val: state.model ? "| " + state.model : null,
       chevron:true, run: () => goPage("model")}));
     act("projectSettings", "folder", () => goPage("projset"));
+    act("providers", "external", () => goPage("providers"));
+    return;
+  }
+  if(page === "providers"){
+    $("#sheetTitle").textContent = T("providers");
+    paintProvRows();
+    send({type:"providers_get"});   // el onRpc refresca la lista
+    // si la respuesta llego antes del turno de animacion de turnTo, esta
+    // paintSheet ya borro las filas: repintar con lo ultimo que se tuvo
+    setTimeout(() => { if(sheetPage === "providers")
+      paintProvRows(); }, 250);
+    return;
+  }
+  if(page === "provEdit" || page === "provAdd"){
+    $("#sheetTitle").textContent = T(page === "provAdd"
+      ? "addProvider" : "providerEdit");
+    paintProvForm(page);
     return;
   }
   if(page === "projset"){
@@ -6895,6 +6930,83 @@ async function browse(path){
   $("#sheet").classList.add("open");
 }
 
+// ---- providers (models.json): ver, editar y añadir. Pi los relee al
+// arrancar, por eso todo cambio avisa de que aplica tras /restart ----
+let provList = [], provEditId = null;
+function paintProvRows(){      // dibuja solo: el fetch vive en paintSheet
+  const body = $("#sheetBody");
+  body.querySelectorAll(".prow").forEach(x => x.remove());
+  const add = pickBtn({icon:"add", label:T("addProvider"),
+                       run: () => goPage("provAdd")});
+  body.appendChild(add);
+  provList.forEach(pv => {
+    const row = document.createElement("div");
+    row.className = "prow";
+    row.innerHTML = `<span class="wpath">${esc(pv.id)}</span>`;
+    const sub = document.createElement("small");
+    sub.textContent = pv.baseUrl + (pv.models.length
+      ? "  ·  " + pv.models.join(", ") : "");
+    row.appendChild(sub);
+    row.appendChild(pickBtn({chevron:true, off:!pv.baseUrl,
+      run: () => { provEditId = pv.id; goPage("provEdit"); }}));
+    body.appendChild(row);
+  });
+}
+function paintProvForm(page){
+  const body = $("#sheetBody");
+  const okb = $("#sheetOk");
+  const cur = page === "provEdit"
+    ? provList.find(pv => pv.id === provEditId) : null;
+  if(page === "provEdit" && !cur) return;
+  const fields = {id: cur ? cur.id : "", baseUrl: cur ? cur.baseUrl : "",
+                  api: cur ? cur.api : "openai-completions", apiKey: ""};
+  const row = (key, value, opts = {}) => {
+    const f = document.createElement("div");
+    f.className = "mfield";
+    const inp = document.createElement("input");
+    inp.placeholder = " ";
+    if(opts.readonly){ inp.value = value; inp.readOnly = true; }
+    else {
+      inp.value = value == null ? "" : value;
+      inp.addEventListener("input", () => { fields[key] = inp.value.trim();
+        provFormValid(); });
+    }
+    const lbl = document.createElement("label");
+    lbl.textContent = T(key);
+    f.append(inp, lbl); body.appendChild(f);
+  };
+  const provFormValid = () => {
+    okb.hidden = !(fields.baseUrl && (page === "provAdd"
+      ? fields.id : true));
+  };
+  if(page === "provAdd") row("id", "");
+  row("baseUrl", fields.baseUrl);
+  row("apiType", fields.api);
+  if(page === "provAdd") row("apiKey", "");
+  else {
+    const f = document.createElement("div");
+    f.className = "mfield";
+    const inp = document.createElement("input");
+    inp.placeholder = " "; inp.readOnly = true;
+    inp.value = cur.hasKey ? T("keySet") : "-";
+    const lbl = document.createElement("label");
+    lbl.textContent = T("apiKey");
+    f.append(inp, lbl); body.appendChild(f);
+  }
+  provFormValid();
+  okb.onclick = () => openModal(
+    T(page === "provAdd" ? "addProvider" : "providerEdit"),
+    `<p>${T("applyRestart")}</p>`,
+    () => {
+      if(page === "provAdd")
+        send({type:"provider_add", id: fields.id, baseUrl: fields.baseUrl,
+              api: fields.api, apiKey: fields.apiKey});
+      else
+        send({type:"provider_save", id: fields.id, baseUrl: fields.baseUrl,
+              api: fields.api});
+    },
+    {ok: T("confirm")});
+}
 // filas de la whitelist: las fijas van atenuadas y sin papelera
 let lastDirs = [];           // la ultima lista recibida, para repintar
 function paintWhitelist(dirs){
@@ -6921,6 +7033,15 @@ function onRpc(m){
      || m.command === "whitelist_remove"){
     if(d && d.error) return note(d.error);
     paintWhitelist(m.dirs || d.dirs || []);
+    return;
+  }
+  if(m.command === "providers_get" || m.command === "provider_save"
+     || m.command === "provider_add"){
+    if(d && d.error) return note(d.error);
+    provList = m.providers || d.providers || [];
+    if(sheetPage === "provEdit" || sheetPage === "provAdd")
+      turnTo("providers", -1);     // guardado: de vuelta a la lista
+    else if(sheetPage === "providers") paintProvRows();
     return;
   }
   if(m.command === "save_model_params"){

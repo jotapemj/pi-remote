@@ -844,12 +844,16 @@ def read_models_json():
         return {}
 
 
+def _models_json_path():
+    return Path(os.environ.get("PI_MODELS_JSON") or (AGENT_DIR / "models.json"))
+
+
 def save_model_params(provider, model_id, context_window, max_tokens):
     """Editar los parametros de un modelo en models.json.
 
     Round-trip: se lee el fichero entero y se reescribe con lo demas intacto.
     Devuelve None si ha ido bien, o el error en texto plano."""
-    p = Path(os.environ.get("PI_MODELS_JSON") or (AGENT_DIR / "models.json"))
+    p = _models_json_path()
     try:
         with open(p, encoding="utf-8") as fh:
             d = json.load(fh)
@@ -867,6 +871,76 @@ def save_model_params(provider, model_id, context_window, max_tokens):
                 return "cannot write models.json: %s" % exc
             return None
     return "model not found: %s/%s" % (provider, model_id)
+
+
+def providers_get():
+    """Lista de providers de models.json. La clave viaja como flag, nunca
+    el valor: no sale a la web mas de lo necesario."""
+    try:
+        with open(_models_json_path(), encoding="utf-8") as fh:
+            d = json.load(fh)
+    except (OSError, ValueError):
+        return []
+    out = []
+    for pid, pv in (d.get("providers") or {}).items():
+        if not isinstance(pv, dict):
+            continue
+        out.append({
+            "id": pid,
+            "baseUrl": pv.get("baseUrl") or "",
+            "api": pv.get("api") or "",
+            "hasKey": bool(pv.get("apiKey")),
+            "models": [m.get("name") or m.get("id")
+                       for m in pv.get("models") or []
+                       if isinstance(m, dict)],
+        })
+    return out
+
+
+def _write_models(d):
+    try:
+        with open(_models_json_path(), "w", encoding="utf-8") as fh:
+            json.dump(d, fh, indent=2)
+    except OSError as exc:
+        return "cannot write models.json: %s" % exc
+    return None
+
+
+def provider_save(provider_id, base_url, api):
+    """Editar baseUrl/api de un provider existente (round-trip). Pi relee
+    models.json al arrancar: el cambio aplica tras /restart."""
+    try:
+        with open(_models_json_path(), encoding="utf-8") as fh:
+            d = json.load(fh)
+    except (OSError, ValueError) as exc:
+        return "cannot read models.json: %s" % exc
+    pv = (d.get("providers") or {}).get(provider_id)
+    if not isinstance(pv, dict):
+        return "provider not found: %s" % provider_id
+    if base_url is not None:
+        pv["baseUrl"] = base_url
+    if api is not None:
+        pv["api"] = api
+    return _write_models(d)
+
+
+def provider_add(provider_id, base_url, api, api_key):
+    """Crear un provider nuevo sin modelos (round-trip)."""
+    if not provider_id or "/" in provider_id or " " in provider_id:
+        return "invalid provider id"
+    try:
+        with open(_models_json_path(), encoding="utf-8") as fh:
+            d = json.load(fh)
+    except (OSError, ValueError):
+        d = {}
+    provs = d.setdefault("providers", {})
+    if provider_id in provs:
+        return "provider exists: %s" % provider_id
+    pv = {"baseUrl": base_url, "api": api, "models": []}
+    if api_key:
+        pv["apiKey"] = api_key
+    provs[provider_id] = pv
+    return _write_models(d)
 
 
 # ------------------------------------------------------------------ trust y
@@ -2096,6 +2170,23 @@ class Bridge:
                                     cw, mt)
             self.emit({"type": "rpc", "command": t,
                        "data": {"error": err} if err else {}})
+            return
+
+        if t == "providers_get":
+            self.emit({"type": "rpc", "command": t,
+                       "data": {"providers": providers_get()}})
+            return
+
+        if t in ("provider_save", "provider_add"):
+            if t == "provider_save":
+                err = provider_save(msg.get("id"), msg.get("baseUrl"),
+                                    msg.get("api"))
+            else:
+                err = provider_add(msg.get("id"), msg.get("baseUrl"),
+                                   msg.get("api"), msg.get("apiKey"))
+            self.emit({"type": "rpc", "command": t,
+                       "data": {"error": err} if err
+                       else {"providers": providers_get()}})
             return
 
         if t == "trust_status":
