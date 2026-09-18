@@ -767,6 +767,11 @@ html.hide-think .think-turn{display:none}
   font:500 11px/20px var(--mono); color:var(--ink);
   white-space:nowrap; overflow:hidden;
 }
+/* linea de compaction: donde pi cortara el contexto (ventana - reserva) */
+.ctx .cmk{
+  position:absolute; top:0; bottom:0; width:2px; margin-left:-1px;
+  background:var(--ink); opacity:.45; display:none; pointer-events:none;
+}
 .readout .sec{color:var(--faint);font-variant-numeric:tabular-nums}
 .readout .sec{flex:none}
 
@@ -3833,6 +3838,13 @@ const kilo = v => v >= 1000 ? Math.round(v / 1000) + "k" : String(v || 0);
 function paintCtx(){
   const c = state.context, bar = $("#bar");
   const fill = bar.firstElementChild, label = bar.lastElementChild;
+  let mk = bar.querySelector(".cmk");
+  if(!mk){ mk = document.createElement("b"); mk.className = "cmk";
+    bar.insertBefore(mk, label); }
+  if(state.compactAt != null && c && c.window > 0){
+    const q = Math.max(0, Math.min(100, state.compactAt / c.window * 100));
+    mk.style.display = "block"; mk.style.left = q + "%";
+  } else mk.style.display = "none";
   if(!c || c.percent == null){
     // sin percent (recien compactar): guiones, la ventana sigue sabiendose
     fill.style.width = "0%";

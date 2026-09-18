@@ -966,6 +966,10 @@ def read_project_settings(cwd):
     return _read_json(project_settings_path(cwd))
 
 
+def read_global_settings():
+    return _read_json(AGENT_DIR / "settings.json")
+
+
 def save_project_settings(cwd, patch):
     """Fusiona claves en el .pi/settings.json del proyecto (round-trip: el
     resto del fichero se conserva). None borra la clave: asi se limpia un
@@ -1131,6 +1135,7 @@ class Bridge:
             "modelId": None, "modelProvider": None, "thinking": None,
             "context": None, "queue": {"steering": [], "followUp": []},
             "alive": True, "cwd": "", "waiting": False, "recent": [],
+            "compactAt": None,
             "sessionFile": None, "summarizing": False,
             # settings y confianza del proyecto abierto: procedencia del
             # readout (Global/Proyecto) y pagina de ajustes por proyecto
@@ -1610,6 +1615,23 @@ class Bridge:
         self.state["projSettings"] = read_project_settings(self.cwd)
         trusted, _ = trust_decision(self.cwd)
         self.state["projTrusted"] = bool(trusted)
+        self.refresh_compact()
+
+    def refresh_compact(self):
+        """Punto donde pi compacta: ventana - reserva (shouldCompact de pi).
+        La reserva sale del merge global + proyecto (confiado), como en pi.
+        Sin compaction o sin ventana conocida, None: la barra no dibuja."""
+        g = read_global_settings().get("compaction") or {}
+        enabled = g.get("enabled", True)
+        reserve = g.get("reserveTokens", 16384)
+        if self.state.get("projTrusted"):
+            pc = (self.state.get("projSettings") or {}).get("compaction") or {}
+            enabled = pc.get("enabled", enabled)
+            reserve = pc.get("reserveTokens", reserve)
+        window = (self.state.get("context") or {}).get("window")
+        ok = bool(enabled) and isinstance(reserve, int) \
+            and isinstance(window, int)
+        self.state["compactAt"] = max(0, window - reserve) if ok else None
 
     def apply_default_model(self):
         """Imponer el modelo por defecto del usuario si la sesion no esta en el.
@@ -1671,6 +1693,7 @@ class Bridge:
             self.state["context"] = {
                 "percent": percent, "tokens": tokens,
                 "window": window, "cost": data.get("cost")}
+            self.refresh_compact()
             self.push_state()
 
         elif cmd in ("switch_session", "new_session"):
