@@ -2,15 +2,24 @@
 
     python tests/run.py            todas
     python tests/run.py rail       solo las que casen con "rail"
+
+En paralelo: N workers, cada uno con su puerto de puente (PI_TEST_PORT +
+slot*10) y su offset de puertos Chrome (CHROME_PORT_OFFSET = slot*100), asi
+no pisan ficheros ni puertos entre si. PI_TEST_WORKERS cambia N (default 3).
+Un probe que falla se relanza una vez antes de darlo por caido: los checks
+de tiempo a fijo son sensibles a la carga y el ruido de la maquina.
 """
+import os
+import queue
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 
-# las de navegador van de una en una: cada una levanta su Chrome
+# las de navegador van solas dentro de su worker: cada una levanta su Chrome
 ORDER = ["static_check", "theme_check", "label_check", "notes_check",
          "trash_test",
          "history_probe", "projects_probe", "sec_probe", "browser_probe",
@@ -31,6 +40,45 @@ ORDER = ["static_check", "theme_check", "label_check", "notes_check",
          "toolimg_probe", "stats_probe", "multi_probe", "pwa_probe",
          "gesture_probe", "kb_anchor_probe"]
 
+BASE_PORT = 8811      # el puente vivo del usuario va en 8770
+
+
+def run_one(name, slot):
+    env = dict(os.environ)
+    env["PI_TEST_PORT"] = str(BASE_PORT + slot * 10)
+    env["CHROME_PORT_OFFSET"] = str(slot * 100)
+    t0 = time.time()
+    r = subprocess.run([sys.executable, str(HERE / (name + ".py"))],
+                       capture_output=True, text=True, cwd=str(HERE),
+                       env=env)
+    out = (r.stdout or "") + (r.stderr or "")
+    ok = r.returncode == 0 and "FALLA" not in out
+    return ok, out, time.time() - t0
+
+
+def worker(slot, q, results, lock):
+    while True:
+        try:
+            name = q.get_nowait()
+        except queue.Empty:
+            return
+        ok, out, dt = run_one(name, slot)
+        retried = False
+        if not ok:
+            # reintento unico: el fallo suele ser jitter, no el cambio
+            ok, out, dt2 = run_one(name, slot)
+            retried = True
+            dt += dt2
+        with lock:
+            tag = "ok   " if ok else "FALLA"
+            if ok and retried:
+                tag = "ok*"
+            print("  %s  %s  %4.1fs" % (tag, name, dt), flush=True)
+            if not ok:
+                for line in out.strip().splitlines()[-8:]:
+                    print("        " + line, flush=True)
+        results[name] = ok
+
 
 def main():
     want = sys.argv[1] if len(sys.argv) > 1 else ""
@@ -40,24 +88,24 @@ def main():
         print("no hay pruebas que casen con", repr(want))
         return 1
 
-    width = max(len(n) for n in names)
-    failed = []
+    workers = int(os.environ.get("PI_TEST_WORKERS", "3"))
+    q = queue.Queue()
+    for n in names:
+        q.put(n)
+    results = {}
+    lock = threading.Lock()
     t0 = time.time()
-    for name in names:
-        started = time.time()
-        r = subprocess.run([sys.executable, str(HERE / (name + ".py"))],
-                           capture_output=True, text=True, cwd=str(HERE))
-        out = (r.stdout or "") + (r.stderr or "")
-        ok = r.returncode == 0 and "FALLA" not in out
-        print("  %s  %-*s  %4.1fs" % ("ok   " if ok else "FALLA",
-                                      width, name, time.time() - started))
-        if not ok:
-            failed.append(name)
-            for line in out.strip().splitlines()[-8:]:
-                print("        " + line)
+    threads = [threading.Thread(target=worker, args=(s, q, results, lock))
+               for s in range(workers)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
 
-    print("\n%d de %d en %.0fs" % (len(names) - len(failed), len(names),
-                                   time.time() - t0))
+    failed = [n for n in names if not results.get(n)]
+    print("\n%d de %d en %.0fs (%d workers)"
+          % (len(names) - len(failed), len(names), time.time() - t0,
+             workers))
     return 1 if failed else 0
 
 

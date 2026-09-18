@@ -18,10 +18,18 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent                       # el proyecto
 PORT = int(os.environ.get("PI_TEST_PORT", "8779"))
+# offset del puerto de DevTools: en paralelo cada worker desplaza sus
+# puertos Chrome y no pisa los de los demas (CHROME_PORT_OFFSET)
+CHROME_OFFSET = int(os.environ.get("CHROME_PORT_OFFSET", "0"))
 # el puente ya no ejecuta nada sin token: las pruebas usan uno fijo
 TOKEN = "probe-token"
 URL = "http://127.0.0.1:%d/?token=%s" % (PORT, TOKEN)
 WS_URL = "ws://127.0.0.1:%d/ws?token=%s" % (PORT, TOKEN)
+# ficheros por proceso: en paralelo varios puentes no pueden compartir
+# log ni estado (se borrarian entre si al arrancar y al limpiar)
+PID = os.getpid()
+LOG_PATH = Path(tempfile.gettempdir()) / ("pi_bridge_%d.log" % PID)
+STATE_PATH = Path(tempfile.gettempdir()) / ("pi_state_%d.json" % PID)
 
 sys.path.insert(0, str(ROOT))
 
@@ -55,7 +63,8 @@ def fake_pi_cmd():
     if os.name != "nt":
         os.chmod(target, 0o755)
         return str(target)
-    launcher = HERE / "_fake_pi.cmd"
+    # por PID: varios workers escribiendo el mismo .cmd a la vez
+    launcher = Path(tempfile.gettempdir()) / ("_fake_pi_%d.cmd" % PID)
     launcher.write_text('@echo off\r\n"%s" -u "%s" %%*\r\n'
                         % (sys.executable, target), encoding="ascii")
     return str(launcher)
@@ -65,8 +74,8 @@ def bridge_env(state=None, extra=None):
     env = dict(os.environ)
     env.update(PI_CMD=fake_pi_cmd(), PI_WEB_PORT=str(PORT),
                PI_WEB_HOST="127.0.0.1", PI_WEB_TOKEN=TOKEN,
-               PI_WEB_LOG=str(HERE / "_bridge.log"),
-               PI_WEB_STATE=str(state or HERE / "_state.json"))
+               PI_WEB_LOG=str(LOG_PATH),
+               PI_WEB_STATE=str(state or STATE_PATH))
     if extra:
         env.update(extra)
     return env
@@ -76,7 +85,7 @@ class Bridge:
     """El puente corriendo, listo para hablarle."""
 
     def __init__(self, state=None, extra=None, fresh=True, cleanup=True):
-        self.state = Path(state or HERE / "_state.json")
+        self.state = Path(state or STATE_PATH)
         self.extra = extra
         self.fresh = fresh            # empezar sin recientes
         self.cleanup = cleanup        # borrarlos al terminar
@@ -159,7 +168,7 @@ class Page:
 
     def __init__(self, port=9333, width=412, height=880, mobile=True,
                  collect_errors=False):
-        self.port, self.w, self.h = port, width, height
+        self.port, self.w, self.h = port + CHROME_OFFSET, width, height
         self.mobile, self.collect = mobile, collect_errors
         self.problems = []
 
