@@ -95,49 +95,78 @@ async def main():
                 ("encendido: se recuerda en local (1)", on[2] == "1"),
             ]
 
-            # --- la card Movement: ahora un interruptor (on=fundido, off=directo)
+            # --- card "Animacion de generacion": ahora un picker de 3 modos
             await js("paintSheet('functions')")
-            find = ("[...document.querySelectorAll('#sheetBody .fcard')]"
-                    ".find(c => { const l = c.querySelector('.flbl');"
-                    " return l && l.textContent === 'Generación suave'; })")
-            mv = await js("(() => { const c = %s; if(!c) return null;"
-                          " const sw = c.querySelector('.sw');"
-                          " return [!!sw, sw && sw.getAttribute('aria-checked'),"
-                          "  document.documentElement.classList"
-                          ".contains('motion-fade')];})()" % find)
-            print("  movement:", json.dumps(mv, ensure_ascii=True))
+            card = ("[...document.querySelectorAll('#sheetBody .pick')]"
+                    ".find(b => /Animaci.n de generaci.n/.test(b.textContent))")
+            pk = await js("(() => { const b = %s; if(!b) return null;"
+                          " return [!!b, !!b.querySelector('.ch'),"
+                          "  (b.querySelector('.pval')||{}).textContent||''];})()"
+                          % card)
+            print("  picker:", json.dumps(pk, ensure_ascii=True))
             checks += [
-                ("la card 'Generación suave' es un interruptor",
-                 mv and mv[0] is True),
-                ("por defecto encendido (fundido)", mv and mv[1] == "true"),
-                ("arranca en modo fundido", mv and mv[2] is True),
+                ("la animacion es un picker (con chevron)",
+                 bool(pk) and pk[0] is True and pk[1] is True),
+                ("muestra el modo actual en gris (Smooth)",
+                 bool(pk) and "Smooth" in (pk[2] or "")),
             ]
 
-            # apagar -> directo: cambia la clase raiz y se recuerda
-            await js("%s.querySelector('.sw').click()" % find)
-            await asyncio.sleep(0.05)
-            di = await js("[document.documentElement.classList"
-                          ".contains('motion-instant'),"
-                          " document.documentElement.classList"
-                          ".contains('motion-fade'),"
-                          " (()=>{try{return localStorage.getItem"
-                          "('pi.motion')}catch(e){return null}})()]")
-            print("  a directo:", json.dumps(di, ensure_ascii=True))
+            # abrir la vista de modos
+            await js("%s.click()" % card)
+            await asyncio.sleep(0.4)               # goPage anima
+            page = await js("(()=>{"
+                " const rows=[...document.querySelectorAll('#sheetBody .mrow')];"
+                " return {n:rows.length, labels:rows.map(x=>"
+                "   x.querySelector('.txt span').textContent),"
+                "  sel:rows.filter(x=>x.classList.contains('sel'))"
+                "   .map(x=>x.querySelector('.txt span').textContent),"
+                "  chk:rows.map(x=>Number(getComputedStyle("
+                "   x.querySelector('.chkslot')).opacity))};})()")
+            print("  genanim:", json.dumps(page, ensure_ascii=True))
             checks += [
-                ("directo: la raiz queda en motion-instant",
-                 di[0] is True and di[1] is False),
-                ("directo: se recuerda en local", di[2] == "instant"),
+                ("la vista lista los tres modos", page["n"] == 3),
+                ("los modos son Default/Smooth/Block",
+                 page["labels"] == ["Default", "Smooth", "Block"]),
+                ("el modo actual (Smooth) sale marcado, solo uno",
+                 page["sel"] == ["Smooth"]),
+                ("el check del elegido se ve y los demas no",
+                 page["chk"][1] == 1 and page["chk"][0] == 0
+                 and page["chk"][2] == 0),
             ]
 
-            # encender de nuevo -> vuelve a fundido
-            await js("%s.querySelector('.sw').click()" % find)
-            await asyncio.sleep(0.05)
-            fa = await js("[document.documentElement.classList"
-                          ".contains('motion-fade'),"
+            # elegir Block: marca sin cerrar y persiste
+            await js("[...document.querySelectorAll('#sheetBody .mrow')]"
+                     ".find(x=>x.querySelector('.txt span').textContent==='Block')"
+                     ".click()")
+            await asyncio.sleep(0.1)
+            bl = await js("[document.documentElement.classList"
+                          ".contains('motion-block'),"
+                          " (()=>{try{return localStorage.getItem"
+                          "('pi.motion')}catch(e){return null}})(),"
+                          " [...document.querySelectorAll('#sheetBody .mrow')]"
+                          ".filter(x=>x.classList.contains('sel'))"
+                          ".map(x=>x.querySelector('.txt span').textContent),"
+                          " !!document.querySelector('#sheetBody .mrow')]")
+            print("  block:", json.dumps(bl, ensure_ascii=True))
+            checks += [
+                ("Block fija la clase raiz motion-block", bl[0] is True),
+                ("Block se recuerda en local", bl[1] == "block"),
+                ("la marca pasa a Block, solo uno", bl[2] == ["Block"]),
+                ("la vista sigue en los modos (sin navegar)", bl[3] is True),
+            ]
+
+            # elegir Default: sin animacion, persiste
+            await js("[...document.querySelectorAll('#sheetBody .mrow')]"
+                     ".find(x=>x.querySelector('.txt span').textContent==='Default')"
+                     ".click()")
+            await asyncio.sleep(0.1)
+            df = await js("[document.documentElement.classList"
+                          ".contains('motion-default'),"
                           " (()=>{try{return localStorage.getItem"
                           "('pi.motion')}catch(e){return null}})()]")
             checks += [
-                ("vuelve a fundido", fa[0] is True and fa[1] == "fade"),
+                ("Default fija motion-default y lo recuerda",
+                 df[0] is True and df[1] == "default"),
             ]
 
             checks.append(("sin errores de consola", not p.problems))

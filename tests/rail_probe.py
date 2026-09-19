@@ -358,8 +358,8 @@ async def main():
                                and st[3] == 5))
                 # el logo lleva el cubo de pi remote; el hover solo cambia
                 # el icono, no despliega
-                logo = await dj("[!!$('#slimLogo img'), !!$('#slimLogo .hov svg')]")
-                checks.append(("el logo es el icono de pi remote",
+                logo = await dj("[!!$('#slimLogo .cubemask'), !!$('#slimLogo .hov svg')]")
+                checks.append(("el logo es el cubo de pi remote",
                                logo == [True, True]))
                 await dj("$('#slimLogo')"
                          ".dispatchEvent(new Event('mouseenter'))")

@@ -575,6 +575,8 @@ html.hide-think .think-turn{display:none}
 /* movement: el texto se revela de izquierda a derecha (fade por caracter,
    la opacidad la pone el motor de revelado en JS sobre spans .rv) */
 .said .rv{will-change:opacity}
+@keyframes blockin{from{opacity:0} to{opacity:1}}
+.said .blockin{animation:blockin .16s ease-out}
 .tool .dot{width:6px;height:6px;border-radius:50%;background:var(--amber);flex:none}
 .tool[data-s="done"] .dot{background:var(--mint)}
 .tool[data-s="error"] .dot{background:var(--coral)}
@@ -1188,6 +1190,12 @@ footer > *{position:relative; z-index:1}
 }
 .pick .txt{flex:1;min-width:0}
 .pick .ch{width:16px;height:16px;color:var(--faint)}
+.cubemask{background:currentColor;
+  -webkit-mask:url("/icons/icon-cube.png") center/contain no-repeat;
+  mask:url("/icons/icon-cube.png") center/contain no-repeat}
+.piagentmask{background:currentColor;
+  -webkit-mask:url("/icons/icon-piagent.png") center/contain no-repeat;
+  mask:url("/icons/icon-piagent.png") center/contain no-repeat}
 /* tres puntos: sin borde, solo hover redondo */
 .dotsb{
   flex:none; display:flex; align-items:center; justify-content:center;
@@ -1630,10 +1638,10 @@ main:has(#spin) .empty{display:none}
   .slimb svg{width:20px;height:20px}
   /* logo: el cubo de pi remote; al pasar el raton se convierte en el
      icono de barra lateral (el clic es lo que despliega, no el hover) */
-  .slimb.logo img{width:26px; height:26px; border-radius:7px}
+  .slimb.logo .cubemask{width:26px; height:26px; display:block}
   .slimb.logo .hov{display:none; align-items:center; justify-content:center}
   .slimb.logo .hov svg{width:20px;height:20px}
-  .slimb.logo:hover img{display:none}
+  .slimb.logo:hover .cubemask{display:none}
   .slimb.logo:hover .hov{display:flex}
   .slimfoot{margin-top:auto}
   body.dragging .rail{transition:none}   /* el tirador manda al instante */
@@ -1780,7 +1788,7 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
   <!-- rail fino de iconos: solo escritorio, con el rail plegado -->
   <div class="slim" id="slimRail">
     <button class="slimb logo" id="slimLogo" title="pi remote">
-      <img src="/icons/icon-48.png" alt="">
+      <span class="cubemask" aria-hidden="true"></span>
       <span class="hov" aria-hidden="true"></span>
     </button>
     <button class="slimb" id="slimNew" aria-label="new session"></button>
@@ -1857,6 +1865,9 @@ let firstSnap = true;
 
 /* ---------- material icons, apache 2.0 ---------- */
 const ICONS = {
+  public:"M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z",
+  verified:"M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z",
+  package:"M20 2H4c-1.1 0-2 .9-2 2v3.01c0 .72.43 1.34 1 1.69V20c0 1.1 1.1 2 2 2h14c.9 0 2-.9 2-2V8.7c.57-.35 1-.97 1-1.69V4c0-1.1-.9-2-2-2zm-5 12H9v-2h6v2zm5-7H4V4h16v3z",
   remove:"M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z",
   restore:"M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z",
   session:"M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z",
@@ -4012,6 +4023,11 @@ function connect(){
     }
     else if(m.type === "item"){
       render(m.item);
+      if(m.item.kind === "assistant" && m.item.streaming
+         && motion === "block" && !REDUCED){
+        const bel = nodes.get(m.item.id);
+        if(bel) renderBlock(bel);        // no muestres el parrafo en curso
+      }
       if(m.item.kind === "user"){
         stopSending();
         // sin ack aun: la burbuja entra tenue+cursiva hasta que pi produce
@@ -4037,8 +4053,11 @@ function connect(){
                          requestAnimationFrame(()=>el.classList.remove("fade")); },
                    200);
       } else {
+        const prevBlocks = cur._blockCount || 0;
         el.innerHTML = html(cur);
         if(cur.kind === "ask") wireAsk(el, cur);
+        if(cur.kind === "assistant" && motion === "block" && !REDUCED)
+          fadeNewBlocks(el, prevBlocks);   // el ultimo parrafo entra con fade
       }
       placeActions();
     }
@@ -4052,9 +4071,12 @@ function connect(){
         lastDelta = Date.now();
         $("#readout").classList.remove("thinking");
       }
-      if(motion === "fade" && !REDUCED
+      if(motion === "smooth" && !REDUCED
          && el.__item.kind === "assistant" && el.__item.streaming){
         scheduleReveal(el);              // se revela de izquierda a derecha
+      } else if(motion === "block" && !REDUCED
+         && el.__item.kind === "assistant" && el.__item.streaming){
+        renderBlock(el);                 // parrafo a parrafo, oculta el en curso
       } else {
         const body = el.querySelector("[data-body]");
         if(body) body.innerHTML = md(visibleText(el.__item.text, el.__item.streaming)) + tail(el.__item);
@@ -4908,6 +4930,7 @@ const STR = {
       notifBlocked:"Notifications are blocked. Enable them for this site in the browser settings.",
       notifUnsupported:"This browser doesn't support notifications. On iOS, install the app to the home screen first.",
       movement:"Smooth generation",
+      genAnim:"Generation animation",
       autoname:"Auto-name sessions", experimental:"Experimental",
       autonameWarn:"This feature asks your local model for a session name. This is an experimental feature and may fail.",
       piRemoteSettings:"pi remote settings", piAgentSettings:"pi agent settings",
@@ -5001,6 +5024,7 @@ const STR = {
       notifBlocked:"Notificaciones bloqueadas. Actívalas para este sitio en los ajustes del navegador.",
       notifUnsupported:"Este navegador no soporta notificaciones. En iOS, instala antes la app en la pantalla de inicio.",
       movement:"Generación suave",
+      genAnim:"Animación de generación",
       autoname:"Nombres de sesión automáticos", experimental:"Experimental",
       autonameWarn:"Esta función pide al modelo local un nombre de sesión. Es una función experimental y puede fallar.",
       piRemoteSettings:"ajustes de pi remote", piAgentSettings:"ajustes de pi agent",
@@ -5094,6 +5118,7 @@ const STR = {
       notifBlocked:"Benachrichtigungen sind blockiert. Aktiviere sie f\u00fcr diese Seite in den Browsereinstellungen.",
       notifUnsupported:"Dieser Browser unterst\u00fctzt keine Benachrichtigungen. Auf iOS zuerst die App zum Startbildschirm hinzuf\u00fcgen.",
       movement:"Sanfte Generierung",
+      genAnim:"Generierungsanimation",
       autoname:"Sitzungen automatisch benennen", experimental:"Experimentell",
       autonameWarn:"Diese Funktion bittet das lokale Modell um einen Sitzungsnamen. Dies ist eine experimentelle Funktion und kann fehlschlagen.",
       piRemoteSettings:"pi remote Einstellungen", piAgentSettings:"pi agent Einstellungen",
@@ -5185,6 +5210,7 @@ const STR = {
       notifBlocked:"Notifications bloqu\u00e9es. Active-les pour ce site dans les r\u00e9glages du navigateur.",
       notifUnsupported:"Ce navigateur ne g\u00e8re pas les notifications. Sur iOS, installe d'abord l'app sur l'\u00e9cran d'accueil.",
       movement:"Génération fluide",
+      genAnim:"Animation de génération",
       autoname:"Noms de session automatiques", experimental:"Expérimental",
       autonameWarn:"Cette fonction demande au modèle local un nom de session. C'est une fonction expérimentale et peut échouer.",
       piRemoteSettings:"paramètres de pi remote", piAgentSettings:"paramètres de pi agent",
@@ -5276,6 +5302,7 @@ const STR = {
       notifBlocked:"Notifica\u00e7\u00f5es bloqueadas. Ativa-as para este site nas defini\u00e7\u00f5es do navegador.",
       notifUnsupported:"Este navegador n\u00e3o suporta notifica\u00e7\u00f5es. No iOS, instala primeiro a app no ecr\u00e3 inicial.",
       movement:"Geração suave",
+      genAnim:"Animação de geração",
       autoname:"Nomes de sessão automáticos", experimental:"Experimental",
       autonameWarn:"Esta função pede ao modelo local um nome de sessão. É uma função experimental e pode falhar.",
       piRemoteSettings:"ajustes de pi remote", piAgentSettings:"ajustes de pi agent",
@@ -5366,6 +5393,7 @@ const STR = {
       notifBlocked:"通知已被阻止。请在浏览器设置中为本站点启用。",
       notifUnsupported:"此浏览器不支持通知。在 iOS 上，请先将应用添加到主屏幕。",
       movement:"平滑生成",
+      genAnim:"生成动画",
       autoname:"自动命名会话", experimental:"实验性",
       autonameWarn:"此功能会请求本地模型为会话命名。这是实验性功能，可能会失败。",
       piRemoteSettings:"pi remote 设置", piAgentSettings:"pi agent 设置",
@@ -5939,18 +5967,24 @@ function setThinking(on){
 }
 applyThinking();
 
-/* movimiento del texto que genera: fundido (suave) o directo (de golpe) */
+/* animacion del texto que genera: default (nada), smooth (fundido por
+   caracter) o block (parrafo a parrafo, fade rapido al completarse) */
+const MOTIONS = ["default", "smooth", "block"];
+const ANIM_LABEL = {default:"Default", smooth:"Smooth", block:"Block"};
 let motion = (() => {
-  try { return localStorage.getItem("pi.motion") === "instant" ? "instant" : "fade"; }
-  catch(e){ return "fade"; }
+  try {
+    const v = localStorage.getItem("pi.motion");
+    if(v === "instant") return "default";          // migracion del toggle viejo
+    if(v === "fade" || v == null) return "smooth";
+    return MOTIONS.includes(v) ? v : "smooth";
+  } catch(e){ return "smooth"; }
 })();
 function applyMotion(){
   const r = document.documentElement.classList;
-  r.toggle("motion-fade", motion === "fade");
-  r.toggle("motion-instant", motion === "instant");
+  MOTIONS.forEach(m => r.toggle("motion-" + m, motion === m));
 }
 function setMotion(m){
-  motion = m === "instant" ? "instant" : "fade";
+  motion = MOTIONS.includes(m) ? m : "smooth";
   try { localStorage.setItem("pi.motion", motion); } catch(e){}
   applyMotion();
 }
@@ -6060,6 +6094,31 @@ function fadeTail(root, pending){
     frag.appendChild(s);
   }
   last.parentNode.replaceChild(frag, last);
+}
+
+/* Modo "block": el texto no se muestra hasta que el parrafo esta completo
+   (hasta el ultimo doble salto de linea; al terminar, todo). Cada bloque
+   nuevo entra con un fade rapido (.blockin); el parrafo en curso, oculto. */
+function renderBlock(el){
+  const it = el.__item;
+  if(!it) return;
+  const text = it.text || "";
+  const i = text.lastIndexOf("\n\n");
+  const commit = i < 0 ? "" : text.slice(0, i);     // parrafos completos
+  let body = el.querySelector("[data-body]");
+  if(!body){ el.innerHTML = html(it); body = el.querySelector("[data-body]"); }
+  if(!body) return;
+  const prev = it._blockCount || 0;
+  body.innerHTML = commit ? md(visibleText(commit, true)) : "";
+  for(let k = prev; k < body.children.length; k++)
+    body.children[k].classList.add("blockin");
+  it._blockCount = body.children.length;
+}
+function fadeNewBlocks(el, from){
+  const body = el.querySelector("[data-body]");
+  if(!body) return;
+  for(let k = from || 0; k < body.children.length; k++)
+    body.children[k].classList.add("blockin");
 }
 SYS.addEventListener("change", () => {
   if(themeMode() === "auto") applyTheme(themeFamily(), "auto");
@@ -6364,19 +6423,9 @@ function paintSheet(page){
     };
     body.appendChild(ncard);
 
-    const mcard = document.createElement("div");
-    mcard.className = "fcard";
-    mcard.innerHTML = `<div class="frow"><div class="ftext">`
-      + `<div class="flbl">${esc(T("movement"))}</div></div>`
-      + `<button class="sw" role="switch" aria-label="${esc(T("movement"))}"`
-      + ` aria-checked="${motion === "fade"}"><span class="knob"></span></button>`;
-    const msw = mcard.querySelector(".sw");
-    msw.onclick = () => {                 // on = fundido suave, off = directo
-      const on = msw.getAttribute("aria-checked") !== "true";
-      msw.setAttribute("aria-checked", on ? "true" : "false");
-      setMotion(on ? "fade" : "instant");
-    };
-    body.appendChild(mcard);
+    body.appendChild(pickBtn({label:T("genAnim"),
+      val:"| " + ANIM_LABEL[motion], chevron:true,
+      run:()=>goPage("genanim")}));
 
     const acard = document.createElement("div");
     acard.className = "fcard";
@@ -6475,20 +6524,22 @@ function paintSheet(page){
   if(page === "premote"){
     $("#sheetTitle").textContent = T("piRemoteSettings");
     act("functions", "tool", () => goPage("functions"));
-    act("trustedPaths", "shield", () => goPage("settings"));
+    act("trustedPaths", "verified", () => goPage("settings"));
     return;
   }
   if(page === "pagent"){
     $("#sheetTitle").textContent = T("piAgentSettings");
-    body.appendChild(pickBtn({icon:"chip", label:T("globalSettings"),
+    body.appendChild(pickBtn({icon:"public", label:T("globalSettings"),
       val: state.model ? "| " + state.model : null,
       chevron:true, run: () => goPage("model")}));
     act("projectSettings", "folder", () => goPage("projset"));
-    act("providers", "external", () => goPage("providers"));
+    act("providers", "package", () => goPage("providers"));
     return;
   }
   if(page === "providers"){
     $("#sheetTitle").textContent = T("providers");
+    body.appendChild(pickBtn({icon:"add", label:T("addProvider"),
+      run: () => goPage("provAdd")}));
     paintProvRows();
     send({type:"providers_get"});   // el onRpc refresca la lista
     // si la respuesta llego antes del turno de animacion de turnTo, esta
@@ -6562,12 +6613,32 @@ function paintSheet(page){
     });
     return;
   }
+  if(page === "genanim"){
+    $("#sheetTitle").textContent = T("genAnim");
+    MOTIONS.forEach(m => {
+      const sel = motion === m;
+      const b = document.createElement("button");
+      b.className = "pick mrow" + (sel ? " sel" : "");
+      b.innerHTML = `<span class="chkslot">${ico("check")}</span>`
+        + `<span class="txt">` + mqSpan("span", ANIM_LABEL[m]) + `</span>`;
+      b.onclick = () => {
+        if(b.classList.contains("sel")) return;
+        body.querySelectorAll(".mrow.sel").forEach(x => x.classList.remove("sel"));
+        b.classList.add("sel");
+        setMotion(m);
+      };
+      body.appendChild(b);
+    });
+    return;
+  }
 
   $("#sheetTitle").textContent = T("menu");
   act("appearance", "palette", () => goPage("appearance"));
   act("language", "lang", () => goPage("language"));
-  act("piRemoteSettings", "shield", () => goPage("premote"));
-  act("piAgentSettings", "chip", () => goPage("pagent"));
+  body.appendChild(pickBtn({mask:"cubemask",
+    label:T("piRemoteSettings"), chevron:true, run:()=>goPage("premote")}));
+  body.appendChild(pickBtn({mask:"piagentmask",
+    label:T("piAgentSettings"), chevron:true, run:()=>goPage("pagent")}));
   head("\u00a0");
   body.appendChild(pickBtn({icon:"help", label:T("help"),
     run: () => helpModal()}));
@@ -6824,7 +6895,8 @@ const mqSpan = (cls, text) =>
 function pickBtn(o){
   const b = document.createElement("button");
   b.className = (o.cls || "pick") + (o.off ? " off" : "");
-  b.innerHTML = (o.icon ? ico(o.icon) : "")
+  b.innerHTML = (o.mask ? `<span class="i ${o.mask}"></span>`
+      : (o.icon ? ico(o.icon) : ""))
     + `<span class="txt">`
     + (o.val
         ? `<span class="lblrow">` + mqSpan("span", o.label)
@@ -6950,23 +7022,15 @@ async function browse(path){
 // ---- providers (models.json): ver, editar y añadir. Pi los relee al
 // arrancar, por eso todo cambio avisa de que aplica tras /restart ----
 let provList = [], provEditId = null;
-function paintProvRows(){      // dibuja solo: el fetch vive en paintSheet
+function paintProvRows(){      // dibuja solo las filas; el add vive en paintSheet
   const body = $("#sheetBody");
   body.querySelectorAll(".prow").forEach(x => x.remove());
-  const add = pickBtn({icon:"add", label:T("addProvider"),
-                       run: () => goPage("provAdd")});
-  body.appendChild(add);
   provList.forEach(pv => {
-    const row = document.createElement("div");
-    row.className = "prow";
-    row.innerHTML = `<span class="wpath">${esc(pv.id)}</span>`;
-    const sub = document.createElement("small");
-    sub.textContent = pv.baseUrl + (pv.models.length
-      ? "  ·  " + pv.models.join(", ") : "");
-    row.appendChild(sub);
-    row.appendChild(pickBtn({chevron:true, off:!pv.baseUrl,
+    body.appendChild(pickBtn({
+      cls: "pick prow", label: pv.id, chevron: true, off: !pv.baseUrl,
+      hint: pv.baseUrl + (pv.models.length
+        ? "  ·  " + pv.models.join(", ") : ""),
       run: () => { provEditId = pv.id; goPage("provEdit"); }}));
-    body.appendChild(row);
   });
 }
 function paintProvForm(page){
@@ -7009,8 +7073,10 @@ function paintProvForm(page){
     const lbl = document.createElement("label");
     lbl.textContent = T("apiKey");
     f.append(inp, lbl); body.appendChild(f);
-    body.appendChild(pickBtn({icon:"add", label:T("addModel"),
-      run: () => goPage("modelAdd")}));
+    const addBtn = pickBtn({icon:"add", label:T("addModel"),
+      run: () => goPage("modelAdd")});
+    addBtn.style.marginTop = "18px";
+    body.appendChild(addBtn);
   }
   provFormValid();
   okb.onclick = () => openModal(
@@ -7030,7 +7096,7 @@ function paintModelAdd(){
   const body = $("#sheetBody");
   const okb = $("#sheetOk");
   const fields = {modelId: "", modelName: "", contextWindow: null,
-                  maxTokens: null, reasoning: true};
+                  maxTokens: null, reasoning: false};
   const modelAddValid = () => {
     okb.hidden = !(fields.modelId && fields.contextWindow
                    && fields.maxTokens);
@@ -7068,13 +7134,14 @@ function paintModelAdd(){
   card.className = "fcard";
   card.innerHTML = `<div class="frow"><div class="ftext">` +
     `<div class="flbl">${esc(T("reasoning"))}</div></div>` +
-    `<button class="sw" role="switch" aria-checked="true"` +
+    `<button class="sw" role="switch" aria-checked="false"` +
     ` aria-label="${esc(T("reasoning"))}"><span class="knob"></span></button>`;
   const sw = card.querySelector(".sw");
   sw.onclick = () => {
     fields.reasoning = !fields.reasoning;
     sw.setAttribute("aria-checked", String(fields.reasoning));
   };
+  card.style.marginTop = "18px";
   body.appendChild(card);
   modelAddValid();
   okb.onclick = () => openModal(

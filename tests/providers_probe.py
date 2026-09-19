@@ -157,7 +157,7 @@ async def ui():
                 # ---- editar: cambiar la url del provider sembrado ----
                 await js("""(()=>{[...document.querySelectorAll('#sheetBody .prow')]
                   .find(r=>/local/.test(r.textContent))
-                  .querySelector('.pick').click();})()""")
+                  .click();})()""")
                 await asyncio.sleep(0.5)
                 await js("""(()=>{const ins=[...document.querySelectorAll(
                   '#sheetBody .mfield input')];
@@ -186,7 +186,7 @@ async def ui():
                 # ---- añadir modelo desde la pagina de edicion ----
                 await js("""(()=>{[...document.querySelectorAll('#sheetBody .prow')]
                   .find(r=>/local/.test(r.textContent))
-                  .querySelector('.pick').click();})()""")
+                  .click();})()""")
                 await asyncio.sleep(0.5)
                 hasbtn = await js("""[...document.querySelectorAll(
                   '#sheetBody .pick')].some(b=>/Add model/.test(

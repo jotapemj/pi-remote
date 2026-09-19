@@ -47,8 +47,13 @@ checks = [
     ("movement: revelado por caracter con interruptor",
      "function scheduleReveal" in h and "function fadeTail" in h
      and "setMotion(" in h),   # ya no es segmentado: es un switch on/off
-    ("la card Movement es un interruptor fade/instant",
-     'T("movement")' in h and '"fade" : "instant"' in h),
+    ("modo block: parrafo a parrafo con fade rapido",
+     "function renderBlock" in h and "function fadeNewBlocks" in h
+     and 'MOTIONS = ["default", "smooth", "block"]' in h
+     and ".said .blockin{" in css),
+    ("la animacion de generacion es un picker de tres modos",
+     'goPage("genanim")' in h and 'page === "genanim"' in h
+     and 'T("genAnim")' in h),
     ("hechos y fallidos nacen plegados; solo corriendo abre",
      'const open = !done ?' in h),
     ("el pensamiento no lleva boton de copiar",
