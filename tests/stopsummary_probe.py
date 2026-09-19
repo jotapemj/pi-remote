@@ -145,6 +145,8 @@ async def main():
                  no_think is False),
                 ("la instruccion es la del resumen al parar",
                  "You were just interrupted" in instr),
+                ("el resumen ancla el idioma en el mensaje del usuario",
+                 "same language as the user" in instr and "stopme" in instr),
                 ("el aro se quita al terminar", ring_off),
                 ("el resumen no anade burbuja de usuario", after == before),
             ]

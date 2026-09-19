@@ -1177,7 +1177,7 @@ def autoname_title(text, lang, provider, model_id):
     return clean_title(raw)
 
 
-def stop_summary_text(ctx, lang, provider, model_id):
+def stop_summary_text(ctx, user_text, lang, provider, model_id):
     """Resumen de parada directo al modelo con thinking off (como el
     autonombre): NO pasa por pi, asi la sesion no se ensucia y el turno no
     hereda el xhigh que lo pondria a pensar. None si no responde a tiempo:
@@ -1185,10 +1185,19 @@ def stop_summary_text(ctx, lang, provider, model_id):
     base, key = model_endpoint(provider)
     if not base or not model_id:
         return None
-    instr = ("You were just interrupted by the user. Reply in %s with a "
-             "single short line of plain text: a brief confirmation that "
-             "you stopped, then what you were doing right before. No "
-             "preamble, no markdown." % LANG_NAMES.get(lang, "English"))
+    if user_text:
+        # anclar el idioma en como escribe el usuario, no en la UI ni en el
+        # ctx (que incluye razonamiento, a menudo en ingles)
+        instr = ("You were just interrupted by the user. Reply in the same "
+                 "language as the user's message below, in a single short "
+                 "line of plain text: a brief confirmation that you stopped, "
+                 "then what you were doing right before. No preamble, no "
+                 "markdown.\n\nThe user's message:\n" + user_text[:300])
+    else:
+        instr = ("You were just interrupted by the user. Reply in %s with a "
+                 "single short line of plain text: a brief confirmation that "
+                 "you stopped, then what you were doing right before. No "
+                 "preamble, no markdown." % LANG_NAMES.get(lang, "English"))
     if ctx:
         instr += "\n\nYou were working on:\n" + ctx[:400]
     payload = json.dumps({
@@ -1283,6 +1292,7 @@ class Bridge:
         }
         self.autoname_done = False           # un solo intento por sesion
         self.lang = "en"                     # ultimo idioma del cliente
+        self.last_user_text = ""             # ultimo prompt: ancla de idioma
         self.pending = OrderedDict()         # dialog id -> item id
         self.compacting = None               # la nota "compactando" en curso
         self.prefill_t0 = None               # cuando arranco el prefill actual
@@ -1819,7 +1829,7 @@ class Bridge:
         """Pide el resumen al modelo (thinking off) y lo pinta como burbuja
         de asistente transitoria. Hilo daemon (urlopen bloquea el loop);
         apaga el aro al terminar, haya resumen o no."""
-        txt = stop_summary_text(ctx, self.lang,
+        txt = stop_summary_text(ctx, self.last_user_text, self.lang,
                                 self.state.get("modelProvider"),
                                 self.state.get("modelId"))
         self.state["summarizing"] = False
@@ -2111,7 +2121,9 @@ class Bridge:
             if not text and not images:
                 return
             if msg.get("lang"):
-                self.lang = msg.get("lang")   # idioma del resumen al parar
+                self.lang = msg.get("lang")   # respaldo de idioma del resumen
+            if text:
+                self.last_user_text = text    # ancla de idioma: como escribe el usuario
             if not self.state["running"]:
                 self.produced = False        # turno fresco: nada generado aun
             item = {"kind": "user", "text": text}
