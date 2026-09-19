@@ -575,8 +575,8 @@ html.hide-think .think-turn{display:none}
 /* movement: el texto se revela de izquierda a derecha (fade por caracter,
    la opacidad la pone el motor de revelado en JS sobre spans .rv) */
 .said .rv{will-change:opacity}
-@keyframes blockin{from{opacity:0} to{opacity:1}}
-.said .blockin{animation:blockin .16s ease-out}
+@keyframes blockin{from{opacity:0; transform:translateY(7px)} to{opacity:1; transform:none}}
+.said .blockin{animation:blockin .42s cubic-bezier(.22,.61,.36,1)}
 .tool .dot{width:6px;height:6px;border-radius:50%;background:var(--amber);flex:none}
 .tool[data-s="done"] .dot{background:var(--mint)}
 .tool[data-s="error"] .dot{background:var(--coral)}
