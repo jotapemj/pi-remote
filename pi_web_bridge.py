@@ -155,21 +155,17 @@ SUGGEST_HINT_RE = re.compile(r"\n*\[[^\]]*<hint:[\s\S]*\]\s*$")
 
 # Resumen al parar: cuando el usuario detiene un turno con la funcion activa,
 # lo ABORTAMOS (interrumpe de verdad; steer solo encola en pi y contesta al
-# acabar). Al asentarse el turno, mandamos este prompt para que resuma en una
-# linea que hacia. Le realimentamos lo ultimo que llevaba (summary_ctx) para no
-# depender de que pi conserve el turno abortado. Respuesta = texto de asistente.
-STOP_SUMMARY = (
-    "You were just interrupted by the user. Reply with a single short line "
-    "of plain text, in the user's language: a brief confirmation first "
-    "('Vale, paro.' / 'Parado.' / 'Detenido.', or whatever fits the "
-    "language), then 'estaba' (or its equivalent) plus what you were doing "
-    "right before the interruption. No preamble, no markdown, nothing else."
-)
+# acabar). Al asentarse, el resumen se pide DIRECTO al modelo (thinking off,
+# como el autonombre): no pasa por pi, asi la sesion no se ensucia y el turno
+# no hereda el xhigh que lo pondria a pensar. Realimentamos lo ultimo que
+# llevaba (summary_ctx). Respuesta = burbuja de asistente transitoria.
 
 
 def is_stop_summary(text):
-    """El prompt inyectado del resumen-al-parar: no es un mensaje del usuario,
-    hay que ocultarlo del transcripto y del selector de fork."""
+    """El prompt que el flujo VIEJO inyectaba en la sesion para el resumen
+    al parar. Ahora el resumen va directo al modelo y no toca el .jsonl;
+    esto sigue para ocultarlo del transcripto y del fork en sesiones ya
+    grabadas."""
     return (text or "").lstrip().startswith(
         "You were just interrupted by the user.")
 
@@ -1181,6 +1177,42 @@ def autoname_title(text, lang, provider, model_id):
     return clean_title(raw)
 
 
+def stop_summary_text(ctx, lang, provider, model_id):
+    """Resumen de parada directo al modelo con thinking off (como el
+    autonombre): NO pasa por pi, asi la sesion no se ensucia y el turno no
+    hereda el xhigh que lo pondria a pensar. None si no responde a tiempo:
+    sin fallback, la parada simplemente no deja resumen."""
+    base, key = model_endpoint(provider)
+    if not base or not model_id:
+        return None
+    instr = ("You were just interrupted by the user. Reply in %s with a "
+             "single short line of plain text: a brief confirmation that "
+             "you stopped, then what you were doing right before. No "
+             "preamble, no markdown." % LANG_NAMES.get(lang, "English"))
+    if ctx:
+        instr += "\n\nYou were working on:\n" + ctx[:400]
+    payload = json.dumps({
+        "model": model_id,
+        "max_tokens": 80,
+        # sin pensar: un Qwen3 con thinking se come el presupuesto y tarda
+        "chat_template_kwargs": {"enable_thinking": False},
+        "messages": [{"role": "user", "content": instr}]},
+    ).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
+    if key:
+        headers["Authorization"] = "Bearer " + key
+    try:
+        with urllib.request.urlopen(
+                urllib.request.Request(base.rstrip("/") + "/chat/completions",
+                                       data=payload, headers=headers),
+                timeout=AUTONAME_TIMEOUT) as r:
+            d = json.loads(r.read().decode("utf-8", "replace"))
+        raw = d["choices"][0]["message"]["content"]
+    except (OSError, ValueError, KeyError, IndexError):
+        return None
+    return (raw or "").strip() or None
+
+
 def last_session(cwd):
     """La sesion guardada de esta carpeta, si sigue viva en su sitio."""
     p = read_state().get("session") or ""
@@ -1250,6 +1282,7 @@ class Bridge:
             "readOnly": READ_ONLY, "tokenMade": TOKEN_MADE, "version": VERSION,
         }
         self.autoname_done = False           # un solo intento por sesion
+        self.lang = "en"                     # ultimo idioma del cliente
         self.pending = OrderedDict()         # dialog id -> item id
         self.compacting = None               # la nota "compactando" en curso
         self.prefill_t0 = None               # cuando arranco el prefill actual
@@ -1654,18 +1687,16 @@ class Bridge:
             self.state.update(running=False, tool=None)
             self.settle_tools()      # el turno acabo: nada sigue en marcha
             if self.summary_pending:
-                # el turno abortado ya asento: pedimos el resumen (prompt nuevo,
-                # pi ya esta libre). Sigue "summarizing" hasta que llegue.
+                # el turno abortado asento. El resumen va DIRECTO al modelo
+                # (thinking off), no via pi: la sesion no se ensucia y el
+                # turno no hereda el xhigh que lo pondria a pensar 20 s en un
+                # "vale, paro". Hilo daemon: urlopen bloquea el loop. El aro
+                # "summarizing" sigue hasta que el hilo pinta la burbuja.
                 self.summary_pending = False
-                prompt = STOP_SUMMARY
-                if self.summary_ctx:
-                    prompt += ("\n\nYou had just been working on:\n«"
-                               + self.summary_ctx + "»")
-                self.push_state()
-                self.send_pi({"type": "prompt", "message": prompt})
-                return
-            if self.state.get("summarizing"):
-                self.state["summarizing"] = False   # el resumen ya llego
+                threading.Thread(target=self._emit_stop_summary,
+                                 args=(self.summary_ctx,), daemon=True).start()
+            elif self.state.get("summarizing"):
+                self.state["summarizing"] = False   # sesiones viejas / por si acaso
             if self.restart_pending:
                 # el turno asento: la ultima respuesta ya esta en disco
                 self.restart_pending = False
@@ -1783,6 +1814,18 @@ class Bridge:
         if t:
             self.send_pi({"type": "set_session_name", "name": t})
         self.send_pi(cmd)
+
+    def _emit_stop_summary(self, ctx):
+        """Pide el resumen al modelo (thinking off) y lo pinta como burbuja
+        de asistente transitoria. Hilo daemon (urlopen bloquea el loop);
+        apaga el aro al terminar, haya resumen o no."""
+        txt = stop_summary_text(ctx, self.lang,
+                                self.state.get("modelProvider"),
+                                self.state.get("modelId"))
+        self.state["summarizing"] = False
+        if txt:
+            self.push({"kind": "assistant", "text": txt, "streaming": False})
+        self.push_state()
 
     def on_response(self, ev):
         cmd, data = ev.get("command"), ev.get("data") or {}
@@ -2067,6 +2110,8 @@ class Bridge:
             images = msg.get("images") or []
             if not text and not images:
                 return
+            if msg.get("lang"):
+                self.lang = msg.get("lang")   # idioma del resumen al parar
             if not self.state["running"]:
                 self.produced = False        # turno fresco: nada generado aun
             item = {"kind": "user", "text": text}
