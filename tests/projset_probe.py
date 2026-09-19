@@ -177,7 +177,8 @@ async def ui():
                             ?rows.find(r=>/Reasoning/.test(r.textContent)).querySelector('.pval').textContent:null,
                           ok:$('#sheetOk').hidden};})()""")
                 checks += [
-                    ("toggle on: las cards se activan", on["n"] == 2 and on["off"] == 0),
+                    # tres filas: Model, Reasoning y Resources
+                    ("toggle on: las cards se activan", on["n"] == 3 and on["off"] == 0),
                     ("la card de modelo arranca con el global",
                      bool(on["m"]) and "qwen3-8b" in on["m"]),
                     ("la card de razonamiento arranca con el global",

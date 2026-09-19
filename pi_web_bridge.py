@@ -1104,6 +1104,162 @@ def delete_project_settings(cwd):
     return None
 
 
+# ---- recursos: skills y extensiones. Pi es el dueño de los ficheros; el
+# puente solo los lista y, en skills, alterna .ignore / escribe SKILL.md.
+# El loader de pi respeta .gitignore/.ignore/.fdignore al recorrer la
+# carpeta de skills, asi que el toggle es nativo y reversible.
+
+def _res_root(scope, cwd, kind):
+    # pi mira las skills globales en AGENT_DIR/skills y las de proyecto en
+    # <cwd>/.pi/skills (igual para extensions): ver skills.js / loader.js
+    base = Path(cwd) / ".pi" if scope == "project" else AGENT_DIR
+    return base / ("skills" if kind == "skills" else "extensions")
+
+
+def _safe_dirname(n):
+    """Nombre de carpeta de skill: sin separadores, sin .., sin punto inicial."""
+    return bool(n) and len(n) <= 64 and "/" not in n and "\\" not in n \
+        and ".." not in n and not n.startswith(".")
+
+
+def _skill_md(path):
+    """Parsea SKILL.md a (name, description, body). Frontmatter minimo,
+    mismo formato que escribe pi (name + description en una linea)."""
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    raw = raw.replace("\r\n", "\n").replace("\r", "\n")
+    if not raw.startswith("---"):
+        return (None, None, raw)
+    end = raw.find("\n---", 3)
+    if end < 0:
+        return (None, None, raw)
+    fm, body = raw[4:end], raw[end + 4:].lstrip("\n")
+    name = desc = None
+    for line in fm.splitlines():
+        if line.startswith("name:"):
+            name = line[5:].strip().strip('"').strip("'")
+        elif line.startswith("description:"):
+            desc = line[12:].strip().strip('"').strip("'")
+    return (name, desc, body)
+
+
+def _ignore_file(root):
+    return root / ".ignore"
+
+
+def _ignored_names(root):
+    try:
+        lines = _ignore_file(root).read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return set()
+    return {ln.strip().rstrip("/") for ln in lines
+            if ln.strip() and not ln.startswith(("#", "!"))}
+
+
+def skills_list(scope, cwd):
+    root = _res_root(scope, cwd, "skills")
+    out = []
+    if not root.is_dir():
+        return out
+    ignored = _ignored_names(root)
+    for d in sorted(root.iterdir(), key=lambda p: p.name.lower()):
+        if d.name.startswith(".") or not d.is_dir():
+            continue
+        f = d / "SKILL.md"
+        if not f.is_file():
+            continue
+        parsed = _skill_md(f)
+        if parsed is None:
+            continue
+        name, desc, body_txt = parsed
+        extra = 0
+        for e in d.rglob("*"):
+            rel = e.relative_to(d)
+            if e.is_file() and e.name != "SKILL.md" \
+                    and not any(p.startswith(".") for p in rel.parts):
+                extra += 1
+        out.append({"name": name or d.name, "dir": d.name,
+                    "description": desc or "", "body": body_txt,
+                    "extra": extra, "enabled": d.name not in ignored})
+    return out
+
+
+def skill_toggle(scope, cwd, dirname, enabled):
+    if not _safe_dirname(dirname):
+        return "bad name"
+    root = _res_root(scope, cwd, "skills")
+    if not (root / dirname / "SKILL.md").is_file():
+        return "skill not found"
+    p = _ignore_file(root)
+    try:
+        lines = p.read_text(encoding="utf-8").splitlines() \
+            if p.exists() else []
+        kept = [ln for ln in lines if ln.strip().rstrip("/") != dirname]
+        if not enabled:
+            kept.append(dirname)
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(kept) + ("\n" if kept else ""))
+    except OSError as exc:
+        return "cannot write .ignore: %s" % exc
+    return None
+
+
+def _yaml_str(s):
+    return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def skill_save(scope, cwd, name, description, body, old_dir=None):
+    if not _safe_dirname(name):
+        return "bad name"
+    if len(description or "") > 1024:
+        return "description too long"
+    root = _res_root(scope, cwd, "skills")
+    try:
+        if old_dir and old_dir != name:
+            src, dst = root / old_dir, root / name
+            if not (src / "SKILL.md").is_file():
+                return "skill not found"
+            if dst.exists():
+                return "name already in use"
+            src.rename(dst)
+        d = root / name
+        d.mkdir(parents=True, exist_ok=True)
+        fm = ("---\nname: %s\ndescription: %s\n---\n\n%s" % (
+            _yaml_str(name), _yaml_str(description or ""), body or ""))
+        (d / "SKILL.md").write_text(fm, encoding="utf-8")
+    except OSError as exc:
+        return "cannot write skill: %s" % exc
+    return None
+
+
+def skill_delete(scope, cwd, dirname):
+    if not _safe_dirname(dirname):
+        return "bad name"
+    root = _res_root(scope, cwd, "skills")
+    d = root / dirname
+    if not (d / "SKILL.md").is_file():
+        return "skill not found"
+    try:
+        shutil.rmtree(d)
+    except OSError as exc:
+        return "cannot delete skill: %s" % exc
+    return None
+
+
+def extensions_list(scope, cwd):
+    root = _res_root(scope, cwd, "extensions")
+    out = []
+    if not root.is_dir():
+        return out
+    for f in sorted(root.iterdir(), key=lambda p: p.name.lower()):
+        if f.is_file() and f.suffix in (".ts", ".js") \
+                and not f.name.startswith("."):
+            out.append({"name": f.stem, "path": str(f)})
+    return out
+
+
 def project_default_model(cwd):
     """El modelo propio del proyecto, si lo hay (confiado + configurado).
 
@@ -2365,6 +2521,32 @@ class Bridge:
             self.emit({"type": "rpc", "command": t,
                        "data": {"error": err} if err else {},
                        "dirs": read_allowed()})
+            return
+
+        if t in ("skills_list", "extensions_list"):
+            scope = msg.get("scope") if msg.get("scope") == "project" \
+                else "global"
+            data = (skills_list(scope, self.cwd)
+                    if t == "skills_list" else extensions_list(scope, self.cwd))
+            key = "skills" if t == "skills_list" else "extensions"
+            self.emit({"type": "rpc", "command": t,
+                       "data": {key: data, "scope": scope}})
+            return
+
+        if t in ("skill_toggle", "skill_save", "skill_delete"):
+            scope = msg.get("scope") if msg.get("scope") == "project" \
+                else "global"
+            if t == "skill_toggle":
+                err = skill_toggle(scope, self.cwd, msg.get("dir"),
+                                   bool(msg.get("enabled")))
+            elif t == "skill_save":
+                err = skill_save(scope, self.cwd, msg.get("name"),
+                                 msg.get("description"), msg.get("body"),
+                                 msg.get("oldDir"))
+            else:
+                err = skill_delete(scope, self.cwd, msg.get("dir"))
+            data = {"error": err} if err else {"scope": scope}
+            self.emit({"type": "rpc", "command": t, "data": data})
             return
 
         if t in PASSTHROUGH:

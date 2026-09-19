@@ -1161,6 +1161,34 @@ footer > *{position:relative; z-index:1}
 .mfield input[readonly]{color:var(--dim)}
 .mfield input[readonly]:focus{border-color:var(--rule)}
 .mfield input[readonly] + label{color:var(--dim)}
+/* compositor de skill: el cuerpo es un textarea alto, mismo cromo */
+.mfield.ta textarea{
+  width:100%; box-sizing:border-box; background:none; resize:none;
+  border:1px solid var(--rule); border-radius:8px; color:var(--ink);
+  font:400 13.5px/1.5 var(--mono); padding:14px; outline:none; min-height:38vh;
+}
+.mfield.ta textarea:focus{border-color:var(--amber)}
+.mfield.ta label{
+  position:absolute; left:14px; top:14px; transform:none;
+  font:400 16px/1 var(--sans); color:var(--faint); pointer-events:none;
+  transition:all .15s ease; padding:0 2px;
+}
+.mfield.ta textarea:focus + label,
+.mfield.ta textarea:not(:placeholder-shown) + label{
+  top:-6px; left:10px; font-size:11px; font-weight:500;
+  letter-spacing:.06em; text-transform:uppercase; color:var(--amber);
+  background:var(--surface); padding:0 4px;
+}
+/* fila de skill: nombre + descripcion, toggle y tres puntos a la derecha */
+.skrow{
+  display:flex; align-items:center; gap:10px; width:100%; text-align:left;
+  background:none; border:none; cursor:pointer; border-radius:var(--r-tool);
+  padding:11px 13px; color:var(--ink); font:500 13.5px/1.3 var(--sans);
+}
+.skrow .stxt{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px}
+.skrow .stxt small{font:400 11.5px/1.3 var(--sans); color:var(--faint);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.skrow .sw{flex:none}
 
 /* al entrar en una seccion el contenido llega desde la derecha,
    y al volver desde la izquierda */
@@ -4931,6 +4959,14 @@ const STR = {
       notifUnsupported:"This browser doesn't support notifications. On iOS, install the app to the home screen first.",
       movement:"Smooth generation",
       genAnim:"Generation animation",
+      resources:"Resources", skills:"Skills", extensions:"Extensions",
+      addSkill:"New skill", editSkill:"Edit skill",
+      deleteSkillQ:"Permanently delete skill {name}?",
+      discardSkillQ:"Discard changes?",
+      skillApplyRestart:"Applies after restarting pi remote",
+      skillName:"Name", skillDesc:"Description", skillBody:"Instructions",
+      extraFiles:"{n} extra files", noSkills:"No skills",
+      noExtensions:"No extensions",
       autoname:"Auto-name sessions", experimental:"Experimental",
       autonameWarn:"This feature asks your local model for a session name. This is an experimental feature and may fail.",
       piRemoteSettings:"pi remote settings", piAgentSettings:"pi agent settings",
@@ -5025,6 +5061,14 @@ const STR = {
       notifUnsupported:"Este navegador no soporta notificaciones. En iOS, instala antes la app en la pantalla de inicio.",
       movement:"Generación suave",
       genAnim:"Animación de generación",
+      resources:"Recursos", skills:"Skills", extensions:"Extensiones",
+      addSkill:"Nueva skill", editSkill:"Editar skill",
+      deleteSkillQ:"¿Eliminar la skill {name} de forma permanente?",
+      discardSkillQ:"¿Descartar cambios?",
+      skillApplyRestart:"Se aplica al reiniciar pi remote",
+      skillName:"Nombre", skillDesc:"Descripción", skillBody:"Instrucciones",
+      extraFiles:"{n} ficheros extra", noSkills:"Sin skills",
+      noExtensions:"Sin extensiones",
       autoname:"Nombres de sesión automáticos", experimental:"Experimental",
       autonameWarn:"Esta función pide al modelo local un nombre de sesión. Es una función experimental y puede fallar.",
       piRemoteSettings:"ajustes de pi remote", piAgentSettings:"ajustes de pi agent",
@@ -5119,6 +5163,14 @@ const STR = {
       notifUnsupported:"Dieser Browser unterst\u00fctzt keine Benachrichtigungen. Auf iOS zuerst die App zum Startbildschirm hinzuf\u00fcgen.",
       movement:"Sanfte Generierung",
       genAnim:"Generierungsanimation",
+      resources:"Ressourcen", skills:"Skills", extensions:"Erweiterungen",
+      addSkill:"Neue Skill", editSkill:"Skill bearbeiten",
+      deleteSkillQ:"Skill {name} dauerhaft l\u00f6schen?",
+      discardSkillQ:"\u00c4nderungen verwerfen?",
+      skillApplyRestart:"Wird nach Neustart von pi remote wirksam",
+      skillName:"Name", skillDesc:"Beschreibung", skillBody:"Anweisungen",
+      extraFiles:"{n} zus\u00e4tzliche Dateien", noSkills:"Keine Skills",
+      noExtensions:"Keine Erweiterungen",
       autoname:"Sitzungen automatisch benennen", experimental:"Experimentell",
       autonameWarn:"Diese Funktion bittet das lokale Modell um einen Sitzungsnamen. Dies ist eine experimentelle Funktion und kann fehlschlagen.",
       piRemoteSettings:"pi remote Einstellungen", piAgentSettings:"pi agent Einstellungen",
@@ -5211,6 +5263,14 @@ const STR = {
       notifUnsupported:"Ce navigateur ne g\u00e8re pas les notifications. Sur iOS, installe d'abord l'app sur l'\u00e9cran d'accueil.",
       movement:"Génération fluide",
       genAnim:"Animation de génération",
+      resources:"Ressources", skills:"Skills", extensions:"Extensions",
+      addSkill:"Nouvelle skill", editSkill:"Modifier la skill",
+      deleteSkillQ:"Supprimer d\u00e9finitivement la skill {name} ?",
+      discardSkillQ:"Abandonner les modifications ?",
+      skillApplyRestart:"S'applique apr\u00e8s red\u00e9marrage de pi remote",
+      skillName:"Nom", skillDesc:"Description", skillBody:"Instructions",
+      extraFiles:"{n} fichiers en plus", noSkills:"Aucune skill",
+      noExtensions:"Aucune extension",
       autoname:"Noms de session automatiques", experimental:"Expérimental",
       autonameWarn:"Cette fonction demande au modèle local un nom de session. C'est une fonction expérimentale et peut échouer.",
       piRemoteSettings:"paramètres de pi remote", piAgentSettings:"paramètres de pi agent",
@@ -5303,6 +5363,14 @@ const STR = {
       notifUnsupported:"Este navegador n\u00e3o suporta notifica\u00e7\u00f5es. No iOS, instala primeiro a app no ecr\u00e3 inicial.",
       movement:"Geração suave",
       genAnim:"Animação de geração",
+      resources:"Recursos", skills:"Skills", extensions:"Extensões",
+      addSkill:"Nova skill", editSkill:"Editar skill",
+      deleteSkillQ:"Eliminar a skill {name} de forma permanente?",
+      discardSkillQ:"Descartar altera\u00e7\u00f5es?",
+      skillApplyRestart:"Aplica-se ap\u00f3s reiniciar o pi remote",
+      skillName:"Nome", skillDesc:"Descri\u00e7\u00e3o", skillBody:"Instru\u00e7\u00f5es",
+      extraFiles:"{n} ficheiros extra", noSkills:"Sem skills",
+      noExtensions:"Sem extens\u00f5es",
       autoname:"Nomes de sessão automáticos", experimental:"Experimental",
       autonameWarn:"Esta função pede ao modelo local um nome de sessão. É uma função experimental e pode falhar.",
       piRemoteSettings:"ajustes de pi remote", piAgentSettings:"ajustes de pi agent",
@@ -5394,6 +5462,14 @@ const STR = {
       notifUnsupported:"此浏览器不支持通知。在 iOS 上，请先将应用添加到主屏幕。",
       movement:"平滑生成",
       genAnim:"生成动画",
+      resources:"资源", skills:"技能", extensions:"扩展",
+      addSkill:"新建技能", editSkill:"编辑技能",
+      deleteSkillQ:"永久删除技能 {name}？",
+      discardSkillQ:"放弃修改？",
+      skillApplyRestart:"重启 pi remote 后生效",
+      skillName:"名称", skillDesc:"描述", skillBody:"说明",
+      extraFiles:"{n} 个额外文件", noSkills:"暂无技能",
+      noExtensions:"暂无扩展",
       autoname:"自动命名会话", experimental:"实验性",
       autonameWarn:"此功能会请求本地模型为会话命名。这是实验性功能，可能会失败。",
       piRemoteSettings:"pi remote 设置", piAgentSettings:"pi agent 设置",
@@ -6190,6 +6266,10 @@ let sheetPage = "root";
 let sheetStack = [];        // paginas para volver con atras, una por nivel
 let models = [];          // modelos disponibles, cacheados al pedirlos
 let editModel = null;     // el modelo que se esta editando en modelEdit
+/* compositor de skills: draft en curso, huella del original (para "descartar?")
+   y la ultima lista por scope para refrescar sin volver a pedir */
+let skillDraft = null, skillOrig = null;
+let skillCache = {global: null, project: null}, extCache = {global: null, project: null};
 
 /* ---------- ajustes por proyecto: fase hasta el check ---------- */
 let projStaged = null;    // {model:{provider,id}|null, thinking:str|null}
@@ -6299,7 +6379,97 @@ function paintProjSet(){
   };
   okb.onclick = () => openModal(T("saveProjQ"), `<p>${T("saveProjB")}</p>`,
     () => saveProjSet(), {ok: T("ok")});
+  const rh = document.createElement("div");
+  rh.className = "shead"; rh.textContent = T("resources");
+  body.appendChild(rh);
+  body.appendChild(pickBtn({icon:"package", label:T("resources"),
+    chevron:true, run:()=>goPage("resproj")}));
   sync();
+}
+
+/* ---- recursos: skills (toggle/compositor/borrado) y extensiones (solo ver) ---- */
+function skillValid(s){
+  const n = (s.name || "").trim();
+  return !!n && n.length <= 64 && !/[\\/]/.test(n) && !n.startsWith(".")
+    && (s.description || "").length <= 1024;
+}
+function skillDirty(){
+  if(!skillDraft || skillOrig == null) return false;
+  const d = skillDraft;
+  return d.name.trim() !== skillOrig.name
+    || d.description.trim() !== skillOrig.description
+    || d.body !== skillOrig.body;
+}
+function paintSkillRows(scope){
+  const body = $("#sheetBody");
+  body.querySelectorAll(".skrow, .skempty").forEach(x => x.remove());
+  const list = skillCache[scope] || [];
+  const anchor = body.querySelector(".skilladd");
+  if(!list.length){
+    const h = document.createElement("div");
+    h.className = "shead skempty"; h.textContent = T("noSkills");
+    (anchor && anchor.nextSibling) ? anchor.before(h) : body.appendChild(h);
+    return;
+  }
+  list.forEach(s => {
+    const r = document.createElement("button");
+    r.className = "skrow";
+    const sub = [s.description,
+                 s.extra ? T("extraFiles").replace("{n}", s.extra) : null]
+      .filter(Boolean).join("  ·  ");
+    r.innerHTML = `<span class="stxt"><span>${esc(s.name)}</span>`
+      + (sub ? `<small>${esc(sub)}</small>` : "")
+      + `</span>`;
+    const sw = document.createElement("button");
+    sw.className = "sw"; sw.setAttribute("role", "switch");
+    sw.setAttribute("aria-checked", String(!!s.enabled));
+    sw.innerHTML = `<span class="knob"></span>`;
+    sw.onclick = e => { e.stopPropagation();
+      send({type:"skill_toggle", scope, dir:s.dir, enabled:!s.enabled}); };
+    r.appendChild(sw);
+    const dots = document.createElement("span");
+    dots.className = "dotsb"; dots.setAttribute("role", "button");
+    dots.innerHTML = ico("more");
+    dots.onclick = e => { e.stopPropagation();
+      ctxPopup(r, [{icon:"remove", bad:true, label:T("deleteSkillQ")
+          .replace("{name}", s.name), run:()=>
+        confirmModal(T("deleteSkillQ").replace("{name}", s.name), "",
+          ()=>send({type:"skill_delete", scope, dir:s.dir}))}], dots); };
+    r.appendChild(dots);
+    r.onclick = () => {
+      skillDraft = {scope, dir:s.dir, name:s.name, description:s.description,
+                    body:s.body || ""};
+      skillOrig = JSON.parse(JSON.stringify(skillDraft));
+      goPage("skilledit");
+    };
+    (anchor && anchor.nextSibling) ? anchor.after(r) : body.appendChild(r);
+  });
+}
+function paintExtRows(scope){
+  const body = $("#sheetBody");
+  body.querySelectorAll(".extrow, .extempty").forEach(x => x.remove());
+  const list = extCache[scope] || [];
+  if(!list.length){
+    const h = document.createElement("div");
+    h.className = "shead extempty"; h.textContent = T("noExtensions");
+    body.appendChild(h);
+    return;
+  }
+  list.forEach(x => {
+    const r = document.createElement("div");
+    r.className = "skrow extrow"; r.style.cursor = "default";
+    r.innerHTML = `<span class="stxt"><span>${esc(x.name)}</span>`
+      + `<small>${esc(x.path)}</small></span>`;
+    body.appendChild(r);
+  });
+}
+/* salir del compositor con cambios sin guardar: preguntar */
+function skillGuard(){
+  if(sheetPage !== "skilledit") return false;
+  if(!skillDirty()) return false;
+  openModal(T("discardSkillQ"), "", goBack,
+    {ok: T("yes"), no: T("no")});
+  return true;
 }
 
 function paintProjModels(){
@@ -6620,6 +6790,9 @@ function paintSheet(page){
       };
       body.appendChild(b);
     });
+    head("resources");
+    body.appendChild(pickBtn({icon:"package", label:T("resources"),
+      chevron:true, run:()=>goPage("resglobal")}));
     return;
   }
   if(page === "genanim"){
@@ -6638,6 +6811,59 @@ function paintSheet(page){
       };
       body.appendChild(b);
     });
+    return;
+  }
+
+  if(page === "resglobal" || page === "resproj"){
+    const scope = page === "resproj" ? "project" : "global";
+    $("#sheetTitle").textContent = T("resources");
+    head("skills");
+    const ab = pickBtn({icon:"add", label:T("addSkill"),
+      run:()=>{ skillDraft = {scope, dir:null, name:"", description:"",
+                               body:""}; skillOrig = null; goPage("skilledit");}});
+    ab.classList.add("skilladd");
+    body.appendChild(ab);
+    paintSkillRows(scope);
+    head("extensions");
+    paintExtRows(scope);
+    send({type:"skills_list", scope});
+    send({type:"extensions_list", scope});
+    // si la respuesta llego antes del turno de animacion de turnTo, esta
+    // paintSheet ya borro las filas: repintar con lo ultimo que se tuvo
+    setTimeout(() => { if(sheetPage === page){ paintSkillRows(scope);
+      paintExtRows(scope); } }, 250);
+    return;
+  }
+  if(page === "skilledit"){
+    const s = skillDraft;
+    if(!s) return;
+    $("#sheetTitle").textContent = T(s.dir ? "editSkill" : "addSkill");
+    const okb = $("#sheetOk");
+    const fld = (key, tag, cls) => {
+      const f = document.createElement("div");
+      f.className = "mfield" + (cls ? " " + cls : "");
+      const inp = document.createElement(tag);
+      inp.placeholder = " ";
+      inp.value = s[key] == null ? "" : s[key];
+      inp.addEventListener("input", () => {
+        s[key] = inp.value;
+        okb.hidden = !skillValid(s);
+      });
+      const lbl = document.createElement("label");
+      lbl.textContent = T(key === "name" ? "skillName"
+        : key === "description" ? "skillDesc" : "skillBody");
+      f.append(inp, lbl); body.appendChild(f);
+    };
+    fld("name", "input");
+    fld("description", "input");
+    fld("body", "textarea", "ta");
+    okb.hidden = !skillValid(s);
+    okb.onclick = () => openModal(
+      T("confirmChanges"), `<p>${T("skillApplyRestart")}</p>`,
+      () => send({type:"skill_save", scope:s.scope, name:s.name.trim(),
+                  description:s.description.trim(), body:s.body,
+                  oldDir:s.dir}),
+      {ok: T("confirm")});
     return;
   }
 
@@ -6669,6 +6895,7 @@ function goPage(page){
 }
 function goBack(){
   if(projGuard()) return;
+  if(skillGuard()) return;
   turnTo(sheetStack.pop() || "root", -1);
 }
 /* salir de ajustes por proyecto con cambios sin guardar: preguntar */
@@ -7206,6 +7433,39 @@ function onRpc(m){
     send({type:"get_available_models"});
     sheetStack = [];
     turnTo("model", -1);
+    return;
+  }
+  if(m.command === "skills_list"){
+    skillCache[d.scope === "project" ? "project" : "global"]
+      = d.skills || [];
+    if(sheetPage === "resglobal" || sheetPage === "resproj")
+      paintSkillRows(sheetPage === "resproj" ? "project" : "global");
+    return;
+  }
+  if(m.command === "extensions_list"){
+    extCache[d.scope === "project" ? "project" : "global"]
+      = d.extensions || [];
+    if(sheetPage === "resglobal" || sheetPage === "resproj")
+      paintExtRows(sheetPage === "resproj" ? "project" : "global");
+    return;
+  }
+  if(m.command === "skill_toggle" || m.command === "skill_delete"){
+    if(d && d.error) return note(d.error);
+    // refrescar la lista del scope que se toco
+    const scope = d.scope === "project" ? "project" : "global";
+    skillCache[scope] = null;
+    send({type:"skills_list", scope});
+    return;
+  }
+  if(m.command === "skill_save"){
+    if(d && d.error) return note(d.error);
+    // guardado: refrescar y volver a la lista, limpiando la pila
+    const scope = d.scope === "project" ? "project" : "global";
+    skillCache[scope] = null;
+    skillDraft = null; skillOrig = null;
+    sheetStack = [];
+    turnTo(scope === "project" ? "resproj" : "resglobal", -1);
+    send({type:"skills_list", scope});
     return;
   }
   if(m.command === "get_available_models"){
