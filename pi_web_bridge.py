@@ -1223,9 +1223,18 @@ class Bridge:
 
         self.log = deque(maxlen=LOG_CAP)     # transcript for reconnects
         self.seq = 0
-        # PI_DEBUG_DELTA=1: deltas crudos a fichero, para atrapar bugs de stream
-        self.delta_log = (open(HERE / "delta_log.jsonl", "a", encoding="utf-8")
-                          if os.environ.get("PI_DEBUG_DELTA") else None)
+        # PI_DEBUG_DELTA=1: deltas crudos + texto final a fichero, para
+        # cazar bugs de stream. Trunca en cada arranque (modo "w") con una
+        # cabecera de run: sin mezclar sesiones ni contaminacion de tests.
+        self.delta_log = None
+        if os.environ.get("PI_DEBUG_DELTA"):
+            self.delta_log = open(HERE / "delta_log.jsonl", "w",
+                                  encoding="utf-8")
+            self.delta_log.write(json.dumps(
+                {"run": os.getpid(), "version": VERSION,
+                 "start": time.strftime("%Y-%m-%dT%H:%M:%S")},
+                ensure_ascii=False) + "\n")
+            self.delta_log.flush()
         self.state = {
             "running": False, "startedAt": 0, "tool": None,
             "sessionName": None, "model": None,
@@ -1504,17 +1513,19 @@ class Bridge:
         self.note("error", "pi_exited", "pi exited. reopen the project.")
         self.push_state()
 
-    def _dbg_delta(self, delta):
+    def _dbg(self, record):
         if not self.delta_log:
             return
         try:
             with self.lock:
-                self.delta_log.write(json.dumps(
-                    {"id": self.cur["id"] if self.cur else None,
-                     "d": delta}, ensure_ascii=False) + "\n")
+                self.delta_log.write(json.dumps(record, ensure_ascii=False)
+                                     + "\n")
                 self.delta_log.flush()
         except Exception:                            # noqa: BLE001
             pass
+
+    def _dbg_delta(self, delta):
+        self._dbg({"id": self.cur["id"] if self.cur else None, "d": delta})
 
     def close_think(self):
         """Cierra el bloque de pensamiento abierto y anota cuanto duro."""
@@ -1556,7 +1567,6 @@ class Bridge:
                 if self.think:            # el texto real cierra el pensamiento
                     self.close_think()
                 delta = d.get("delta", "")
-                self._dbg_delta(delta)
                 now = time.time()
                 self.gen_last = now          # cada token de texto mueve el final
                 if self.cur is None:
@@ -1569,6 +1579,7 @@ class Bridge:
                     self.cur["text"] += delta
                     self.emit({"type": "delta", "id": self.cur["id"],
                                "delta": delta})
+                self._dbg_delta(delta)       # ya con el id real de la burbuja
             elif dt == "thinking_start" and self.assistant_open:
                 self.think_t0 = time.time()
             elif dt == "thinking_delta" and self.assistant_open:
@@ -1603,6 +1614,7 @@ class Bridge:
             stats = self.build_stats(u)
             self.assistant_open = False
             if self.cur:
+                self._dbg({"id": self.cur["id"], "final": text})
                 self.patch(self.cur, text=text, streaming=False, stats=stats)
                 self.cur = None
             elif text.strip():                # texto sin deltas previos
