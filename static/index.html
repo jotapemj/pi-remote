@@ -2967,7 +2967,7 @@ feed.addEventListener("click", e=>{
   const turn = b.closest(".turn"), it = turn && turn.__item;
   if(b.classList.contains("stats")){ if(it && it.stats) statsSheet(it.stats);
     return; }
-  const text = it ? it.text : "";
+  const text = it ? visibleText(it.text, it.streaming) : "";   // sin hints, como en pantalla
   copyText(text).then(ok=>{
     b.innerHTML = ico(ok ? "check" : "copy");
     b.classList.toggle("done", ok);

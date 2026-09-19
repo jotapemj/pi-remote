@@ -91,6 +91,22 @@ async def in_page():
                 ("cada fila lleva su flechita", arrows == 3),
             ]
 
+            # el copiar del mensaje no debe llevar los hints (visibleText)
+            await js("window.__copied=null;"
+                     " copyText=(t)=>{window.__copied=t; return Promise.resolve(true);}")
+            await js("[...document.querySelectorAll('.mact')]"
+                     ".filter(b=>!b.classList.contains('stats'))[0].click()")
+            await asyncio.sleep(0.1)
+            copied = await js("window.__copied")
+            print("  copiado=%r" % copied)
+            checks += [
+                ("copiar el mensaje no incluye los hints",
+                 bool(copied) and "<hint" not in copied
+                 and "Vale, haz el push" not in copied),
+                ("copiar el mensaje trae el texto real",
+                 bool(copied) and "Cuando digas, push" in copied),
+            ]
+
             # clic en la 2a fila -> envia ese mensaje, con la bandera
             await js("window.__sent=[];"
                      " ws.send = s => window.__sent.push(JSON.parse(s));"
