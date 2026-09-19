@@ -1204,7 +1204,7 @@ footer > *{position:relative; z-index:1}
 }
 .dotsb:hover{background:var(--surface); color:var(--ink)}
 .dotsb svg{width:18px;height:18px}
-.pick:hover{border-color:var(--amber)}
+.pick:not(.off):hover{border-color:var(--amber)}
 /* bloqueado en el picker: gris oscuro, no se puede entrar */
 .pick.off{background:var(--surface); color:var(--dim); cursor:default;
   box-shadow:none}
@@ -6221,7 +6221,8 @@ function projDirty(){
 async function trustAsk(path){
   const d = await rpc("trust_status", {path});
   if(d.decision === true) return true;
-  if(d.decision === false || !d.needsTrust) return false;
+  if(d.decision === false) return false;
+  if(!d.needsTrust) return true;   // sin recursos .pi tras la puerta: pi confia por defecto
   return new Promise(res => openModal(T("projectTrustTitle"),
     `<p><em>${esc(path)}</em></p><p>${esc(T("projectTrustB"))}</p>`,
     () => { send({type:"trust_set", path, decision:true}); res(true); },
@@ -6231,6 +6232,9 @@ async function trustAsk(path){
 function saveProjSet(){
   const s = projStaged;
   const del = !s.model && !s.thinking;
+  // el .pi/settings.json es un recurso que pi pone tras la confianza:
+  // al guardarlo, confiar la carpeta para que persista tras reiniciar
+  if(!del) send({type:"trust_set", path:CWD, decision:true});
   send({type:"project_settings_save", cwd:CWD, delete:del,
         settings:{defaultProvider: s.model ? s.model.provider : null,
                   defaultModel: s.model ? s.model.id : null,
@@ -6250,47 +6254,52 @@ function saveProjSet(){
 function paintProjSet(){
   projInit();
   const body = $("#sheetBody");
-  const on = !!(projStaged.model || projStaged.thinking);
+  const on0 = !!(projStaged.model || projStaged.thinking);
   const card = document.createElement("div");
   card.className = "fcard";
   card.innerHTML = `<div class="frow"><div class="ftext">`
     + `<div class="flbl">${esc(T("enableProjectSettings"))}</div></div>`
     + `<button class="sw" role="switch" aria-label="${esc(T("enableProjectSettings"))}"`
-    + ` aria-checked="${on}"><span class="knob"></span></button>`;
+    + ` aria-checked="${on0}"><span class="knob"></span></button>`;
   const sw = card.querySelector(".sw");
+  body.appendChild(card);
+  // el valor gris se mantiene tambien deshabilitado; al alternar animamos
+  // el paso activo<->inactivo en sitio (sin reconstruir la hoja)
+  const mname = () => projStaged.model
+    ? ((models.find(m => m.provider === projStaged.model.provider
+        && m.id === projStaged.model.id) || {}).name || projStaged.model.id)
+    : T("useGlobal");
+  const tval = () => projStaged.thinking || T("useGlobal");
+  const mcard = pickBtn({icon:"chip", label:T("model"), val:"| " + mname(),
+    chevron:true, run:()=>goPage("projmodel")});
+  const tcard = pickBtn({icon:"thinkO", label:T("reasoning"), val:"| " + tval(),
+    chevron:true, run:()=>goPage("projthink")});
+  body.append(mcard, tcard);
+  const okb = $("#sheetOk");
+  const sync = () => {
+    const on = !!(projStaged.model || projStaged.thinking);
+    [mcard, tcard].forEach(c => { c.classList.toggle("off", !on); c.disabled = !on; });
+    mcard.querySelector(".pval").textContent = "| " + mname();
+    tcard.querySelector(".pval").textContent = "| " + tval();
+    sw.setAttribute("aria-checked", on ? "true" : "false");
+    okb.hidden = !projDirty();
+  };
   sw.onclick = async () => {
     const turningOn = sw.getAttribute("aria-checked") !== "true";
     if(turningOn && !state.projTrusted){
-      // sin confianza pi ignora el fichero: preguntar antes
-      const ok = await trustAsk(CWD);
-      if(!ok) return;               // no confio: el toggle queda off
+      const ok = await trustAsk(CWD);   // sin confianza pi ignora el fichero
+      if(!ok) return;
       state.projTrusted = true;
     }
-    if(turningOn){
-      // plantilla: los valores globales actuales
-      projStaged = {model: (state.modelProvider && state.modelId)
-        ? {provider:state.modelProvider, id:state.modelId} : null,
-        thinking: state.thinking || null};
-    } else projStaged = {model:null, thinking:null};
-    paintSheet("projset");
+    if(turningOn) projStaged = {model: (state.modelProvider && state.modelId)
+      ? {provider:state.modelProvider, id:state.modelId} : null,
+      thinking: state.thinking || null};
+    else projStaged = {model:null, thinking:null};
+    sync();
   };
-  body.appendChild(card);
-  const mname = projStaged.model
-    ? ((models.find(m => m.provider === projStaged.model.provider
-        && m.id === projStaged.model.id) || {}).name
-       || projStaged.model.id)
-    : T("useGlobal");
-  body.appendChild(pickBtn({icon:"chip", label:T("model"),
-    val: on ? "| " + mname : null, chevron:on, off:!on,
-    run:()=>goPage("projmodel")}));
-  const tval = projStaged.thinking || T("useGlobal");
-  body.appendChild(pickBtn({icon:"thinkO", label:T("reasoning"),
-    val: on ? "| " + tval : null, chevron:on, off:!on,
-    run:()=>goPage("projthink")}));
-  const okb = $("#sheetOk");
-  okb.hidden = !projDirty();
   okb.onclick = () => openModal(T("saveProjQ"), `<p>${T("saveProjB")}</p>`,
     () => saveProjSet(), {ok: T("ok")});
+  sync();
 }
 
 function paintProjModels(){
@@ -6664,7 +6673,7 @@ function goBack(){
 }
 /* salir de ajustes por proyecto con cambios sin guardar: preguntar */
 function projGuard(){
-  if(!["projset","projmodel","projthink"].includes(sheetPage)) return false;
+  if(sheetPage !== "projset") return false;   // subvistas (modelo/razonamiento) vuelven a projset, no preguntan
   if(!projDirty()) return false;
   openModal(T("unsavedQ"), "",
     () => { saveProjSet(); goBack(); },

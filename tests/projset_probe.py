@@ -185,6 +185,16 @@ async def ui():
                     ("con cambios sin guardar aparece el check", on["ok"] is False),
                 ]
 
+                # ---- subvista modelo: ir y volver NO debe preguntar guardar
+                # (staged sucio; el guard solo salta al salir de projset) ----
+                await js("goPage('projmodel')")
+                await asyncio.sleep(0.4)
+                await js("$('#sheetBack').click()")
+                await asyncio.sleep(0.4)
+                sub = await js("[$('#modal').classList.contains('open'), sheetPage]")
+                checks.append(("volver de modelo no pregunta guardar",
+                               sub[0] is False and sub[1] == "projset"))
+
                 # ---- guardar: check -> dialogo -> payload completo ----
                 await js("$('#sheetOk').click()")
                 await asyncio.sleep(0.15)
@@ -271,10 +281,13 @@ async def ui():
                 ]
 
                 # ---- dialog de confianza en el toggle (proyecto sin trust) ----
-                # el test anterior borro el .pi del save delete: se reescribe
-                (proj / ".pi" / "settings.json").write_text(
-                    "{}", encoding="utf-8")
-                await js("state.projTrusted=false; state.projSettings={}; paint()")
+                # carpeta fresca sin confiar (el save de arriba dejo proj confiado)
+                projU = Path(td) / "projU"
+                (projU / ".pi").mkdir(parents=True)
+                (projU / ".pi" / "settings.json").write_text("{}", encoding="utf-8")
+                await js("state.projTrusted=false; state.projSettings={};"
+                         " projSavedKey=null; state.cwd=%s; paint()"
+                         % json.dumps(str(projU)))
                 await js("goPage('projset')")
                 await asyncio.sleep(0.4)
                 await js("document.querySelector('#sheetBody .sw').click()")
@@ -287,7 +300,7 @@ async def ui():
                     ("toggle sin confianza abre el dialogo",
                      bool(tw) and tw[0] == "Project trust"),
                     ("el texto lleva la carpeta en cursiva",
-                     bool(tw) and "<em>" in tw[1] and str(proj) in tw[1].replace("\\\\", "\\")),
+                     bool(tw) and "<em>" in tw[1] and str(projU) in tw[1].replace("\\\\", "\\")),
                     ("los botones son Trust / Don't trust",
                      bool(tw) and tw[2] == "Trust" and tw[3] == "Don't trust"),
                 ]
@@ -307,8 +320,8 @@ async def ui():
                 plain = Path(td) / "plain"
                 plain.mkdir()
                 r1 = await js("(async()=>trustAsk(%s))()" % json.dumps(str(plain)))
-                checks.append(("sin recursos .pi no hay dialogo",
-                               r1 is False
+                checks.append(("sin recursos .pi: sin dialogo y adelante (true)",
+                               r1 is True
                                and (await js("$('#modal').classList.contains('open')")) is False))
                 # carpeta con .pi/settings.json y sin confiar: dialogo. proj ya
                 # quedo confiado en el test anterior, asi que toca otra
@@ -325,6 +338,26 @@ async def ui():
                 await js("$('#modalOk').click()")
                 r2 = await js("window.__ta")
                 checks.append(("Trust en el picker confia", r2 is True))
+
+                # ---- toggle en carpeta sin .pi y sin trust: se activa sin
+                # dialogo (el bug de JP: el toggle no hacia nada) ----
+                plain2 = Path(td) / "plainproj"
+                plain2.mkdir()
+                await js("state.projTrusted=false; state.projSettings={};"
+                         " projSavedKey=null; state.cwd=%s; paint()"
+                         % json.dumps(str(plain2)))
+                await js("goPage('projset')")
+                await asyncio.sleep(0.4)
+                await js("window.__sent=[]")
+                await js("document.querySelector('#sheetBody .sw').click()")
+                await asyncio.sleep(0.3)
+                pon = await js("""(()=>({
+                  modal:$('#modal').classList.contains('open'),
+                  sw:document.querySelector('#sheetBody .sw').getAttribute('aria-checked'),
+                  off:[...document.querySelectorAll('#sheetBody .pick.off')].length}))()""")
+                checks.append(("carpeta sin .pi: el toggle se activa sin dialogo",
+                               pon["modal"] is False and pon["sw"] == "true"
+                               and pon["off"] == 0))
 
                 # ---- picker: filas bloqueadas y boton de subir ----
                 await js("browse('')")   # raiz: la carpeta Users
