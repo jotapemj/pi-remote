@@ -29,6 +29,20 @@ def seed(td):
     ex.mkdir()
     (ex / "guard.ts").write_text("export {}", encoding="utf-8")
     (ex / "notes.txt").write_text("no es extension", encoding="utf-8")
+    # paquete npm con manifest 'pi': una extension y una skill
+    pk = Path(td) / "npm" / "node_modules" / "fakepkg"
+    (pk / "skills" / "hello").mkdir(parents=True)
+    (pk / "package.json").write_text(
+        json.dumps({"name": "fakepkg",
+                    "pi": {"extensions": ["./index.ts"],
+                           "skills": ["./skills/hello/SKILL.md"]}}),
+        encoding="utf-8")
+    (pk / "index.ts").write_text("export {}", encoding="utf-8")
+    (pk / "skills" / "hello" / "SKILL.md").write_text(
+        "---\nname: hello\ndescription: From a package\n---\n\nBody H",
+        encoding="utf-8")
+    (Path(td) / "settings.json").write_text(
+        json.dumps({"packages": ["npm:fakepkg"]}), encoding="utf-8")
     proj = Path(td) / "proj"
     (proj / ".pi" / "skills" / "gamma").mkdir(parents=True)
     (proj / ".pi" / "skills" / "gamma" / "SKILL.md").write_text(
@@ -47,7 +61,7 @@ def backend():
     try:
         # lista global: nombre, descripcion, extra, enabled
         ls = B.skills_list("global", "/x")
-        by = {s["dir"]: s for s in ls}
+        by = {s["dir"]: s for s in ls if s["dir"]}
         checks += [
             ("lista las dos skills globales", set(by) == {"alpha", "beta"}),
             ("el frontmatter se parsea",
@@ -56,6 +70,15 @@ def backend():
             ("el body viaja con la entrada", by["alpha"]["body"].startswith("Body A")),
             ("los ficheros extra se cuentan", by["beta"]["extra"] == 1),
             ("nacidas activas", all(s["enabled"] for s in ls)),
+        ]
+        # skill de paquete: sale por el manifest, solo ver
+        ph = [s for s in ls if s.get("source") == "package"]
+        checks += [
+            ("la skill del paquete sale por el manifest",
+             len(ph) == 1 and ph[0]["name"] == "hello"
+             and ph[0]["pkg"] == "fakepkg"),
+            ("la de paquete no es operable (dir None)",
+             ph and ph[0]["dir"] is None and ph[0]["enabled"] is True),
         ]
         # scope de proyecto: solo la suya
         pl = B.skills_list("project", str(proj))
@@ -118,12 +141,18 @@ def backend():
             ("borrar lo que no existe da error",
              "not found" in B.skill_delete("global", "/x", "delta2")),
         ]
-        # extensiones: solo .ts/.js, sin el txt
+        # extensiones: solo .ts/.js, sin el txt, mas la del paquete
         ex = B.extensions_list("global", "/x")
-        checks.append(("extensiones lista solo guard.ts",
-                       [e["name"] for e in ex] == ["guard"]))
+        byname = {e["name"]: e for e in ex}
+        checks += [
+            ("extensiones lista guard.ts y la del paquete",
+             set(byname) == {"guard", "index"}),
+            ("la del paquete lleva su origen",
+             byname["index"].get("source") == "package"
+             and byname["index"].get("pkg") == "fakepkg"),
+        ]
         pex = B.extensions_list("project", str(proj))
-        checks.append(("el proyecto sin extensions: vacio", pex == []))
+        checks.append(("el proyecto sin packages: vacio", pex == []))
     finally:
         del B.AGENT_DIR
     return checks
@@ -167,12 +196,15 @@ async def ui():
               const rs=[...document.querySelectorAll('#sheetBody .skrow:not(.extrow)')];
               return {n:rs.length,
                 names:rs.map(r=>r.querySelector('.stxt span').textContent),
+                pkg:rs.filter(r=>!r.querySelector('.sw')).length,
                 ext:[...document.querySelectorAll('#sheetBody .extrow')]
                       .map(r=>r.querySelector('.stxt span').textContent)};})()""")
             checks += [
                 ("las dos skills globales salen en filas",
-                 rows["n"] == 2 and set(rows["names"]) == {"alpha", "beta"}),
-                ("la extension sale en su seccion", rows["ext"] == ["guard"]),
+                 rows["n"] == 3 and set(rows["names"]) == {"alpha", "beta", "hello"}),
+                ("la del paquete sale sin toggle", rows["pkg"] == 1),
+                ("las dos extensions salen en su seccion",
+                 sorted(rows["ext"]) == ["guard", "index"]),
             ]
 
             # ---- toggle desde la fila ----

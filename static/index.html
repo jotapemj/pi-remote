@@ -6414,12 +6414,20 @@ function paintSkillRows(scope){
   list.forEach(s => {
     const r = document.createElement("button");
     r.className = "skrow";
+    // las skills de paquete son solo ver: sin toggle, sin menu, sin clic
+    const isPkg = s.source === "package";
+    if(isPkg) r.style.cursor = "default";
     const sub = [s.description,
-                 s.extra ? T("extraFiles").replace("{n}", s.extra) : null]
+                 isPkg ? s.pkg : null,
+                 !isPkg && s.extra ? T("extraFiles").replace("{n}", s.extra) : null]
       .filter(Boolean).join("  ·  ");
     r.innerHTML = `<span class="stxt"><span>${esc(s.name)}</span>`
       + (sub ? `<small>${esc(sub)}</small>` : "")
       + `</span>`;
+    if(isPkg){
+      (anchor && anchor.nextSibling) ? anchor.after(r) : body.appendChild(r);
+      return;
+    }
     const sw = document.createElement("button");
     sw.className = "sw"; sw.setAttribute("role", "switch");
     sw.setAttribute("aria-checked", String(!!s.enabled));
@@ -6458,8 +6466,10 @@ function paintExtRows(scope){
   list.forEach(x => {
     const r = document.createElement("div");
     r.className = "skrow extrow"; r.style.cursor = "default";
+    // las de paquete muestran el nombre del paquete, no la ruta entera
+    const sub = x.source === "package" ? x.pkg : x.path;
     r.innerHTML = `<span class="stxt"><span>${esc(x.name)}</span>`
-      + `<small>${esc(x.path)}</small></span>`;
+      + `<small>${esc(sub)}</small></span>`;
     body.appendChild(r);
   });
 }

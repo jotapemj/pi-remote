@@ -1158,31 +1158,145 @@ def _ignored_names(root):
             if ln.strip() and not ln.startswith(("#", "!"))}
 
 
+def _package_roots(scope, cwd):
+    """(nombre, raiz) de cada paquete configurado e instalado.
+
+    Espejo del package-manager de pi: los npm viven en node_modules
+    (usuario en AGENT_DIR/npm, proyecto en <cwd>/.pi/npm) y las rutas
+    locales se resuelven contra el directorio base. Los git no tienen
+    ruta determinista: se saltan."""
+    if scope == "project":
+        settings_p = Path(cwd) / ".pi" / "settings.json"
+        base = Path(cwd) / ".pi"
+    else:
+        settings_p = AGENT_DIR / "settings.json"
+        base = AGENT_DIR
+    try:
+        d = json.loads(settings_p.read_text(encoding="utf-8")) \
+            if settings_p.is_file() else {}
+    except (OSError, ValueError):
+        return []
+    out = []
+    for pkg in d.get("packages") or []:
+        src = pkg if isinstance(pkg, str) else (pkg.get("source") or "")
+        if src.startswith("npm:"):
+            spec = src[4:].strip()
+            # nombre sin version: @scope/name@1.2 -> @scope/name
+            name = spec.rsplit("@", 1)[0] if spec.startswith("@") \
+                else spec.split("@", 1)[0]
+            root = base / "npm" / "node_modules" / name
+        elif src:
+            p = Path(src)
+            root = p if p.is_absolute() else base / p
+        else:
+            continue
+        if root.is_dir():
+            out.append((name if src.startswith("npm:") else root.name,
+                        root))
+    return out
+
+
+def _pkg_manifest_entries(root, rtype):
+    """La lista oficial del manifest 'pi' de package.json, si existe."""
+    try:
+        d = json.loads((root / "package.json").read_text(encoding="utf-8"))
+        entries = (d.get("pi") or {}).get(rtype)
+        if isinstance(entries, list):
+            return [root / e for e in entries if isinstance(e, str)]
+    except (OSError, ValueError):
+        pass
+    return None
+
+
+def _pkg_skills(root):
+    """SKILL.md del paquete: manifest primero, luego skills/<nombre>/. El
+    manifest puede apuntar a ficheros o a directorios (context-mode usa
+    "./skills"): los directorios se barren buscando <nombre>/SKILL.md."""
+    entries = _pkg_manifest_entries(root, "skills")
+    if entries is not None:
+        out = []
+        for p in entries:
+            if p.is_file() and p.name == "SKILL.md":
+                out.append(p)
+            elif p.is_dir():
+                out.extend(_skill_md_files(p))
+        return out
+    d = root / "skills"
+    if d.is_dir():
+        return _skill_md_files(d)
+    return []
+
+
+def _skill_md_files(d):
+    """<nombre>/SKILL.md dentro de d, ordenado."""
+    try:
+        subs = sorted(d.iterdir(), key=lambda p: p.name.lower())
+    except OSError:
+        return []
+    return [s / "SKILL.md" for s in subs
+            if s.is_dir() and (s / "SKILL.md").is_file()]
+
+
+def _pkg_extensions(root):
+    """Ficheros de extension del paquete: manifest primero, luego
+    extensions/ (ficheros .ts/.js y subcarpetas con index)."""
+    entries = _pkg_manifest_entries(root, "extensions")
+    if entries is not None:
+        return [p for p in entries if p.is_file()]
+    d = root / "extensions"
+    out = []
+    if d.is_dir():
+        for e in sorted(d.iterdir(), key=lambda p: p.name.lower()):
+            if e.name.startswith("."):
+                continue
+            if e.is_file() and e.suffix in (".ts", ".js"):
+                out.append(e)
+            elif e.is_dir():
+                for idx in ("index.ts", "index.js"):
+                    f = e / idx
+                    if f.is_file():
+                        out.append(f)
+                        break
+    return out
+
+
 def skills_list(scope, cwd):
     root = _res_root(scope, cwd, "skills")
     out = []
-    if not root.is_dir():
-        return out
-    ignored = _ignored_names(root)
-    for d in sorted(root.iterdir(), key=lambda p: p.name.lower()):
-        if d.name.startswith(".") or not d.is_dir():
-            continue
-        f = d / "SKILL.md"
-        if not f.is_file():
-            continue
-        parsed = _skill_md(f)
-        if parsed is None:
-            continue
-        name, desc, body_txt = parsed
-        extra = 0
-        for e in d.rglob("*"):
-            rel = e.relative_to(d)
-            if e.is_file() and e.name != "SKILL.md" \
-                    and not any(p.startswith(".") for p in rel.parts):
-                extra += 1
-        out.append({"name": name or d.name, "dir": d.name,
-                    "description": desc or "", "body": body_txt,
-                    "extra": extra, "enabled": d.name not in ignored})
+    if root.is_dir():
+        ignored = _ignored_names(root)
+        for d in sorted(root.iterdir(), key=lambda p: p.name.lower()):
+            if d.name.startswith(".") or not d.is_dir():
+                continue
+            f = d / "SKILL.md"
+            if not f.is_file():
+                continue
+            parsed = _skill_md(f)
+            if parsed is None:
+                continue
+            name, desc, body_txt = parsed
+            extra = 0
+            for e in d.rglob("*"):
+                rel = e.relative_to(d)
+                if e.is_file() and e.name != "SKILL.md" \
+                        and not any(p.startswith(".")
+                                    for p in rel.parts):
+                    extra += 1
+            out.append({"name": name or d.name, "dir": d.name,
+                        "description": desc or "", "body": body_txt,
+                        "extra": extra,
+                        "enabled": d.name not in ignored})
+    # skills de paquetes (npm/locale): solo ver, sin toggle ni edicion
+    for pkg, proot in _package_roots(scope, cwd):
+        for f in _pkg_skills(proot):
+            parsed = _skill_md(f)
+            if parsed is None:
+                continue
+            name, desc, body_txt = parsed
+            out.append({"name": name or f.parent.name, "dir": None,
+                        "description": desc or "", "body": body_txt,
+                        "extra": 0, "enabled": True,
+                        "source": "package", "pkg": pkg})
     return out
 
 
@@ -1251,12 +1365,16 @@ def skill_delete(scope, cwd, dirname):
 def extensions_list(scope, cwd):
     root = _res_root(scope, cwd, "extensions")
     out = []
-    if not root.is_dir():
-        return out
-    for f in sorted(root.iterdir(), key=lambda p: p.name.lower()):
-        if f.is_file() and f.suffix in (".ts", ".js") \
-                and not f.name.startswith("."):
-            out.append({"name": f.stem, "path": str(f)})
+    if root.is_dir():
+        for f in sorted(root.iterdir(), key=lambda p: p.name.lower()):
+            if f.is_file() and f.suffix in (".ts", ".js") \
+                    and not f.name.startswith("."):
+                out.append({"name": f.stem, "path": str(f)})
+    # extensiones de paquetes (npm/locale): solo ver
+    for pkg, proot in _package_roots(scope, cwd):
+        for f in _pkg_extensions(proot):
+            out.append({"name": f.stem, "path": str(f),
+                        "source": "package", "pkg": pkg})
     return out
 
 
