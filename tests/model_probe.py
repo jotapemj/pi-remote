@@ -67,6 +67,13 @@ async def ui():
             await js("(async()=>{[...document.querySelectorAll('#sheetBody .pick')]"
                      ".find(b => /pi agent/.test(b.textContent)).click();"
                      " await new Promise(r=>setTimeout(r,400));})()")
+            pa = await js("[...document.querySelectorAll('#sheetBody .pick')]"
+                          ".some(x=>x.querySelector('.pval'))")
+            checks.append(("la card de pi agent ya no lleva modelo en gris",
+                           pa is False))
+            # el gris se mueve a la card de modelo, dentro de los ajustes
+            await js("paintSheet('model')")
+            await asyncio.sleep(0.1)
             row = await js("""(()=>{
               const b=[...document.querySelectorAll('#sheetBody .pick')];
               const mi=b.findIndex(x=>x.querySelector('.pval'));
@@ -74,17 +81,16 @@ async def ui():
               return m?[m.querySelector('.txt span').textContent,
                         !!m.querySelector('svg'),
                         m.querySelector('.pval').textContent]:null;})()""")
-            print("  fila global: %r" % row)
+            print("  card de modelo: %r" % row)
             checks += [
-                ("existe la fila «Ajustes globales» con icono",
-                 bool(row) and row[0].startswith("Ajustes globales")
-                 and row[1] is True),
+                ("existe la card «Modelo» con icono",
+                 bool(row) and row[0].startswith("Modelo") and row[1] is True),
                 ("muestra el modelo actual en gris (val)",
                  bool(row) and "Qwen3 8B" in (row[2] or "")),
             ]
 
-            # entrar a la pagina de modelo: pide la lista (mock la respuesta)
-            await js("paintSheet('model')")
+            # entrar a la lista de modelos: pide la lista (mock la respuesta)
+            await js("paintSheet('modelList')")
             asked = await js("!!window.__sent.find(x=>x.type==='get_available_models')")
             checks.append(("al abrir la pagina pide los modelos disponibles",
                            asked is True))
@@ -142,20 +148,27 @@ async def ui():
                 ("la marca pasa al nuevo modelo, y solo uno",
                  after["sel"] == ["swift-27b"]),
                 ("la vista de modelo sigue abierta (sin dismiss)",
-                 after["open"] is True and after["page"] == "Ajustes globales"),
+                 after["open"] is True and after["page"] == "Modelo"),
                 ("marca el nuevo modelo de forma optimista",
                  after["stateId"] == "swift-27b"),
             ]
 
-            # volver a pi agent: el gris de la fila refleja el modelo nuevo
-            await js("paintSheet('pagent')")
+            # volver a la pagina de ajustes globales: la card de modelo lleva
+            # el elegido en gris (la card de pi agent ya no lo muestra)
+            await js("paintSheet('model')")
             await asyncio.sleep(0.05)
             back = await js("""(()=>{const b=[...document.querySelectorAll('#sheetBody .pick')];
               const m=b.find(x=>x.querySelector('.pval'));
               return m?m.querySelector('.pval').textContent:null;})()""")
-            print("  fila tras elegir: %r" % back)
-            checks.append(("la fila global muestra ya el modelo elegido",
+            print("  card tras elegir: %r" % back)
+            checks.append(("la card de modelo muestra ya el modelo elegido",
                            back and "swift-27b" in back))
+            await js("paintSheet('pagent')")
+            await asyncio.sleep(0.05)
+            pa = await js("[...document.querySelectorAll('#sheetBody .pick')]"
+                          ".some(x=>x.querySelector('.pval'))")
+            checks.append(("la card de pi agent ya no lleva modelo en gris",
+                           pa is False))
             checks.append(("sin errores de consola", not p.problems))
     return checks
 

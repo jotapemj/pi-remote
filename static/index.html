@@ -6709,7 +6709,6 @@ function paintSheet(page){
   if(page === "pagent"){
     $("#sheetTitle").textContent = T("piAgentSettings");
     body.appendChild(pickBtn({icon:"public", label:T("globalSettings"),
-      val: state.model ? "| " + state.model : null,
       chevron:true, run: () => goPage("model")}));
     act("projectSettings", "folder", () => goPage("projset"));
     act("providers", "package", () => goPage("providers"));
@@ -6754,7 +6753,17 @@ function paintSheet(page){
     return;
   }
   if(page === "model"){
+    // la card de modelo lleva el elegido en gris; la lista vive en modelList
     $("#sheetTitle").textContent = T("globalSettings");
+    body.appendChild(pickBtn({icon:"chip", label:T("model"),
+      val: state.model ? "| " + state.model : null,
+      chevron:true, run: () => goPage("modelList")}));
+    body.appendChild(pickBtn({icon:"package", label:T("resources"),
+      chevron:true, run: () => goPage("resglobal")}));
+    return;
+  }
+  if(page === "modelList"){
+    $("#sheetTitle").textContent = T("model");
     if(!models.length){                 // aun no cargados: pedirlos y esperar
       send({type:"get_available_models"});
       const h = document.createElement("div");
@@ -6790,9 +6799,6 @@ function paintSheet(page){
       };
       body.appendChild(b);
     });
-    head("resources");
-    body.appendChild(pickBtn({icon:"package", label:T("resources"),
-      chevron:true, run:()=>goPage("resglobal")}));
     return;
   }
   if(page === "genanim"){
@@ -7428,11 +7434,11 @@ function onRpc(m){
   }
   if(m.command === "save_model_params"){
     if(d && d.error) return note(d.error);
-    // el fichero ya esta escrito: refrescar la lista y volver a la card,
-    // limpiando la pila (el atras desde model ira a raiz, no a modelEdit)
+    // el fichero ya esta escrito: refrescar la lista y volver a ella (el
+    // lapiz vivia alli), limpiando la pila para que el atras vaya a raiz
     send({type:"get_available_models"});
     sheetStack = [];
-    turnTo("model", -1);
+    turnTo("modelList", -1);
     return;
   }
   if(m.command === "skills_list"){
@@ -7473,7 +7479,8 @@ function onRpc(m){
     // la card de ajustes (pagina "model") repinta con la lista; el comando
     // /model, que no fija sheetPage, cae al picker rapido de siempre
     if($("#sheet").classList.contains("open")
-       && (sheetPage === "model" || sheetPage === "projmodel"))
+       && (sheetPage === "model" || sheetPage === "modelList"
+           || sheetPage === "projmodel"))
       return paintSheet(sheetPage);
     return sheet("model", models.map(x=>({
       label:x.name || x.id, hint:`${x.provider}  ·  ${kilo(x.contextWindow||0)} ctx`,

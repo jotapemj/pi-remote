@@ -64,7 +64,7 @@ async def ui():
                 # trae su propia) y coincide con lo que hay en models.json
                 await js("menuSheet()")
                 await asyncio.sleep(0.1)
-                await js("paintSheet('model')")
+                await js("paintSheet('modelList')")
                 await js("onRpc({command:'get_available_models', data:{models:["
                          "{id:'qwen3-8b',name:'Qwen3 8B',provider:'local',"
                          "contextWindow:32768,maxTokens:4096,input:['text']}]}})")
@@ -164,8 +164,8 @@ async def ui():
                 print("  escrito: %r, vuelta: %r" % (m["contextWindow"], back))
                 checks += [
                     ("confirmar escribe models.json", m["contextWindow"] == 65536),
-                    ("vuelve a la card de modelos",
-                     back[0] == "Ajustes globales" and back[1] is True),
+                    ("vuelve a la lista de modelos",
+                     back[0] == "Modelo" and back[1] is True),
                 ]
 
                 # atras por niveles: modelEdit -> model -> raiz
@@ -179,9 +179,9 @@ async def ui():
                 t2 = await js("$('#sheetTitle').textContent")
                 print("  atras: %r -> %r" % (t1, t2))
                 checks += [
-                    ("atras desde modelEdit vuelve a la card de modelos",
-                     t1 == "Ajustes globales"),
-                    ("atras desde model vuelve a la raiz del menu",
+                    ("atras desde modelEdit vuelve a la lista de modelos",
+                     t1 == "Modelo"),
+                    ("atras desde la lista vuelve a la raiz del menu",
                      t2 == "men\u00fa"),
                 ]
     return checks
