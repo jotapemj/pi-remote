@@ -1137,11 +1137,23 @@ def _skill_md(path):
         return (None, None, raw)
     fm, body = raw[4:end], raw[end + 4:].lstrip("\n")
     name = desc = None
-    for line in fm.splitlines():
+    lines = fm.splitlines()
+    for i, line in enumerate(lines):
         if line.startswith("name:"):
             name = line[5:].strip().strip('"').strip("'")
         elif line.startswith("description:"):
-            desc = line[12:].strip().strip('"').strip("'")
+            val = line[12:].strip()
+            # block scalar YAML (| o >): el valor son las siguientes
+            # lineas indentadas (context-mode lo usa)
+            if val[:1] in ("|", ">") and len(val) <= 2:
+                blk = []
+                for ln in lines[i + 1:]:
+                    if ln[:1] in (" ", "\t"):
+                        blk.append(ln.strip())
+                    else:
+                        break
+                val = " ".join(x for x in blk if x)
+            desc = val.strip('"').strip("'")
     return (name, desc, body)
 
 
@@ -1766,7 +1778,11 @@ class Bridge:
         if item.get("kind") in ("assistant", "thinking", "tool"):
             self.produced = True
         self.log.append(item)
-        self.emit({"type": "item", "item": item})
+        # copia: `emit` solo ENCOLA el envio en el loop de asyncio, y hasta que
+        # este lo serializa el hilo lector sigue sumando deltas a este mismo
+        # dict. Sin copia el cliente recibe la burbuja con texto de mas y luego
+        # le vuelve a sumar los deltas que ya traia ("Entendido" -> "Entendidoendido").
+        self.emit({"type": "item", "item": dict(item)})
         return item
 
     def patch(self, item, **fields):
@@ -1801,11 +1817,13 @@ class Bridge:
                           "args": args, "text": text})
 
     def push_state(self):
-        self.emit({"type": "state", "state": self.state})
+        self.emit({"type": "state", "state": dict(self.state)})
 
     def snapshot(self):
-        return {"type": "snapshot", "items": list(self.log),
-                "state": self.state, "cwd": self.cwd}
+        # los items tambien se copian: reconectar a mitad de turno traeria la
+        # burbuja en curso con texto de mas y los deltas siguientes lo duplican
+        return {"type": "snapshot", "items": [dict(i) for i in self.log],
+                "state": dict(self.state), "cwd": self.cwd}
 
     # ---- events from pi
 

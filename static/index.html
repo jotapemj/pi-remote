@@ -1119,20 +1119,28 @@ footer > *{position:relative; z-index:1}
 }
 /* la cabecera (back + titulo) siempre esta presente; solo el cuerpo
    scrollea, con fundido en los bordes que no toca al primer y ultimo
-   resultado (el padding los deja fuera de la banda) */
+   resultado. El fundido superior es un overlay sticky (no mask): un mask
+   tambien fundiria la cabecera sticky y se le colarian las filas por
+   detras. El overlay ocupa la banda de 14 px; a reposo es aire, y al
+   scrollear cubre lo que sube por debajo de la cabecera */
 .sheet .grab, .sheet .sbar{flex:none}
 #sheetBody{
   flex:1; min-height:0; overflow-y:auto;
-  padding:14px 0 calc(18px + env(safe-area-inset-bottom));
-  -webkit-mask-image:linear-gradient(to bottom, transparent 0,
-    #000 14px, #000 calc(100% - 14px), transparent 100%);
-  mask-image:linear-gradient(to bottom, transparent 0,
-    #000 14px, #000 calc(100% - 14px), transparent 100%);
+  padding:0 0 calc(18px + env(safe-area-inset-bottom));
+  -webkit-mask-image:linear-gradient(to bottom, #000 0,
+    #000 calc(100% - 14px), transparent 100%);
+  mask-image:linear-gradient(to bottom, #000 0,
+    #000 calc(100% - 14px), transparent 100%);
+}
+#sheetBody::before{
+  content:""; position:sticky; top:0; height:14px; display:block;
+  background:linear-gradient(to bottom, var(--surface), transparent);
 }
 /* secciones: la cabecera queda fija mientras dura su seccion; al
-   acabarse, la de la siguiente llega y toma su sitio */
+   acabarse, la de la siguiente llega y toma su sitio. Por encima del
+   overlay para no fundirse nunca */
 #sheetBody .sec > .shead{
-  position:sticky; top:0; z-index:1; background:var(--surface);
+  position:sticky; top:0; z-index:2; background:var(--surface);
   margin-top:0; padding-top:2px;
 }
 #sheetBody .sec + .sec > .shead{margin-top:26px}
@@ -6429,9 +6437,13 @@ function paintSkillRows(scope){
   if(!list.length){
     const h = document.createElement("div");
     h.className = "shead skempty"; h.textContent = T("noSkills");
-    (anchor && anchor.nextSibling) ? anchor.before(h) : body.appendChild(h);
+    anchor ? anchor.before(h) : body.appendChild(h);
     return;
   }
+  // las filas entran tras el boton, en orden. Sin ancla (la respuesta llego
+  // antes de que paintSheet montara la seccion) van al final, pero en orden
+  let last = anchor;
+  const place = r => { last ? last.after(r) : body.appendChild(r); last = r; };
   list.forEach(s => {
     const r = document.createElement("button");
     r.className = "skrow";
@@ -6446,7 +6458,7 @@ function paintSkillRows(scope){
       + (sub ? `<small>${esc(sub)}</small>` : "")
       + `</span>`;
     if(isPkg){
-      (anchor && anchor.nextSibling) ? anchor.after(r) : body.appendChild(r);
+      place(r);
       return;
     }
     const sw = document.createElement("button");
@@ -6471,7 +6483,7 @@ function paintSkillRows(scope){
       skillOrig = JSON.parse(JSON.stringify(skillDraft));
       goPage("skilledit");
     };
-    (anchor && anchor.nextSibling) ? anchor.after(r) : body.appendChild(r);
+    place(r);
   });
 }
 function paintExtRows(scope){

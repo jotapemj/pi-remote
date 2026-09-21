@@ -38,8 +38,9 @@ def seed(td):
                            "skills": ["./skills/hello/SKILL.md"]}}),
         encoding="utf-8")
     (pk / "index.ts").write_text("export {}", encoding="utf-8")
+    # description con block scalar YAML, como context-mode
     (pk / "skills" / "hello" / "SKILL.md").write_text(
-        "---\nname: hello\ndescription: From a package\n---\n\nBody H",
+        "---\nname: hello\ndescription: |\n  From a package.\n  Second line.\n---\n\nBody H",
         encoding="utf-8")
     (Path(td) / "settings.json").write_text(
         json.dumps({"packages": ["npm:fakepkg"]}), encoding="utf-8")
@@ -79,6 +80,8 @@ def backend():
              and ph[0]["pkg"] == "fakepkg"),
             ("la de paquete no es operable (dir None)",
              ph and ph[0]["dir"] is None and ph[0]["enabled"] is True),
+            ("el block scalar YAML se une en una linea",
+             ph and ph[0]["description"] == "From a package. Second line."),
         ]
         # scope de proyecto: solo la suya
         pl = B.skills_list("project", str(proj))
@@ -192,19 +195,51 @@ async def ui():
             await js("(async()=>{[...document.querySelectorAll('#sheetBody .pick')]"
                      ".find(b=>/Resources/.test(b.textContent)).click();"
                      " await new Promise(r=>setTimeout(r,500));})()")
+            # orden documentario: skills ANTES de la cabecera de extensions
             rows = await js("""(()=>{
+              const b = $('#sheetBody');
+              const seq = [];
+              b.querySelectorAll('.shead, .skrow, .extrow').forEach(x => {
+                // extrow lleva tambien clase skrow: comprobarlo antes
+                seq.push(x.classList.contains('extrow') ? 'E'
+                  : x.classList.contains('skrow') ? 'S'
+                  : (x.textContent.trim() === 'Extensions' ? 'X' : 'H'));
+              });
               const rs=[...document.querySelectorAll('#sheetBody .skrow:not(.extrow)')];
-              return {n:rs.length,
+              return {seq,
+                n:rs.length,
                 names:rs.map(r=>r.querySelector('.stxt span').textContent),
                 pkg:rs.filter(r=>!r.querySelector('.sw')).length,
                 ext:[...document.querySelectorAll('#sheetBody .extrow')]
                       .map(r=>r.querySelector('.stxt span').textContent)};})()""")
             checks += [
-                ("las dos skills globales salen en filas",
+                ("las tres skills salen en filas",
                  rows["n"] == 3 and set(rows["names"]) == {"alpha", "beta", "hello"}),
+                ("las skills van antes de extensions, en orden",
+                 rows["seq"] == ["H", "S", "S", "S", "X", "E", "E"]),
                 ("la del paquete sale sin toggle", rows["pkg"] == 1),
                 ("las dos extensions salen en su seccion",
                  sorted(rows["ext"]) == ["guard", "index"]),
+            ]
+
+            # sin ancla: la respuesta de skills_list puede llegar antes de que
+            # paintSheet monte la seccion. No puede reventar ni desordenar
+            noanchor = await js("""(()=>{
+              const ab = document.querySelector('#sheetBody .skilladd');
+              ab.classList.remove('skilladd');          // el ancla desaparece
+              let err = null;
+              try{ paintSkillRows('global'); }catch(e){ err = String(e); }
+              const names = [...document.querySelectorAll(
+                '#sheetBody .skrow:not(.extrow) .stxt span')].map(x=>x.textContent);
+              ab.classList.add('skilladd');             // y el DOM queda como estaba
+              paintSkillRows('global');   // borra tambien las .extrow: van juntas
+              paintExtRows('global');
+              return {err, names};})()""")
+            checks += [
+                ("sin el boton de anadir, repintar no revienta",
+                 noanchor["err"] is None),
+                ("y las filas mantienen su orden",
+                 noanchor.get("names") == rows["names"]),
             ]
 
             # ---- cabecera fija + secciones sticky ----

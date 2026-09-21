@@ -1,6 +1,10 @@
 # bitacora de trabajo, no forma parte del producto
 CLAUDE.md
 
+# utilidades de mantenimiento (generadores de iconos, capturas, helpers de
+# git). No las importa nadie en ejecucion y no salen al repo publico.
+tools/
+
 # lo que el puente escribe mientras corre
 state.json
 bridge.log
