@@ -1111,11 +1111,31 @@ footer > *{position:relative; z-index:1}
 .sheet .card{
   background:var(--surface); border:1px solid var(--rule);
   border-radius:12px 12px 0 0; width:100%; max-width:760px;
-  max-height:78vh; overflow-y:auto; touch-action:pan-y;
-  padding:14px var(--gut) calc(18px + env(safe-area-inset-bottom));
+  max-height:78vh; overflow:hidden; touch-action:pan-y;
+  display:flex; flex-direction:column;
+  padding:14px var(--gut) 0;
   transform:translateY(100%); will-change:transform;
   transition:transform .3s cubic-bezier(.32,.72,0,1);
 }
+/* la cabecera (back + titulo) siempre esta presente; solo el cuerpo
+   scrollea, con fundido en los bordes que no toca al primer y ultimo
+   resultado (el padding los deja fuera de la banda) */
+.sheet .grab, .sheet .sbar{flex:none}
+#sheetBody{
+  flex:1; min-height:0; overflow-y:auto;
+  padding:14px 0 calc(18px + env(safe-area-inset-bottom));
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0,
+    #000 14px, #000 calc(100% - 14px), transparent 100%);
+  mask-image:linear-gradient(to bottom, transparent 0,
+    #000 14px, #000 calc(100% - 14px), transparent 100%);
+}
+/* secciones: la cabecera queda fija mientras dura su seccion; al
+   acabarse, la de la siguiente llega y toma su sitio */
+#sheetBody .sec > .shead{
+  position:sticky; top:0; z-index:1; background:var(--surface);
+  margin-top:0; padding-top:2px;
+}
+#sheetBody .sec + .sec > .shead{margin-top:26px}
 .sheet.open .card{transform:none}
 .sbar{display:flex; align-items:center; gap:9px; margin:2px 0 12px;
   touch-action:none}
@@ -1716,7 +1736,7 @@ main:has(#spin) .empty{display:none}
 
   .sheet .card{
     max-width:470px; border-radius:16px; max-height:76vh;
-    padding:18px 20px 20px;
+    padding:18px 20px 0;
     box-shadow:0 24px 60px #0009;
     transform:translateY(12px) scale(.985);
     transition:transform .24s cubic-bezier(.32,.72,0,1), opacity .18s ease;
@@ -1724,6 +1744,7 @@ main:has(#spin) .empty{display:none}
   }
   .sheet.open .card{transform:none; opacity:1}
   .grab{display:none}
+  #sheetBody{padding-bottom:20px}
 
   /* el fondo de la barra se disuelve por los lados en el color del chat,
      con un fundido largo; solo en ancho */
@@ -6455,12 +6476,13 @@ function paintSkillRows(scope){
 }
 function paintExtRows(scope){
   const body = $("#sheetBody");
+  const c = body.querySelector(".extsec") || body;
   body.querySelectorAll(".extrow, .extempty").forEach(x => x.remove());
   const list = extCache[scope] || [];
   if(!list.length){
     const h = document.createElement("div");
     h.className = "shead extempty"; h.textContent = T("noExtensions");
-    body.appendChild(h);
+    c.appendChild(h);
     return;
   }
   list.forEach(x => {
@@ -6470,7 +6492,7 @@ function paintExtRows(scope){
     const sub = x.source === "package" ? x.pkg : x.path;
     r.innerHTML = `<span class="stxt"><span>${esc(x.name)}</span>`
       + `<small>${esc(sub)}</small></span>`;
-    body.appendChild(r);
+    c.appendChild(r);
   });
 }
 /* salir del compositor con cambios sin guardar: preguntar */
@@ -6542,9 +6564,9 @@ function paintSheet(page){
   okb.hidden = true;                     // el check de confirmar, por pagina
   if(!okb.innerHTML) okb.innerHTML = ico("check");
 
-  const head = t => {
+  const head = (t, p) => {
     const h = document.createElement("div");
-    h.className = "shead"; h.textContent = T(t); body.appendChild(h);
+    h.className = "shead"; h.textContent = T(t); (p || body).appendChild(h);
   };
   const act = (key, icon, run) => body.appendChild(pickBtn({
     icon: icon, label: T(key), chevron: true, run: run}));
@@ -6833,14 +6855,19 @@ function paintSheet(page){
   if(page === "resglobal" || page === "resproj"){
     const scope = page === "resproj" ? "project" : "global";
     $("#sheetTitle").textContent = T("resources");
-    head("skills");
+    // cada seccion en su contenedor: la cabecera sticky dura lo que ella
+    const sec1 = document.createElement("div");
+    sec1.className = "sec skillsec"; body.appendChild(sec1);
+    head("skills", sec1);
     const ab = pickBtn({icon:"add", label:T("addSkill"),
       run:()=>{ skillDraft = {scope, dir:null, name:"", description:"",
                                body:""}; skillOrig = null; goPage("skilledit");}});
     ab.classList.add("skilladd");
-    body.appendChild(ab);
+    sec1.appendChild(ab);
     paintSkillRows(scope);
-    head("extensions");
+    const sec2 = document.createElement("div");
+    sec2.className = "sec extsec"; body.appendChild(sec2);
+    head("extensions", sec2);
     paintExtRows(scope);
     send({type:"skills_list", scope});
     send({type:"extensions_list", scope});

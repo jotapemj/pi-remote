@@ -207,6 +207,49 @@ async def ui():
                  sorted(rows["ext"]) == ["guard", "index"]),
             ]
 
+            # ---- cabecera fija + secciones sticky ----
+            lay = await js("""(()=>{
+              const cs = getComputedStyle($('#sheetBody'));
+              const cc = getComputedStyle(document.querySelector('#sheet .card'));
+              return {body:cs.overflowY, flex:cs.flexGrow,
+                      card:cc.overflowY, pos:getComputedStyle(
+                        document.querySelector('#sheetBody .sec > .shead')).position};})()""")
+            checks += [
+                ("el cuerpo scrollea, no la card",
+                 lay["body"] == "auto" and lay["flex"] == "1"
+                 and lay["card"] in ("hidden", "clip")),
+                ("las cabeceras de seccion son sticky",
+                 lay["pos"] == "sticky"),
+            ]
+            # forzar desborde: la card entera cabe, el cuerpo no
+            await js("""(()=>{const b=$('#sheetBody');
+              b.style.height='150px'; b.style.flex='none';})()""")
+            # punto donde la cabecera de extensions empieza a fijarse:
+            # 40 px dentro de su seccion, con la seccion todavia en vista
+            await js("""(()=>{
+              const b = $('#sheetBody');
+              const s2 = document.querySelector('.extsec');
+              const nat = s2.getBoundingClientRect().top
+                - b.getBoundingClientRect().top + b.scrollTop;
+              b.scrollTop = nat + 40;})()""")
+            await asyncio.sleep(0.3)
+            st = await js("""(()=>{
+              const b = $('#sheetBody');
+              const bt = b.getBoundingClientRect().top;
+              const tops = [...b.querySelectorAll('.sec > .shead')]
+                .map(h => Math.round(h.getBoundingClientRect().top));
+              return {bt, tops, st: b.scrollTop};})()""")
+            checks += [
+                ("el cuerpo se scrolleo", st["st"] > 10),
+                ("'extensions' queda fija arriba en su seccion",
+                 st["tops"][-1] >= st["bt"] - 2
+                 and st["tops"][-1] <= st["bt"] + 16),
+                ("'skills' se fue con el scroll",
+                 st["tops"][0] < st["bt"]),
+            ]
+            await js("""(()=>{const b=$('#sheetBody');
+              b.style.height=''; b.style.flex=''; b.scrollTop=0;})()""")
+
             # ---- toggle desde la fila ----
             await js("""(()=>{[...document.querySelectorAll('#sheetBody .skrow')]
               .find(r=>/beta/.test(r.textContent)).querySelector('.sw').click();})()""")
