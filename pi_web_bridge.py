@@ -1252,6 +1252,157 @@ def _res_root(scope, cwd, kind):
     return base / ("skills" if kind == "skills" else "extensions")
 
 
+# los marcadores de argumento de una plantilla: posicionales, todos juntos,
+# o el alias largo. Lo que no case (p.ej. $HOME) es texto, no un hueco
+PROMPT_VAR = re.compile(r"\$(\d+|@|ARGUMENTS\b)")
+
+
+def _prompts_root(scope, cwd):
+    # pi carga las plantillas de AGENT_DIR/prompts y <cwd>/.pi/prompts
+    # (core/prompt-templates.js: loadPromptTemplates)
+    base = Path(cwd) / ".pi" if scope == "project" else AGENT_DIR
+    return base / "prompts"
+
+
+def prompt_slots(body):
+    """Los huecos de una plantilla: {"nums": [1, 2], "all": False}.
+
+    `nums` son los posicionales que aparecen de verdad, ordenados y sin
+    repetir (una plantilla puede usar $2 sin usar $1). `all` dice si toma
+    todos los argumentos de una pieza ($@ o $ARGUMENTS)."""
+    nums, takes_all = set(), False
+    for m in PROMPT_VAR.finditer(body or ""):
+        tok = m.group(1)
+        if tok.isdigit():
+            nums.add(int(tok))
+        else:
+            takes_all = True
+    return {"nums": sorted(nums), "all": takes_all}
+
+
+def parse_prompt_args(text):
+    """Trocea los argumentos respetando comillas, como hace pi (bash-like)."""
+    out, cur, quote, quoted = [], "", None, False
+    for ch in text or "":
+        if quote:
+            if ch == quote:
+                quote = None
+            else:
+                cur += ch
+        elif ch in ("'", '"'):
+            quote = ch
+            quoted = True        # "" es un argumento vacio, no una ausencia
+        elif ch.isspace():
+            if cur or quoted:
+                out.append(cur)
+                cur, quoted = "", False
+        else:
+            cur += ch
+    if cur or quoted:
+        out.append(cur)
+    return out
+
+
+def expand_prompt(content, args):
+    """Sustituye los marcadores de argumento de una plantilla.
+
+    Cubre el subconjunto que usan los macros de verdad: $1..$9, $@ y
+    $ARGUMENTS. Las formas con valor por defecto y el troceado (${N:-x},
+    ${@:N:L}) quedan fuera a proposito: son las que se rompen en silencio si
+    la copia no es exacta.
+
+    Esta expansion la hace el PUENTE porque pi no expande nada en modo RPC:
+    su handler de `prompt` no pasa expandPromptTemplates, que por defecto es
+    false. Si algun dia el RPC lo hiciera, esta funcion sobra; no dejar las
+    dos, que divergirian."""
+    joined = " ".join(args)
+    out = content.replace("$ARGUMENTS", joined).replace("$@", joined)
+
+    # el numero se lee entero, no digito a digito: sustituyendo $1 primero,
+    # "$12" se convertiria en "<arg1>2"
+    def one(m):
+        i = int(m.group(1))
+        return args[i - 1] if 1 <= i <= len(args) else ""
+
+    return re.sub(r"\$(\d+)", one, out)
+
+
+def prompts_list(scope, cwd):
+    """Las plantillas de un ambito: el nombre es el del fichero y el resto
+    sale del frontmatter. El cuerpo viaja para poder expandirlo al lanzar."""
+    root = _prompts_root(scope, cwd)
+    out = []
+    if not root.is_dir():
+        return out
+    for f in sorted(root.glob("*.md"), key=lambda x: x.name.lower()):
+        try:
+            raw = f.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        desc, hint, body = "", "", raw
+        if raw.startswith("---"):
+            end = raw.find("\n---", 3)
+            if end != -1:
+                fm, body = raw[4:end], raw[end + 4:].lstrip("\n")
+                for line in fm.splitlines():
+                    if line.startswith("description:"):
+                        desc = line[12:].strip().strip('"').strip("'")
+                    elif line.startswith("argument-hint:"):
+                        hint = line[14:].strip().strip('"').strip("'")
+        out.append({"name": f.stem, "description": desc,
+                    "argumentHint": hint, "body": body, "scope": scope,
+                    # solo los marcadores de verdad: con un "$" a secas, un
+                    # cuerpo que mencione $HOME o un precio pediria
+                    # argumentos que luego no se sustituyen en ninguna parte
+                    "needsArgs": bool(PROMPT_VAR.search(body)),
+                    # que huecos usa: los numeros que aparecen y si toma
+                    # todos de una pieza. El cliente pinta un campo por hueco
+                    "slots": prompt_slots(body)})
+    return out
+
+
+def prompt_save(scope, cwd, name, description, hint, body, old_name=None):
+    """Escribe (o renombra) una plantilla. Pi es el dueño del formato: el
+    nombre es el del fichero y el frontmatter lleva description y
+    argument-hint. Devuelve None si fue bien, o el error en texto."""
+    if not _safe_dirname(name):
+        return "bad name"
+    if len(description or "") > 1024:
+        return "description too long"
+    root = _prompts_root(scope, cwd)
+    dest = root / (name + ".md")
+    if (not old_name or old_name != name) and dest.exists():
+        return "name already in use: %s" % name
+    fm = ["---", "description: %s" % (description or "").replace("\n", " ")]
+    if (hint or "").strip():
+        fm.append("argument-hint: %s" % hint.strip().replace("\n", " "))
+    fm.append("---")
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+        dest.write_text("\n".join(fm) + "\n\n" + (body or ""),
+                        encoding="utf-8")
+        if old_name and old_name != name:
+            old = root / (old_name + ".md")
+            if old.is_file():
+                old.unlink()
+    except OSError as exc:
+        return "cannot write the macro: %s" % exc
+    return None
+
+
+def prompt_delete(scope, cwd, name):
+    if not _safe_dirname(name):
+        return "bad name"
+    f = _prompts_root(scope, cwd) / (name + ".md")
+    if not f.is_file():
+        return "macro not found: %s" % name
+    try:
+        f.unlink()
+    except OSError as exc:
+        return "cannot delete the macro: %s" % exc
+    return None
+
+
 def _safe_dirname(n):
     """Nombre de carpeta de skill: sin separadores, sin .., sin punto inicial."""
     return bool(n) and len(n) <= 64 and "/" not in n and "\\" not in n \
@@ -2757,6 +2908,62 @@ class Bridge:
             err = set_trust(msg.get("path"), msg.get("decision"))
             self.emit({"type": "rpc", "command": t,
                        "data": {"error": err} if err else {}})
+            return
+
+        if t == "prompts_list":
+            # las dos fuentes juntas: la del proyecto gana si repite nombre,
+            # igual que el resto de recursos
+            g = prompts_list("global", "")
+            pj = prompts_list("project", self.cwd) if self.cwd else []
+            by = {x["name"]: x for x in g}
+            by.update({x["name"]: x for x in pj})
+            self.emit({"type": "rpc", "command": t,
+                       "data": {"prompts": sorted(by.values(),
+                                                  key=lambda x: x["name"])}})
+            return
+
+        if t in ("prompt_save", "prompt_delete"):
+            scope = "project" if msg.get("scope") == "project" else "global"
+            if scope == "project" and not self.cwd:
+                self.emit({"type": "rpc", "command": t,
+                           "data": {"error": "no project open"}})
+                return
+            if t == "prompt_save":
+                err = prompt_save(scope, self.cwd, msg.get("name"),
+                                  msg.get("description"), msg.get("hint"),
+                                  msg.get("body"), msg.get("oldName"))
+            else:
+                err = prompt_delete(scope, self.cwd, msg.get("name"))
+            self.emit({"type": "rpc", "command": t,
+                       "data": {"error": err} if err else {"ok": True}})
+            return
+
+        if t == "prompt_run":
+            name = msg.get("name")
+            g = prompts_list("global", "")
+            pj = prompts_list("project", self.cwd) if self.cwd else []
+            by = {x["name"]: x for x in g}
+            by.update({x["name"]: x for x in pj})
+            tpl = by.get(name)
+            if not tpl:
+                self.emit({"type": "rpc", "command": t,
+                           "data": {"error": "prompt not found: %s" % name}})
+                return
+            # argv (lista) gana sobre args (linea): con un campo por hueco el
+            # cliente ya sabe que valor va en que posicion, y serializar a
+            # una linea para volver a trocearla perdia los huecos saltados
+            # (una plantilla con $1 y $3 dejaba el tercero vacio)
+            argv = msg.get("argv")
+            args = ([str(x) for x in argv] if isinstance(argv, list)
+                    else parse_prompt_args(msg.get("args") or ""))
+            text = expand_prompt(tpl["body"], args)
+            if not text.strip():
+                self.emit({"type": "rpc", "command": t,
+                           "data": {"error": "the template expanded to nothing"}})
+                return
+            # ya expandido: para pi es un prompt normal, no un comando
+            self.send_pi({"type": "prompt", "message": text})
+            self.emit({"type": "rpc", "command": t, "data": {"name": name}})
             return
 
         if t == "agent_prefs_get":

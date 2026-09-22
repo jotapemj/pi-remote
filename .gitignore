@@ -13,6 +13,10 @@ bridge.log.1
 # lo que deja el harness al correr
 tests/_*
 
+# intermedios de las capturas del README (los finales van compuestos)
+docs/_*.png
+docs/*-desktop.png
+
 # python
 __pycache__/
 *.py[cod]

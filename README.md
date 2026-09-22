@@ -397,6 +397,32 @@ of optional switches, each remembered per browser.
 - **Agent behaviour**: how messages sent while pi is working are queued
   (`steeringMode`, `followUpMode`) and the provider transport. The two queue
   modes apply immediately; the transport waits for a restart.
+- **Macros** (the `+` button next to the composer): pi's prompt templates,
+  launched with one tap. Any markdown file under `~/.pi/agent/prompts/`, or
+  `.pi/prompts/` inside a project, becomes one — the file name is the macro,
+  and the frontmatter's `description` and `argument-hint` label it:
+
+  ```markdown
+  ---
+  description: Review staged changes
+  argument-hint: <path>
+  ---
+
+  Review $1 and report back.
+  ```
+
+  A template with no placeholders fires straight away; one with them asks for
+  the arguments first. `$1` … `$N` take positional arguments, `$@` and
+  `$ARGUMENTS` take them all, and quotes group words (`foo "two words"` is two
+  arguments). The bridge expands the template and sends the result as an
+  ordinary prompt, because pi does not expand templates over RPC. Bash-style
+  defaults and slicing (`${1:-x}`, `${@:2:3}`) are not supported.
+
+<p align="center">
+  <img src="docs/macros.png" width="300"
+       alt="The macros page: a new macro button and the templates of the active project, with their descriptions and scope">
+</p>
+
 - **Providers** (under pi agent settings): view, edit and add the entries of
   `models.json`. The API type is picked from the ones pi implements rather
   than typed, since a typo only surfaces on the next restart. Keys travel as
@@ -411,6 +437,12 @@ of optional switches, each remembered per browser.
   that knee. A bar underneath shows where the window goes and how many tokens
   are left to work with between compactions. Written to pi's global
   `settings.json` and applied on the next restart.
+
+<p align="center">
+  <img src="docs/context.png" width="300"
+       alt="The context page: auto compact, presets, the reserve and recent-context sliders, and the window split bar">
+</p>
+
 - **Functions** page:
   - **Auto-name sessions** (experimental): on the first prompt of an unnamed
     session the local model is asked for a short title in the app's language.
@@ -479,7 +511,7 @@ python tests/run.py            # everything, about four minutes
 python tests/run.py rail       # just the ones matching "rail"
 ```
 
-Forty-seven probes: the page is driven in a real headless Chrome through the
+Sixty probes: the page is driven in a real headless Chrome through the
 DevTools protocol, which is how the animation, contrast, layout and security
 checks are measured rather than assumed. Chrome or Edge is found
 automatically; point `CHROME` at it otherwise.

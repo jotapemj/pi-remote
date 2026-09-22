@@ -1227,6 +1227,19 @@ footer > *{position:relative; z-index:1}
   position:absolute; right:12px; top:50%; translate:0 -50%;
   width:16px; height:16px; color:var(--faint); pointer-events:none;
 }
+/* varios campos en un dialogo: con muchos huecos la lista scrollea, con el
+   mismo fundido arriba y abajo que el resto de superficies */
+.mfields{
+  display:grid; gap:2px; max-height:46vh; overflow-y:auto;
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 14px,
+    #000 calc(100% - 14px), transparent 100%);
+  mask-image:linear-gradient(to bottom, transparent 0, #000 14px,
+    #000 calc(100% - 14px), transparent 100%);
+}
+/* con un solo campo no hay nada que desvanecer */
+.mfields:has(> .mfield:only-child){
+  overflow:visible; -webkit-mask-image:none; mask-image:none;
+}
 /* nivel del mapa: el campo y su interruptor de "soportado" en una fila */
 .mfield.lvl{display:flex; align-items:center; gap:12px}
 .mfield.lvl input{flex:1; min-width:0}
@@ -2047,6 +2060,7 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
       <div class="plusmenu" id="plusMenu" hidden>
         <button class="pmi" data-act="commands"><span class="pmi-ic" data-ic="terminal"></span><span data-t="commands"></span></button>
         <button class="pmi" data-act="image"><span class="pmi-ic" data-ic="image"></span><span data-t="image"></span></button>
+        <button class="pmi" data-act="macros"><span class="pmi-ic" data-ic="terminal"></span><span data-t="macros"></span></button>
       </div>
       <input type="file" id="imgInput" accept="image/*" multiple hidden>
     </div>
@@ -4001,10 +4015,46 @@ function openModal(title, body, run, opts){
   ok.textContent = opts.ok || T("ok");
   ok.classList.toggle("danger", !!run && !opts.plain);
   modalCancel = opts.cancel || null;
-  ok.onclick = run ? () => { modalCancel = null; closeModal(); run(); }
+  // opts.input: el dialogo pide UN dato y se lo pasa a run().
+  // opts.inputs: varios, y run() recibe lo escrito ya unido en una linea,
+  // con comillas en lo que lleve espacios para que no se parta en dos
+  let field = null, many = null;
+  if(opts.input || opts.inputs){
+    const wrap = document.createElement("div");
+    wrap.className = "mfields";
+    (opts.inputs || [{label: opts.input === true ? T("macroArgs")
+                                                 : opts.input}])
+      .forEach((spec, i) => {
+        const f = document.createElement("div");
+        f.className = "mfield";
+        const inp = document.createElement("input");
+        inp.placeholder = " ";
+        inp.setAttribute("autocomplete", "off");
+        if(i === 0){ field = inp; inp.id = "modalInput"; }
+        const lbl = document.createElement("label");
+        lbl.textContent = spec.label;
+        f.append(inp, lbl); wrap.appendChild(f);
+      });
+    $("#modalBody").appendChild(wrap);
+    if(opts.inputs) many = [...wrap.querySelectorAll("input")];
+  }
+  // con varios campos se devuelve la LISTA, cada valor en su posicion real:
+  // unirlos en una linea y volver a trocearla perdia los huecos saltados
+  const collect = () => many
+    ? (() => {
+        const specs = opts.inputs;
+        const max = Math.max(...specs.map(x => x.key || 0));
+        const argv = new Array(max).fill("");
+        many.forEach((inp, i) => { argv[(specs[i].key || i + 1) - 1] = inp.value; });
+        return argv;
+      })()
+    : (field ? field.value : undefined);
+  ok.onclick = run ? () => { const v = collect();
+                             modalCancel = null; closeModal(); run(v); }
                    : () => closeModal();
   no.onclick = () => closeModal();
   $("#modal").classList.add("open"); navArm();
+  if(field) requestAnimationFrame(() => field.focus());
 }
 const modal = (title, body) => openModal(title, body, null);
 const confirmModal = (title, body, run) => openModal(title, body, run);
@@ -5043,6 +5093,7 @@ plusMenu.querySelectorAll(".pmi").forEach(b => {
     plusOpen(false);
     if(b.dataset.act === "commands"){ box.value = "/"; paintPalette(); slashToggle(); }
     else if(b.dataset.act === "image"){ imgInput.value = ""; imgInput.click(); }
+    else if(b.dataset.act === "macros"){ openMacros(); }
   };
 });
 document.addEventListener("pointerdown", e => {   // dismiss tocando fuera
@@ -5282,6 +5333,11 @@ const STR = {
       defaultReasoning:"Default reasoning",
       visionLbl:"Accepts images",
       agentBehaviour:"Agent behaviour",
+      macros:"Macros",
+      newMacro:"New macro", editMacro:"Edit macro",
+      macroName:"Name", macroHint:"Argument hint",
+      deleteMacroQ:"Delete macro {name}?",
+      macroArgs:"Arguments",
       needsRestart:"This page needs pi remote to be restarted",
       steeringMode:"Queue while working",
       followUpMode:"Follow-up queue",
@@ -5407,6 +5463,11 @@ const STR = {
       defaultReasoning:"Razonamiento por defecto",
       visionLbl:"Acepta imágenes",
       agentBehaviour:"Comportamiento del agente",
+      macros:"Macros",
+      newMacro:"Nuevo macro", editMacro:"Editar macro",
+      macroName:"Nombre", macroHint:"Pista de argumentos",
+      deleteMacroQ:"¿Eliminar el macro {name}?",
+      macroArgs:"Argumentos",
       needsRestart:"Esta página necesita reiniciar pi remote",
       steeringMode:"Cola mientras trabaja",
       followUpMode:"Cola de seguimiento",
@@ -5532,6 +5593,11 @@ const STR = {
       defaultReasoning:"Standard-Reasoning",
       visionLbl:"Akzeptiert Bilder",
       agentBehaviour:"Agent-Verhalten",
+      macros:"Makros",
+      newMacro:"Neues Makro", editMacro:"Makro bearbeiten",
+      macroName:"Name", macroHint:"Argument-Hinweis",
+      deleteMacroQ:"Makro {name} löschen?",
+      macroArgs:"Argumente",
       needsRestart:"Für diese Seite muss pi remote neu gestartet werden",
       steeringMode:"Warteschlange beim Arbeiten",
       followUpMode:"Folge-Warteschlange",
@@ -5656,6 +5722,11 @@ const STR = {
       defaultReasoning:"Raisonnement par défaut",
       visionLbl:"Accepte les images",
       agentBehaviour:"Comportement de l'agent",
+      macros:"Macros",
+      newMacro:"Nouvelle macro", editMacro:"Modifier la macro",
+      macroName:"Nom", macroHint:"Indice d'arguments",
+      deleteMacroQ:"Supprimer la macro {name} ?",
+      macroArgs:"Arguments",
       needsRestart:"Cette page nécessite de redémarrer pi remote",
       steeringMode:"File pendant le travail",
       followUpMode:"File de relance",
@@ -5779,6 +5850,11 @@ const STR = {
       defaultReasoning:"Raciocínio predefinido",
       visionLbl:"Aceita imagens",
       agentBehaviour:"Comportamento do agente",
+      macros:"Macros",
+      newMacro:"Novo macro", editMacro:"Editar macro",
+      macroName:"Nome", macroHint:"Dica de argumentos",
+      deleteMacroQ:"Eliminar o macro {name}?",
+      macroArgs:"Argumentos",
       needsRestart:"Esta página precisa de reiniciar o pi remote",
       steeringMode:"Fila enquanto trabalha",
       followUpMode:"Fila de seguimento",
@@ -5901,6 +5977,11 @@ const STR = {
       defaultReasoning:"默认推理强度",
       visionLbl:"接受图像",
       agentBehaviour:"代理行为",
+      macros:"宏",
+      newMacro:"新建宏", editMacro:"编辑宏",
+      macroName:"名称", macroHint:"参数提示",
+      deleteMacroQ:"删除宏 {name}？",
+      macroArgs:"参数",
       needsRestart:"此页面需要重启 pi remote",
       steeringMode:"工作时的队列",
       followUpMode:"后续队列",
@@ -6728,6 +6809,8 @@ function sizeCard(body){
 /* el menu es un cuaderno de paginas: raiz, apariencia, idioma, modelo */
 let sheetPage = "root";
 let sheetStack = [];        // paginas para volver con atras, una por nivel
+let sheetHome = "root";     // pagina con la que se abrio la hoja: al volver
+                            // ahi con la pila vacia, se cierra
 let models = [];          // modelos disponibles, cacheados al pedirlos
 let editModel = null;     // el modelo que se esta editando en modelEdit
 /* compositor de skills: draft en curso, huella del original (para "descartar?")
@@ -6970,6 +7053,72 @@ function skillGuard(){
   openModal(T("discardQ"), "", goBack,
     {ok: T("yes"), no: T("no")});
   return true;
+}
+
+/* ---------- macros (plantillas de prompt de pi) ----------
+   Ficheros .md en AGENT_DIR/prompts y <cwd>/.pi/prompts. pi los convierte en
+   comandos en su TUI, pero en modo RPC NO los expande (su handler de prompt
+   no pasa expandPromptTemplates), asi que el puente los expande y manda el
+   texto resultante como un prompt normal. */
+let macros = null;         // lo ultimo que dio el puente
+function openMacros(){
+  macros = null;
+  $("#sheet").classList.add("open");
+  sheetStack = []; sheetHome = "macros";   // se vino del compositor
+  paintSheet("macros");
+  navArm();
+}
+let macroDraft = null;     // el macro que se esta escribiendo
+/* crear: si hay proyecto abierto se elige donde vive, porque la respuesta
+   cambia quien lo ve (solo este proyecto, o todos) */
+function newMacro(anchor){
+  const go = scope => {
+    macroDraft = {scope, oldName: null, name: "", description: "",
+                  hint: "", body: ""};
+    goPage("macroedit");
+  };
+  if(!state.cwd) return go("global");
+  ctxPopup(anchor, [
+    {icon:"public", label:T("provGlobal"), run:()=>go("global")},
+    {icon:"folder", label:T("provProject"), run:()=>go("project")}], anchor);
+}
+function editMacro(m){
+  macroDraft = {scope: m.scope, oldName: m.name, name: m.name,
+                description: m.description || "", hint: m.argumentHint || "",
+                body: m.body || ""};
+  goPage("macroedit");
+}
+/* Nombres de los huecos. pi no admite marcadores con nombre (solo $N, $@ y
+   $ARGUMENTS), asi que inventarlos rompería el macro en su TUI. Pero el
+   argument-hint es texto libre y es donde ya se nombran: "<antes> <despues>"
+   da "antes" y "despues". Lo que falte cae al numero. */
+function macroSlotNames(hint){
+  return (hint || "").split(/\s+/)
+    .map(x => x.replace(/^[<\[{(]+|[>\]})]+$/g, "").trim())
+    .filter(Boolean);
+}
+function runMacro(m){
+  const go = args => {
+    $("#sheet").classList.remove("open");
+    // lista: cada valor en su hueco. Cadena: el puente la trocea
+    send(Array.isArray(args)
+      ? {type:"prompt_run", name: m.name, argv: args}
+      : {type:"prompt_run", name: m.name, args: args || ""});
+  };
+  if(!m.needsArgs) return go("");
+  const slots = m.slots || {nums: [], all: false};
+  const names = macroSlotNames(m.argumentHint);
+  // un solo hueco, o uno que se lo lleva todo: una caja y fuera
+  if(slots.all || slots.nums.length <= 1){
+    return openModal("/" + m.name, "", v => go(v),
+                     {ok: T("send"), plain: true,
+                      input: m.argumentHint || true});
+  }
+  // varios: un campo por hueco, con su nombre si el hint lo da
+  openModal("/" + m.name, "", vals => go(vals),
+            {ok: T("send"), plain: true,
+             inputs: slots.nums.map((n, i) => ({
+               key: n, label: names[i] || ("$" + n)}))});
 }
 
 /* ---------- compaction ----------
@@ -7485,6 +7634,66 @@ function paintSheet(page){
       chevron:true, run: () => goPage("resglobal")}));
     return;
   }
+  if(page === "macros"){
+    $("#sheetTitle").textContent = T("macros");
+    if(macros === null){
+      send({type:"prompts_list"});
+      head("loadingModels");
+      return;
+    }
+    // crear es la accion, no un parrafo explicando donde va el fichero
+    const add = pickBtn({icon:"add", label:T("newMacro"),
+      run: () => newMacro(add)});
+    body.appendChild(add);
+    macros.forEach(m => body.appendChild(pickBtn({
+      icon: "terminal", label: "/" + m.name,
+      hint: [m.description, m.scope === "project" ? T("provProject") : null]
+        .filter(Boolean).join("  ·  "),
+      dots: d => ctxPopup(d, [
+        {icon:"pen", label:T("editMacro"), run:()=>editMacro(m)},
+        {icon:"remove", bad:true, label:T("deleteLbl"), run:()=>
+          confirmModal(T("deleteMacroQ").replace("{name}", m.name), "",
+            ()=>send({type:"prompt_delete", scope:m.scope, name:m.name}))}], d),
+      run: () => runMacro(m)})));
+    return;
+  }
+  if(page === "macroedit"){
+    const d0 = macroDraft;
+    if(!d0) return;
+    $("#sheetTitle").textContent = d0.oldName ? T("editMacro") : T("newMacro");
+    const sub = document.createElement("div");
+    sub.className = "shead";
+    sub.textContent = d0.scope === "project" ? T("provProject") : T("provGlobal");
+    body.appendChild(sub);
+    const okb = $("#sheetOk");
+    const valid = () => !!(d0.name.trim() && d0.body.trim());
+    const field = (key, val, multi) => {
+      const f = document.createElement("div");
+      f.className = "mfield" + (multi ? " ta" : "");
+      const el = document.createElement(multi ? "textarea" : "input");
+      el.placeholder = " "; el.value = val || "";
+      el.addEventListener("input", () => {
+        d0[key === "macroName" ? "name" : key === "macroHint" ? "hint"
+           : key === "skillDesc" ? "description" : "body"] = el.value;
+        okb.hidden = !valid();
+      });
+      const lbl = document.createElement("label");
+      lbl.textContent = T(key);
+      f.append(el, lbl); body.appendChild(f);
+    };
+    field("macroName", d0.name);
+    field("skillDesc", d0.description);
+    field("macroHint", d0.hint);
+    field("skillBody", d0.body, true);
+    okb.hidden = !valid();
+    okb.onclick = () => {
+      send({type:"prompt_save", scope:d0.scope, name:d0.name.trim(),
+            description:d0.description, hint:d0.hint, body:d0.body,
+            oldName:d0.oldName});
+      macroDraft = null; okb.hidden = true;
+    };
+    return;
+  }
   if(page === "compaction"){
     $("#sheetTitle").textContent = T("contextComp");
     if(compErr){                      // el puente no respondio: decirlo
@@ -7933,7 +8142,11 @@ function goBack(){
   if(projGuard()) return;
   if(skillGuard()) return;
   if(compGuard()) return;
-  turnTo(sheetStack.pop() || "root", -1);
+  // en la pagina con la que se abrio la hoja no hay nivel al que subir:
+  // atras la cierra y devuelve al chat
+  if(!sheetStack.length && sheetPage === sheetHome)
+    return $("#sheet").classList.remove("open");
+  turnTo(sheetStack.pop() || sheetHome, -1);
 }
 /* salir de ajustes por proyecto con cambios sin guardar: preguntar */
 function projGuard(){
@@ -8095,7 +8308,7 @@ dragToDismiss(palette, ".grab, .phead", closePalette, null);
 })();
 
 function menuSheet(){
-  sheetStack = [];                   // abrir el menu es raiz de la pila
+  sheetStack = []; sheetHome = "root";   // abrir el menu es raiz de la pila
   paintSheet("root");
   $("#sheet").classList.add("open"); navArm();
   marqueeAll($("#sheetBody"));
@@ -8608,6 +8821,22 @@ function onRpc(m){
     send({type:"get_available_models"});
     sheetStack = [];
     turnTo("modelList", -1);
+    return;
+  }
+  if(m.command === "prompts_list"){
+    macros = (d && d.error) ? [] : (d.prompts || []);
+    if(d && d.error) note(d.error);
+    if(sheetPage === "macros") paintSheet("macros");
+    return;
+  }
+  if(m.command === "prompt_run"){
+    if(d && d.error) return note(d.error);
+    return;
+  }
+  if(m.command === "prompt_save" || m.command === "prompt_delete"){
+    if(d && d.error) return note(d.error);
+    send({type:"prompts_list"});        // el onRpc de la lista repinta
+    if(sheetPage === "macroedit"){ sheetStack = []; turnTo("macros", -1); }
     return;
   }
   if(m.command === "agent_prefs_get"){

@@ -38,6 +38,7 @@ ORDER = ["static_check", "theme_check", "label_check", "notes_check",
          "providers_probe", "skills_probe", "stream_probe",
          "autoname_probe", "notify_probe",
          "undo_probe", "header_probe", "navback_probe", "railui_probe",
+         "macros_probe",
          "image_probe",
          "toolimg_probe", "stats_probe", "multi_probe", "pwa_probe",
          "gesture_probe", "kb_anchor_probe"]
