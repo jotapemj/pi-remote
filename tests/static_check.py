@@ -74,9 +74,11 @@ checks = [
      '.sw[aria-checked="true"]{background:var(--amber)}' in css),
     ("la barra lateral se anima en escritorio",
      "transition:width .3s cubic-bezier(.32,.72,0,1)" in css),
+    # el porcentaje va entero: el segundo decimal cambiaba con cada token y
+    # no habia ninguna decision que dependiera de el
     ("medidor de contexto redondeado",
      ".ctx{" in css and "border-radius:11px" in css
-     and "p.toFixed(2)" in h),
+     and "Math.round(p)" in h),
     ("boton de copiar en los bloques",
      ".copyb{" in css and "legacyCopy(" in h),
     ("sitio para el teclado del movil",

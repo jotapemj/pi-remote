@@ -86,7 +86,8 @@ async def ui():
                 await js("document.querySelector('#sheetBody .mrow .pen').click()")
                 await asyncio.sleep(0.4)
                 ed = await js("""(()=>{
-                  const f=[...document.querySelectorAll('.mfield')];
+                  // .sel es el campo de eleccion: no lleva input
+                  const f=[...document.querySelectorAll('.mfield:not(.sel)')];
                   return {title:$('#sheetTitle').textContent,
                           sub:document.querySelector('#sheetBody .shead').textContent,
                           n:f.length,
@@ -97,11 +98,15 @@ async def ui():
                 checks += [
                     ("titulo «Editar modelo» y subtitulo con el nombre",
                      ed["title"] == "Editar modelo" and "Qwen3 8B" in ed["sub"]),
-                    ("cuatro campos, en orden", ed["n"] == 4),
+                    # las modalidades pasaron de campo de solo lectura a
+                    # interruptor: si cambia el servidor donde corre el modelo
+                    # (gana o pierde vision) hay que poder corregirlas. El id
+                    # sigue bloqueado: es la clave con la que pi lo encuentra
+                    ("tres campos, en orden", ed["n"] == 3),
                     ("carga los valores existentes",
-                     ed["vals"] == ["32768", "4096", "qwen3-8b", "text"]),
-                    ("id y modalidades de solo lectura",
-                     ed["ro"] == [False, False, True, True]),
+                     ed["vals"] == ["32768", "4096", "qwen3-8b"]),
+                    ("solo el id es de solo lectura",
+                     ed["ro"] == [False, False, True]),
                     ("sin cambios no hay check", ed["ok"] is True),
                 ]
 

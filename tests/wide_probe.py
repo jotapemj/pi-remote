@@ -91,14 +91,17 @@ async def wide(p, js):
     print("  plegado : %s | menu=%s" % (c["cols"], c["menu"]))
     checks += [
         ("plegar deja la barra en su rail fino", c["railAncho"] == 64),
-        ("y devuelve el boton de menu", c["menu"] != "none"),
+        # en escritorio el logo del rail fino pliega y despliega, asi que la
+        # hamburguesa ya no aparece en ninguno de los dos estados
+        ("y la hamburguesa sigue escondida", c["menu"] == "none"),
         ("el chat ocupa el resto", c["chatIzq"] == 64),
     ]
-    await js("$('#railBtn').click()")
+    await js("$('#slimLogo').click()")
     await asyncio.sleep(0.35)
     d = await js(LAYOUT)
     print("  vuelta  : barra %spx" % d["railAncho"])
-    checks.append(("el boton de menu la trae de vuelta", d["railAncho"] > 0))
+    checks.append(("el logo del rail fino la trae de vuelta",
+                   d["railAncho"] > 64))
 
     # los ajustes son una ventana, no una hoja
     await js("menuSheet(); turnTo('appearance', 1)")

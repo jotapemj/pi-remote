@@ -384,8 +384,33 @@ The settings menu has a **Model** card on its root and a **Functions** page
 of optional switches, each remembered per browser.
 
 - **Model** (settings root): pick the active model; the choice is remembered
-  for every new session. The pencil on each row edits its context window and
-  max tokens (applied on the next restart).
+  for every new session. Each row has a pencil to edit it and a bin to remove
+  it from `models.json`. The editor covers context window, max tokens and
+  whether the model accepts images — that last one matters when the server
+  behind it changes. The model id stays read-only: it is the key pi looks it
+  up by. A **reasoning map** page translates pi's levels (`off` … `max`) into
+  whatever the server expects, one value per level; a level switched off is
+  one pi will not offer at all, which is how the available levels are decided.
+- **Default reasoning** (next to Model): the level new sessions start at,
+  stored as `defaultThinkingLevel`. The list is the one pi reports for the
+  active model, so it already reflects that model's reasoning map.
+- **Agent behaviour**: how messages sent while pi is working are queued
+  (`steeringMode`, `followUpMode`) and the provider transport. The two queue
+  modes apply immediately; the transport waits for a restart.
+- **Providers** (under pi agent settings): view, edit and add the entries of
+  `models.json`. The API type is picked from the ones pi implements rather
+  than typed, since a typo only surfaces on the next restart. Keys travel as
+  a flag, never as a value.
+- **Context** (next to Model): pi's compaction settings — auto compact, the
+  reserve for the response, and how much recent context is kept verbatim.
+  Both numbers are sliders bounded by the active model, because pi derives
+  them from it: it compacts at `window - reserve`, and the summary gets
+  `min(0.8 x reserve, maxTokens)`. Past `maxTokens x 1.25` the reserve stops
+  buying summary and only compacts earlier, so that point is marked on the
+  slider. Three presets set the recent context; the reserve always goes to
+  that knee. A bar underneath shows where the window goes and how many tokens
+  are left to work with between compactions. Written to pi's global
+  `settings.json` and applied on the next restart.
 - **Functions** page:
   - **Auto-name sessions** (experimental): on the first prompt of an unnamed
     session the local model is asked for a short title in the app's language.

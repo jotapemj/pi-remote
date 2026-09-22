@@ -94,6 +94,61 @@ async def main():
                 ("la app instalada recupera el token del guardado",
                  tok == "probe-token" and hasQuery == ""),
             ]
+
+            # el color queda puesto ANTES del primer paint: Android lo lee al
+            # pasar de su splash a la pagina, y si cambia despues la barra se
+            # queda negra. El script #bootbar va tras el <style>, cuando las
+            # variables del tema ya resuelven y no se ha pintado nada
+            early = await p.js("""(()=>{
+              const m=document.querySelector('meta[name="theme-color"]');
+              const plate=getComputedStyle(document.documentElement)
+                .getPropertyValue('--plate-a').trim();
+              const bb=document.getElementById('bootbar');
+              const st=document.querySelector('style');
+              return {yaPuesto: m.content.toLowerCase()===plate.toLowerCase(),
+                trasElStyle: !!(bb && st &&
+                  (st.compareDocumentPosition(bb) & Node.DOCUMENT_POSITION_FOLLOWING)),
+                anteDelCuerpo: !!(bb && document.body &&
+                  (bb.compareDocumentPosition(document.body)
+                    & Node.DOCUMENT_POSITION_FOLLOWING))};})()""")
+            checks += [
+                ("la barra ya trae su color de salida, sin esperar al JS",
+                 early["yaPuesto"] is True),
+                ("el script va tras el estilo y antes del cuerpo",
+                 early["trasElStyle"] and early["anteDelCuerpo"]),
+            ]
+
+            # ---- la barra del sistema sigue al tema ----
+            # Chrome Android no repinta la barra solo con cambiar el content
+            # del meta: hay que reinsertar el nodo para que lo relea. El
+            # repintado en si es del sistema y no se puede medir desde aqui;
+            # lo que se mide es el color puesto y que el nodo se reinserta
+            bar = await p.js("""(()=>{
+              const m = () => document.querySelector('meta[name="theme-color"]');
+              setTheme('pi', 'dark');
+              const dark = m().content;
+              const last = document.head.lastElementChild === m();
+              setTheme('pi', 'light');
+              const light = m().content;
+              const plate = getComputedStyle(document.documentElement)
+                .getPropertyValue('--plate-a').trim();
+              return {dark, light, plate, last,
+                      sigue: light.toLowerCase() === plate.toLowerCase()};})()""")
+            await p.js("setTheme('pi','dark')")
+            vis = await p.js("""(()=>{
+              const m = document.querySelector('meta[name="theme-color"]');
+              m.content = '#000000';                 // como si no se aplicara
+              document.dispatchEvent(new Event('visibilitychange'));
+              return document.querySelector('meta[name="theme-color"]').content;
+              })()""")
+            checks += [
+                ("la barra toma el color de la toolbar del tema",
+                 bar["sigue"] is True and bar["dark"] != bar["light"]),
+                ("el meta se reinserta para que el sistema lo relea",
+                 bar["last"] is True),
+                ("y al volver a la app se reaplica solo",
+                 vis.lower() != "#000000"),
+            ]
     return checks
 
 

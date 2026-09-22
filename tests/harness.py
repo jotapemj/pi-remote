@@ -239,7 +239,11 @@ class Page:
         await self._ws.send(json.dumps({"id": self._n, "method": method,
                                         "params": params}))
         while True:
-            m = json.loads(await asyncio.wait_for(self._ws.recv(), 30))
+            # 60 s, no 30: con tres workers hay tres Chrome compitiendo y una
+            # respuesta puede tardar de sobra sin que nada este colgado. El
+            # probe mas largo (projset) fallaba por esto, no por su codigo.
+            # Un cuelgue de verdad sigue saltando, solo que mas tarde
+            m = json.loads(await asyncio.wait_for(self._ws.recv(), 60))
             if m.get("id") == self._n:
                 return m.get("result", {})
             self._note(m)

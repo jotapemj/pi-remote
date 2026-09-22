@@ -112,7 +112,11 @@ async def main():
                            " $('#bar').className,"
                            " getComputedStyle($('#bar')).borderRadius]")
             print("  medidor: %r ancho=%s clases=%r radio=%s" % tuple(ctx))
-            checks.append(("dos decimales", "56.79%" in ctx[0]))
+            # el porcentaje se lee entero: el segundo decimal cambiaba con
+            # cada token y no habia decision que dependiera de el. El relleno
+            # de la barra si conserva la precision (lo mide el check de abajo)
+            checks.append(("porcentaje entero, sin decimales de adorno",
+                           "57%" in ctx[0] and "56.79" not in ctx[0]))
             checks.append(("contexto en k separado", "56k/131k" in ctx[0]))
             checks.append(("el relleno sigue al porcentaje",
                            ctx[1].startswith("56.78")))

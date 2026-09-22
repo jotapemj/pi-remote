@@ -208,7 +208,9 @@ async def ui():
               const rs=[...document.querySelectorAll('#sheetBody .skrow:not(.extrow)')];
               return {seq,
                 n:rs.length,
-                names:rs.map(r=>r.querySelector('.stxt span').textContent),
+                // el nombre es el primer nodo de texto: al lado puede ir la insignia
+                names:rs.map(r=>r.querySelector('.stxt span')
+                  .firstChild.textContent),
                 pkg:rs.filter(r=>!r.querySelector('.sw')).length,
                 ext:[...document.querySelectorAll('#sheetBody .extrow')]
                       .map(r=>r.querySelector('.stxt span').textContent)};})()""")
@@ -230,7 +232,8 @@ async def ui():
               let err = null;
               try{ paintSkillRows('global'); }catch(e){ err = String(e); }
               const names = [...document.querySelectorAll(
-                '#sheetBody .skrow:not(.extrow) .stxt span')].map(x=>x.textContent);
+                '#sheetBody .skrow:not(.extrow) .stxt span')]
+                  .map(x=>x.firstChild.textContent);
               ab.classList.add('skilladd');             // y el DOM queda como estaba
               paintSkillRows('global');   // borra tambien las .extrow: van juntas
               paintExtRows('global');
@@ -340,8 +343,10 @@ async def ui():
             pop = await js("""(()=>{const p=document.querySelector('.ctxpop');
               return p ? [...p.querySelectorAll('.ctxrow')]
                        .map(b=>b.textContent) : [];})()""")
+            # la fila del menu dice solo "Delete": el aviso de que borra la
+            # carpeta entera se movio al dialogo de confirmacion
             checks.append(("los tres puntos ofrecen el borrado",
-                           any("Permanently delete" in x for x in pop)))
+                           pop == ["Delete"]))
             await js("document.querySelector('.ctxpop .ctxrow').click()")
             await asyncio.sleep(0.3)
             await js("$('#modalOk').click()")

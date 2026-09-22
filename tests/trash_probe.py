@@ -90,8 +90,14 @@ async def ui():
                               " !!c.querySelector('.tact.restore'),"
                               " !!c.querySelector('.tact.purge')]:null;})()")
             print("  card: %r" % card)
-            checks.append(("la card muestra titulo, ruta y los dos botones",
-                           card == ["chat viejo", "C:/Users/me/proj", True, True]))
+            # la segunda linea dice PROYECTO y fecha, no la ruta cruda: cuatro
+            # sesiones homonimas del mismo proyecto eran filas identicas
+            checks.append(("la card muestra titulo, proyecto y los dos botones",
+                           card is not None
+                           and card[0] == "chat viejo"
+                           and card[1].startswith("proj")
+                           and "Users" not in card[1]
+                           and card[2] is True and card[3] is True))
 
             # restaurar por su boton -> dialogo (por encima de la vista) -> comando
             await p.js("$('#trashList .trow .tact.restore').click()")

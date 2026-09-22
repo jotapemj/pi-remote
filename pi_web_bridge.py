@@ -119,6 +119,13 @@ RECENT_CAP = 12          # projects remembered for the sidebar
 HISTORY_CAP = 150        # messages replayed when a session opens
 DIFF_CAP = 400           # diff lines kept per edit
 
+# Los defaults de compaction de pi (core/compaction: DEFAULT_COMPACTION_SETTINGS).
+# El presupuesto del resumen es min(0.8 * reserveTokens, model.maxTokens), asi
+# que subir la reserva por encima de maxTokens * 1.25 no da mas resumen: solo
+# adelanta el corte. Ese codo es el tope util del slider.
+DEFAULT_COMPACTION = {"enabled": True, "reserveTokens": 16384,
+                      "keepRecentTokens": 20000}
+
 
 # Commands a browser may forward straight to pi. Everything else is refused.
 PASSTHROUGH = {
@@ -844,11 +851,17 @@ def _models_json_path():
     return Path(os.environ.get("PI_MODELS_JSON") or (AGENT_DIR / "models.json"))
 
 
-def save_model_params(provider, model_id, context_window, max_tokens):
+def save_model_params(provider, model_id, context_window, max_tokens,
+                      modalities=None):
     """Editar los parametros de un modelo en models.json.
 
     Round-trip: se lee el fichero entero y se reescribe con lo demas intacto.
-    Devuelve None si ha ido bien, o el error en texto plano."""
+    Devuelve None si ha ido bien, o el error en texto plano.
+
+    Las modalidades son editables: si cambia el servidor donde corre el
+    modelo (gana o pierde vision), el dato declarado deja de ser verdad y hay
+    que poder corregirlo. Lo que rompe el pipeline es declarar algo FALSO, no
+    editarlo; obligar a borrar y recrear el modelo seria peor."""
     p = _models_json_path()
     try:
         with open(p, encoding="utf-8") as fh:
@@ -860,6 +873,10 @@ def save_model_params(provider, model_id, context_window, max_tokens):
         if m.get("id") == model_id:
             m["contextWindow"] = context_window
             m["maxTokens"] = max_tokens
+            if modalities is not None:
+                mods = [x for x in modalities if x in MODALITIES]
+                if mods:
+                    m["input"] = mods
             try:
                 with open(p, "w", encoding="utf-8") as fh:
                     json.dump(d, fh, indent=2)
@@ -867,6 +884,25 @@ def save_model_params(provider, model_id, context_window, max_tokens):
                 return "cannot write models.json: %s" % exc
             return None
     return "model not found: %s/%s" % (provider, model_id)
+
+
+def model_limits(provider, model_id):
+    """(contextWindow, maxTokens) de un modelo de models.json.
+
+    Los dos mandan en la compactacion: la ventana fija donde corta pi y
+    maxTokens topa el presupuesto del resumen. Sin el modelo, (None, None)."""
+    try:
+        with open(_models_json_path(), encoding="utf-8") as fh:
+            d = json.load(fh)
+    except (OSError, ValueError):
+        return (None, None)
+    pv = (d.get("providers") or {}).get(provider)
+    for m in (pv or {}).get("models") or []:
+        if isinstance(m, dict) and m.get("id") == model_id:
+            cw, mt = m.get("contextWindow"), m.get("maxTokens")
+            return (cw if isinstance(cw, int) else None,
+                    mt if isinstance(mt, int) else None)
+    return (None, None)
 
 
 def providers_get():
@@ -921,7 +957,7 @@ def provider_save(provider_id, base_url, api):
 
 
 def model_add(provider_id, model_id, name, context_window, max_tokens,
-              reasoning):
+              reasoning, modalities=None):
     """Añadir un modelo a un provider existente (round-trip). Pi lo relee
     al arrancar: el cambio aplica tras /restart."""
     if not model_id or "/" in model_id:
@@ -937,9 +973,84 @@ def model_add(provider_id, model_id, name, context_window, max_tokens,
     ms = pv.setdefault("models", [])
     if any(m.get("id") == model_id for m in ms if isinstance(m, dict)):
         return "model exists: %s/%s" % (provider_id, model_id)
-    ms.append({"id": model_id, "name": name or model_id,
-               "contextWindow": context_window, "maxTokens": max_tokens,
-               "reasoning": bool(reasoning)})
+    m = {"id": model_id, "name": name or model_id,
+         "contextWindow": context_window, "maxTokens": max_tokens,
+         "reasoning": bool(reasoning)}
+    mods = [x for x in (modalities or []) if x in MODALITIES]
+    if mods:
+        # declarar la vision al CREAR no es mentirle a pi, es describir el
+        # modelo; lo que rompe el pipeline es cambiarsela a uno que ya existe
+        m["input"] = mods
+    ms.append(m)
+    return _write_models(d)
+
+
+THINK_LEVELS = ("off", "minimal", "low", "medium", "high", "xhigh", "max")
+MODALITIES = ("text", "image")
+# valores que pi acepta (settings-manager.d.ts y pi-ai/types.d.ts)
+QUEUE_MODES = ("all", "one-at-a-time")
+TRANSPORTS = ("sse", "websocket", "websocket-cached", "auto")
+
+
+def save_thinking_map(provider, model_id, level_map):
+    """Escribe `thinkingLevelMap` del modelo en models.json (round-trip).
+
+    Traduce el nivel que maneja pi al valor que entiende el servidor: una
+    cadena por nivel, o null para el que el modelo no acepta. Un nivel que no
+    aparece en el mapa se manda tal cual. Vive en el modelo, no en el
+    provider (ModelDefinitionSchema de pi)."""
+    if not isinstance(level_map, dict):
+        return "thinkingLevelMap must be an object"
+    bad = [k for k in level_map if k not in THINK_LEVELS]
+    if bad:
+        return "unknown level: %s" % ", ".join(sorted(bad))
+    # tres estados, no dos: null APAGA el nivel (pi lo excluye de los
+    # disponibles), ausente lo manda tal cual, y una cadena lo traduce.
+    # Tratar null como ausente activaba niveles que el servidor no acepta
+    clean = {}
+    for k, v in level_map.items():
+        if v is None:
+            clean[k] = None               # nivel no soportado por el modelo
+            continue
+        if not isinstance(v, str):
+            return "level %s must be a string" % k
+        if not v.strip():
+            continue                      # vacio: fuera del mapa
+        clean[k] = v.strip()
+    p = _models_json_path()
+    try:
+        with open(p, encoding="utf-8") as fh:
+            d = json.load(fh)
+    except (OSError, ValueError) as exc:
+        return "cannot read models.json: %s" % exc
+    pv = (d.get("providers") or {}).get(provider)
+    for m in (pv or {}).get("models") or []:
+        if isinstance(m, dict) and m.get("id") == model_id:
+            if clean:
+                m["thinkingLevelMap"] = clean
+            else:
+                m.pop("thinkingLevelMap", None)
+            return _write_models(d)
+    return "model not found: %s/%s" % (provider, model_id)
+
+
+def model_delete(provider_id, model_id):
+    """Quitar un modelo de models.json (round-trip). Pi es el dueño del
+    fichero y lo relee al arrancar: se aplica al reiniciar."""
+    try:
+        with open(_models_json_path(), encoding="utf-8") as fh:
+            d = json.load(fh)
+    except (OSError, ValueError) as exc:
+        return "cannot read models.json: %s" % exc
+    pv = (d.get("providers") or {}).get(provider_id)
+    ms = (pv or {}).get("models")
+    if not isinstance(ms, list):
+        return "provider not found: %s" % provider_id
+    keep = [m for m in ms if not (isinstance(m, dict)
+                                  and m.get("id") == model_id)]
+    if len(keep) == len(ms):
+        return "model not found: %s/%s" % (provider_id, model_id)
+    pv["models"] = keep
     return _write_models(d)
 
 
@@ -996,6 +1107,8 @@ def needs_trust(path):
         p = Path(path).resolve()
     except (OSError, ValueError):
         return False
+    if read_global_settings().get("defaultProjectTrust") == "always":
+        return False              # pi ya confia solo: el dialogo no pinta nada
     cfg = p / ".pi"
     if any((cfg / e).exists() for e in TRUST_REQUIRING):
         return True
@@ -1061,6 +1174,29 @@ def read_project_settings(cwd):
 
 def read_global_settings():
     return _read_json(AGENT_DIR / "settings.json")
+
+
+def save_global_settings(patch):
+    """Fusiona claves en el settings.json global (round-trip: el resto del
+    fichero se conserva). None borra la clave. Pi lo relee al arrancar.
+
+    Solo global a proposito: pi LEE compaction del merge global+proyecto pero
+    su unico setter escribe en el global. Escribir en el proyecto seria
+    inventar un camino que pi no usa."""
+    p = AGENT_DIR / "settings.json"
+    d = _read_json(p)
+    for k, v in (patch or {}).items():
+        if v is None:
+            d.pop(k, None)
+        else:
+            d[k] = v
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with open(p, "w", encoding="utf-8") as fh:
+            json.dump(d, fh, indent=2)
+    except OSError as exc:
+        return "cannot write settings.json: %s" % exc
+    return None
 
 
 def save_project_settings(cwd, patch):
@@ -1570,6 +1706,8 @@ class Bridge:
             "alive": True, "cwd": "", "waiting": False, "recent": [],
             "compactAt": None,
             "sessionFile": None, "summarizing": False,
+            # para que el cliente pinte ~ en vez de la carpeta del usuario
+            "home": str(Path.home()),
             # settings y confianza del proyecto abierto: procedencia del
             # readout (Global/Proyecto) y pagina de ajustes por proyecto
             "projSettings": {}, "projTrusted": False,
@@ -2080,8 +2218,8 @@ class Bridge:
         La reserva sale del merge global + proyecto (confiado), como en pi.
         Sin compaction o sin ventana conocida, None: la barra no dibuja."""
         g = read_global_settings().get("compaction") or {}
-        enabled = g.get("enabled", True)
-        reserve = g.get("reserveTokens", 16384)
+        enabled = g.get("enabled", DEFAULT_COMPACTION["enabled"])
+        reserve = g.get("reserveTokens", DEFAULT_COMPACTION["reserveTokens"])
         if self.state.get("projTrusted"):
             pc = (self.state.get("projSettings") or {}).get("compaction") or {}
             enabled = pc.get("enabled", enabled)
@@ -2567,7 +2705,7 @@ class Bridge:
                            "data": {"error": "parameters must be positive integers"}})
                 return
             err = save_model_params(msg.get("provider"), msg.get("modelId"),
-                                    cw, mt)
+                                    cw, mt, msg.get("input"))
             self.emit({"type": "rpc", "command": t,
                        "data": {"error": err} if err else {}})
             return
@@ -2586,7 +2724,8 @@ class Bridge:
                                     "parameters must be positive integers"}})
                 return
             err = model_add(msg.get("provider"), msg.get("id"),
-                            msg.get("name"), cw, mt, msg.get("reasoning"))
+                            msg.get("name"), cw, mt, msg.get("reasoning"),
+                            msg.get("input"))
             self.emit({"type": "rpc", "command": t,
                        "data": {"error": err} if err
                        else {"providers": providers_get()}})
@@ -2609,13 +2748,142 @@ class Bridge:
             decision, at = trust_decision(p)
             self.emit({"type": "rpc", "command": t,
                        "data": {"decision": decision, "trustedPath": at,
-                                "needsTrust": needs_trust(p)}})
+                                "needsTrust": needs_trust(p),
+                                "trustDefault": read_global_settings().get(
+                                    "defaultProjectTrust") or "ask"}})
             return
 
         if t == "trust_set":
             err = set_trust(msg.get("path"), msg.get("decision"))
             self.emit({"type": "rpc", "command": t,
                        "data": {"error": err} if err else {}})
+            return
+
+        if t == "agent_prefs_get":
+            g = read_global_settings()
+            self.emit({"type": "rpc", "command": t,
+                       "data": {"steeringMode": g.get("steeringMode") or "all",
+                                "followUpMode": g.get("followUpMode") or "all",
+                                "transport": g.get("transport") or "auto",
+                                "queueModes": list(QUEUE_MODES),
+                                "transports": list(TRANSPORTS)}})
+            return
+
+        if t == "agent_prefs_save":
+            patch, bad = {}, []
+            for k, allowed in (("steeringMode", QUEUE_MODES),
+                               ("followUpMode", QUEUE_MODES),
+                               ("transport", TRANSPORTS)):
+                if k in msg:
+                    if msg[k] not in allowed:
+                        bad.append(k)
+                    else:
+                        patch[k] = msg[k]
+            if bad:
+                self.emit({"type": "rpc", "command": t,
+                           "data": {"error": "invalid: %s" % ", ".join(bad)}})
+                return
+            err = save_global_settings(patch) if patch else None
+            # los modos de cola tambien por RPC: asi aplican sin reiniciar
+            # (el fichero es para que sobrevivan al arranque siguiente)
+            if not err:
+                if "steeringMode" in patch:
+                    self.send_pi({"type": "set_steering_mode",
+                                  "mode": patch["steeringMode"]})
+                if "followUpMode" in patch:
+                    self.send_pi({"type": "set_follow_up_mode",
+                                  "mode": patch["followUpMode"]})
+            self.emit({"type": "rpc", "command": t,
+                       "data": {"error": err} if err else patch})
+            return
+
+        if t == "thinking_map_get":
+            m = {}
+            try:
+                with open(_models_json_path(), encoding="utf-8") as fh:
+                    d = json.load(fh)
+                pv = (d.get("providers") or {}).get(msg.get("provider"))
+                for mm in (pv or {}).get("models") or []:
+                    if isinstance(mm, dict) and mm.get("id") == msg.get("modelId"):
+                        m = mm.get("thinkingLevelMap") or {}
+                        break
+            except (OSError, ValueError):
+                pass
+            self.emit({"type": "rpc", "command": t,
+                       "data": {"map": m, "levels": list(THINK_LEVELS)}})
+            return
+
+        if t == "thinking_map_save":
+            err = save_thinking_map(msg.get("provider"), msg.get("modelId"),
+                                    msg.get("thinkingLevelMap"))
+            self.emit({"type": "rpc", "command": t,
+                       "data": {"error": err} if err
+                       else {"levels": list(THINK_LEVELS)}})
+            return
+
+        if t == "model_delete":
+            err = model_delete(msg.get("provider"), msg.get("modelId"))
+            self.emit({"type": "rpc", "command": t,
+                       "data": {"error": err} if err
+                       else {"providers": providers_get()}})
+            return
+
+        if t == "thinking_default_get":
+            # pi resuelve el nivel con getDefaultThinkingLevel() sobre el
+            # settings global; el de proyecto no existe para esto
+            self.emit({"type": "rpc", "command": t,
+                       "data": {"level":
+                                read_global_settings().get(
+                                    "defaultThinkingLevel")}})
+            return
+
+        if t == "thinking_default_save":
+            lv = msg.get("level")
+            if lv is not None and not isinstance(lv, str):
+                self.emit({"type": "rpc", "command": t,
+                           "data": {"error": "level must be a string"}})
+                return
+            err = save_global_settings({"defaultThinkingLevel": lv})
+            self.emit({"type": "rpc", "command": t,
+                       "data": {"error": err} if err else {"level": lv}})
+            return
+
+        if t == "compaction_get":
+            # los limites de los sliders salen del modelo en uso, no de
+            # constantes: el codo de la reserva es maxTokens * 1.25
+            g = read_global_settings().get("compaction") or {}
+            pj = {}
+            if self.state.get("projTrusted"):
+                pj = (self.state.get("projSettings") or {}).get(
+                    "compaction") or {}
+            cw, mt = model_limits(self.state.get("modelProvider"),
+                                  self.state.get("modelId"))
+            win = (self.state.get("context") or {}).get("window") or cw
+            self.emit({"type": "rpc", "command": t,
+                       "data": {"global": g, "project": pj,
+                                "window": win, "maxTokens": mt,
+                                "defaults": DEFAULT_COMPACTION}})
+            return
+
+        if t == "compaction_save":
+            c = msg.get("compaction")
+            if not isinstance(c, dict):
+                self.emit({"type": "rpc", "command": t,
+                           "data": {"error": "compaction must be an object"}})
+                return
+            bad = [k for k in ("reserveTokens", "keepRecentTokens")
+                   if k in c and not (isinstance(c[k], int) and c[k] > 0)]
+            if bad:
+                self.emit({"type": "rpc", "command": t,
+                           "data": {"error": "%s must be a positive integer"
+                                    % ", ".join(bad)}})
+                return
+            err = save_global_settings({"compaction": c})
+            self.emit({"type": "rpc", "command": t,
+                       "data": {"error": err} if err else {}})
+            if not err:
+                self.refresh_compact()    # la linea de la barra se mueve ya
+                self.push_state()
             return
 
         if t == "project_settings_get":

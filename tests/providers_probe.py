@@ -219,6 +219,93 @@ async def ui():
                   return false;})()""")
                 checks.append(("el nuevo modelo sale en la fila del provider",
                                bool(ok)))
+
+                # ---- el tipo de API se elige, no se teclea ----
+                await js("sheetStack=[]; paintSheet('provAdd')")
+                await asyncio.sleep(0.3)
+                # el campo de API se toca y abre lista, pero tiene que
+                # alinearse con los de escribir: una fila de menu entre
+                # campos rompia la columna del formulario
+                form = await js("""(()=>{
+                  const sel=document.querySelector('#sheetBody .mfield.sel');
+                  if(!sel) return {found:false};
+                  const b=sel.querySelector('button');
+                  const txt=document.querySelector('#sheetBody .mfield:not(.sel) input');
+                  const rb=b.getBoundingClientRect(), rt=txt.getBoundingClientRect();
+                  const cb=getComputedStyle(b), ct=getComputedStyle(txt);
+                  return {found:true, val:b.textContent,
+                    dx:Math.abs(rb.left-rt.left), dw:Math.abs(rb.width-rt.width),
+                    dh:Math.abs(rb.height-rt.height),
+                    radio:cb.borderRadius===ct.borderRadius,
+                    borde:cb.borderColor===ct.borderColor,
+                    chev:!!sel.querySelector('.ch')};})()""")
+                checks += [
+                    ("el tipo de API es una eleccion, no un campo de texto",
+                     form["found"] and form["chev"]
+                     and "API type" in form.get("val", "")),
+                    ("y se alinea con los campos de al lado",
+                     form.get("dx", 9) < 1 and form.get("dw", 9) < 1
+                     and form.get("dh", 9) < 2
+                     and form.get("radio") and form.get("borde")),
+                    ("arranca en la API mas comun en servidores locales",
+                     "openai-completions" in form.get("val", "")),
+                ]
+                await js("goPage('provApi')")
+                await asyncio.sleep(0.45)
+                apis = await js("""(()=>{
+                  const rows=[...document.querySelectorAll('#sheetBody .mrow')];
+                  return {list:rows.map(r=>r.textContent.trim()),
+                    sel:rows.filter(r=>r.classList.contains('sel'))
+                            .map(r=>r.textContent.trim())};})()""")
+                checks += [
+                    # la lista sale de BUILTIN_APIS de pi-ai, no de una suposicion
+                    ("ofrece las diez APIs que pi trae de serie",
+                     len(apis["list"]) == 10
+                     and "anthropic-messages" in apis["list"]
+                     and "google-vertex" in apis["list"]
+                     and "bedrock-converse-stream" in apis["list"]),
+                    ("con una sola marcada",
+                     apis["sel"] == ["openai-completions"]),
+                ]
+                # una API de extension, fuera de la lista de serie, se respeta
+                extra = await js("""(()=>{
+                  provDraft.api='mi-api-de-extension';
+                  paintSheet('provApi');
+                  const rows=[...document.querySelectorAll('#sheetBody .mrow')];
+                  return {n:rows.length, first:rows[0].textContent.trim(),
+                    sel:rows.filter(r=>r.classList.contains('sel'))
+                            .map(r=>r.textContent.trim())};})()""")
+                checks.append(
+                    ("una API ajena a la lista no se pierde ni se pisa",
+                     extra["n"] == 11 and extra["first"] == "mi-api-de-extension"
+                     and extra["sel"] == ["mi-api-de-extension"]))
+
+                # ---- modalidades al anadir modelo ----
+                await js("sheetStack=[]; provEditId='local';"
+                         " paintSheet('modelAdd')")
+                await asyncio.sleep(0.3)
+                vis = await js("""(()=>{
+                  const sws=[...document.querySelectorAll('#sheetBody .sw')];
+                  const last=sws[sws.length-1];
+                  const before=JSON.stringify(fieldsOfModelAdd());
+                  return {n:sws.length, before};})()
+                  """.replace("fieldsOfModelAdd()", "[]"))
+                # el toggle de vision es el segundo: razonamiento y modalidades
+                tog = await js("""(()=>{
+                  const sws=[...document.querySelectorAll('#sheetBody .sw')];
+                  if(sws.length < 2) return {err:'faltan toggles'};
+                  const v=sws[1];
+                  v.click();
+                  return {on:v.getAttribute('aria-checked'),
+                    lbl:v.closest('.fcard').querySelector('.flbl').textContent};
+                  })()""")
+                checks += [
+                    ("anadir modelo ofrece razonamiento y modalidades",
+                     vis["n"] == 2),
+                    ("el toggle declara que acepta imagenes",
+                     not tog.get("err") and tog["on"] == "true"
+                     and "images" in tog["lbl"]),
+                ]
     return checks
 
 

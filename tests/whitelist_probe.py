@@ -159,11 +159,18 @@ async def ui():
                              " return __rpcs.filter(m=>m.command==='whitelist_add').pop();})()" % zonejs)
                 rows = await js("[...document.querySelectorAll('#sheetBody .wrow')]"
                                 ".map(x => x.textContent.split(String.fromCharCode(92)).join('/'))")
+                # la carpeta del usuario se PINTA como ~ (el temp de Windows
+                # cuelga de ella); la ruta que viaja al puente sigue entera
+                def shown(p):
+                    p = str(p).replace("\\", "/")
+                    h = str(Path.home()).replace("\\", "/")
+                    return "~/" + p[len(h) + 1:] if p.lower().startswith(
+                        h.lower() + "/") else p
                 checks.append(("la fila fija esta",
-                               any(tempfile.gettempdir().replace("\\", "/") in x
+                               any(shown(tempfile.gettempdir()) in x
                                    for x in rows)))
                 checks.append(("la fila de usuario esta",
-                               any(str(zone).replace("\\", "/") in x for x in rows)))
+                               any(shown(zone) in x for x in rows)))
                 fixed = await js("[...document.querySelectorAll('#sheetBody .wrow')]"
                                  ".find(x => x.classList.contains('fixed'))")
                 fixeddel = await js("[...document.querySelectorAll('#sheetBody .wrow')]"

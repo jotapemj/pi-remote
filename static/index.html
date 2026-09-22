@@ -1144,6 +1144,14 @@ footer > *{position:relative; z-index:1}
   margin-top:0; padding-top:2px;
 }
 #sheetBody .sec + .sec > .shead{margin-top:26px}
+/* separador entre los dos grupos de la raiz del menu. Antes era un .shead
+   con un espacio duro: solo aire, que se leia como un fallo de maquetacion */
+#sheetBody .sdiv{height:1px; background:var(--rule); margin:18px 2px}
+/* grupos de la raiz del menu: una linea los separa. Solo aire se leia como
+   un fallo de maquetacion, no como dos bloques distintos */
+#sheetBody .grp + .grp{
+  margin-top:18px; padding-top:18px; border-top:1px solid var(--rule);
+}
 .sheet.open .card{transform:none}
 .sbar{display:flex; align-items:center; gap:9px; margin:2px 0 12px;
   touch-action:none}
@@ -1165,16 +1173,27 @@ footer > *{position:relative; z-index:1}
   transform:translateY(-50%); padding:4px; margin-right:-4px;
 }
 .mrow .pen:hover{color:var(--amber)}
+/* dos acciones por fila: el borrar se queda en el borde y el lapiz se aparta.
+   El hueco solo se reserva en las filas que los llevan */
+.mrow .pen{right:44px}
+.mrow .pen.del{right:12px}
+.mrow .pen.del:hover{color:var(--coral)}
+.mrow:has(.pen){padding-right:76px}
 /* parametros del modelo: campo outlined material. El label vive dentro
    como placeholder y, al enfocar o tener valor, flota pequeno sobre el
    borde (cortandolo con el fondo de la card) en color acento */
-.mfield{position:relative; margin:14px 2px 0}
+.mfield{position:relative; margin:18px 2px 0}
 .mfield input{
   width:100%; box-sizing:border-box; background:none;
   border:1px solid var(--rule); border-radius:8px; color:var(--ink);
   font:400 16px/1.2 var(--sans); padding:13px 14px; outline:none;
 }
 .mfield input:focus{border-color:var(--amber)}
+/* los numeros son dato, no prosa: mono y tabular para que no bailen al
+   teclear. Misma regla en todas las vistas que editan cifras */
+.mfield input[type=number], .cnum{
+  font-family:var(--mono); font-variant-numeric:tabular-nums;
+}
 .mfield label{
   position:absolute; left:14px; top:50%; transform:translateY(-50%);
   font:400 16px/1 var(--sans); color:var(--faint); pointer-events:none;
@@ -1182,13 +1201,133 @@ footer > *{position:relative; z-index:1}
 }
 .mfield input:focus + label,
 .mfield input:not(:placeholder-shown) + label{
-  top:-6px; left:10px; transform:none; font-size:11px; font-weight:500;
+  /* a caballo sobre el borde y con aire lateral: pegado al texto de dentro
+     se leia como parte del valor */
+  top:-7px; left:9px; transform:none; font-size:11px; font-weight:500;
   letter-spacing:.06em; text-transform:uppercase; color:var(--amber);
-  background:var(--surface); padding:0 4px;
+  background:var(--surface); padding:0 6px; line-height:14px;
 }
+/* campo de eleccion: mismo cromo que el de escribir, pero se toca y abre una
+   lista. Una fila de menu suelta entre campos rompia la columna */
+.mfield.sel > button{
+  width:100%; box-sizing:border-box; text-align:left; cursor:pointer;
+  background:none; border:1px solid var(--rule); border-radius:8px;
+  color:var(--ink); font:400 13px/1.35 var(--sans);
+  padding:13px 38px 13px 14px; outline:none;
+  display:flex; align-items:baseline; min-width:0;
+}
+.mfield.sel > button:focus-visible{border-color:var(--amber)}
+.mfield.sel > button > span:first-child{
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.mfield.sel .pval{
+  flex:none; margin-left:7px; color:var(--faint); white-space:nowrap;
+}
+.mfield.sel .ch{
+  position:absolute; right:12px; top:50%; translate:0 -50%;
+  width:16px; height:16px; color:var(--faint); pointer-events:none;
+}
+/* nivel del mapa: el campo y su interruptor de "soportado" en una fila */
+.mfield.lvl{display:flex; align-items:center; gap:12px}
+.mfield.lvl input{flex:1; min-width:0}
+.mfield.lvl > .sw{flex:none}
+.mfield.lvl input:disabled{color:var(--faint); border-style:dashed}
+.mfield.lvl input:disabled + label{color:var(--faint)}
 .mfield input[readonly]{color:var(--dim)}
 .mfield input[readonly]:focus{border-color:var(--rule)}
 .mfield input[readonly] + label{color:var(--dim)}
+
+/* ---- compaction: presets, sliders y reparto de la ventana ---- */
+.presets{display:flex; gap:8px; margin:6px 2px 2px}
+.preset{
+  flex:1; background:none; border:1px solid var(--rule); border-radius:8px;
+  color:var(--dim); font:500 13px/1.2 var(--sans); padding:9px 4px 8px;
+  cursor:pointer; text-align:center;
+  transition:border-color .2s ease, color .2s ease, background .2s ease;
+}
+.preset.sel{border-color:var(--amber); color:var(--amber);
+  background:color-mix(in srgb, var(--amber) 10%, transparent)}
+.crow{margin:18px 2px 0}
+.chead{display:flex; align-items:baseline; gap:10px; margin-bottom:7px}
+.chead .clbl{flex:1; font:400 14px/1.2 var(--sans); color:var(--ink)}
+/* mismo cromo que el campo de editar modelo, en pequeno */
+.cnum{
+  width:94px; flex:none; box-sizing:border-box; text-align:right;
+  background:none; border:1px solid var(--rule); border-radius:8px;
+  color:var(--ink); font-size:14px; font-weight:500; line-height:1.2;
+  padding:8px 10px; outline:none;
+}
+.cnum:focus{border-color:var(--amber)}
+/* el track se pinta a mano: el nativo no respeta el tema */
+.crow input[type=range]{
+  -webkit-appearance:none; appearance:none; width:100%; height:22px;
+  background:none; outline:none; margin:0; display:block; cursor:pointer;
+}
+.crow input[type=range]::-webkit-slider-runnable-track{
+  height:4px; border-radius:2px; background:var(--rule);
+}
+.crow input[type=range]::-moz-range-track{
+  height:4px; border-radius:2px; background:var(--rule);
+}
+.crow input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none; appearance:none; width:16px; height:16px;
+  border-radius:50%; background:var(--amber); margin-top:-6px;
+  border:none; transition:transform .15s ease;
+}
+.crow input[type=range]::-moz-range-thumb{
+  width:16px; height:16px; border-radius:50%; background:var(--amber);
+  border:none; transition:transform .15s ease;
+}
+.crow input[type=range]:active::-webkit-slider-thumb{transform:scale(1.2)}
+.crow input[type=range]:active::-moz-range-thumb{transform:scale(1.2)}
+/* ayuda bajo cada slider: para que sirve el parametro */
+.chelp{font:400 11px/1.45 var(--sans); color:var(--faint); margin:7px 2px 0}
+.chint{font:400 11px/1.4 var(--sans); color:var(--faint); margin:7px 2px 0}
+/* reparto de la ventana: donde va cada token */
+.cbar{
+  display:flex; height:10px; border-radius:5px; overflow:hidden;
+  background:var(--rule); margin:20px 2px 7px;
+}
+.cbar > i{display:block; height:100%; transition:width .38s cubic-bezier(.32,.72,0,1)}
+/* el color va por clase, no por contenedor: los mismos cuatro pintan los
+   tramos de la barra y los puntos de la leyenda */
+.cwork{background:var(--mint)}
+.ckeep{background:var(--amber)}
+.csum{background:color-mix(in srgb, var(--amber) 55%, var(--surface))}
+.cres{background:var(--faint)}
+.clegend{
+  display:grid; grid-template-columns:repeat(2, 1fr); gap:6px 14px;
+  margin:0 2px; font:400 11px/1.5 var(--sans); color:var(--dim);
+}
+.clegend span{display:flex; align-items:center; gap:6px; min-width:0}
+.clegend b{margin-left:auto; font-weight:500; font-family:var(--mono);
+  color:var(--ink); font-variant-numeric:tabular-nums}
+.clegend i{width:9px; height:9px; border-radius:50%; flex:none;
+  display:inline-block}
+.cfoot{
+  margin:22px 2px 4px; padding-top:12px; border-top:1px solid var(--rule);
+  font:400 12px/1.4 var(--mono); color:var(--faint);
+}
+/* el cuerpo se pliega con el toggle: la rejilla 0fr->1fr anima el alto sin
+   saber cuanto mide (mismo truco que la fila de miniaturas) */
+.cbody{
+  display:grid; grid-template-rows:0fr; opacity:0;
+  transition:grid-template-rows .3s cubic-bezier(.32,.72,0,1),
+             opacity .2s ease;
+}
+.cbody > .cbin{overflow:hidden; min-height:0}
+.cbody.on{grid-template-rows:1fr; opacity:1}
+.cwarn{
+  margin:16px 2px 0; font:400 12px/1.5 var(--sans); color:var(--faint);
+}
+/* el check de la sbar entra y sale con fundido, no de golpe */
+@keyframes okin{from{opacity:0; transform:scale(.7)}
+                to{opacity:1; transform:none}}
+#sheetOk:not([hidden]){animation:okin .2s cubic-bezier(.32,.72,0,1)}
+#sheetOk.out{
+  animation:none; opacity:0; transform:scale(.7);
+  transition:opacity .16s ease, transform .16s ease;
+}
 /* compositor de skill: el cuerpo es un textarea alto, mismo cromo */
 .mfield.ta textarea{
   width:100%; box-sizing:border-box; background:none; resize:none;
@@ -1362,7 +1501,9 @@ main:has(#spin) .empty{display:none}
 .railfull{display:contents}
 .slim{display:none}
 /* la lista scrollea; la cabecera (anadir/buscar) y el pie (papelera) fijos */
-.railscroll{flex:1; min-height:0; overflow-y:auto}
+/* aire entre los dos botones de accion y las listas: el primer rotulo lleva
+   margin-top:0 por ser :first-child y quedaba pegado a "buscar" */
+.railscroll{flex:1; min-height:0; overflow-y:auto; margin-top:20px}
 .railfoot{
   flex:none; position:relative; display:flex; justify-content:flex-end;
   padding:12px 2px calc(10px + env(safe-area-inset-bottom));
@@ -1395,6 +1536,49 @@ main:has(#spin) .empty{display:none}
 .foldb .i{width:19px;height:19px}
 .stack{display:flex; flex-direction:column; flex:1; min-height:0; min-width:0}
 .grip{display:none}
+/* rotulo al pasar el raton, para iconos sin texto (rail fino, papelera,
+   acciones del mensaje). Sale tras una espera corta y no intercepta */
+[data-tip]{position:relative}
+[data-tip]::after{
+  content:attr(data-tip); position:absolute; z-index:24;
+  left:var(--tip-x, calc(100% + 10px)); top:var(--tip-y, 50%);
+  translate:var(--tip-t, 0 -50%);
+  background:var(--raise); color:var(--ink);
+  border:1px solid var(--rule); border-radius:7px;
+  padding:5px 9px; font:400 12px/1 var(--sans); white-space:nowrap;
+  opacity:0; pointer-events:none;
+  transition:opacity .14s ease .35s;
+}
+[data-tip]:hover::after{opacity:1}
+@media (hover: none){ [data-tip]::after{display:none} }
+/* las acciones del mensaje lo sacan arriba: debajo no hay sitio */
+.mact[data-tip]{--tip-x:50%; --tip-y:auto; --tip-t:-50% 0; bottom:calc(100% + 8px)}
+.mact[data-tip]::after{bottom:calc(100% + 8px); top:auto}
+/* la papelera del rail, por encima: esta al fondo */
+.trashb[data-tip]{--tip-y:auto}
+.trashb[data-tip]::after{bottom:calc(100% + 8px); top:auto; left:0; translate:0 0}
+
+/* la fila de anadir skill es una accion, no una fila mas: acento y peso,
+   que atenuada se leia como un boton deshabilitado */
+.pick.skilladd{color:var(--amber)}
+.pick.skilladd svg{color:var(--amber)}
+.pick.skilladd .mq span{font-weight:500}
+/* de que paquete viene una skill, junto al nombre */
+.pkgb{
+  display:inline-block; margin-left:8px; vertical-align:1px;
+  font:500 10px/1 var(--mono); letter-spacing:.04em; font-style:normal;
+  color:var(--dim); background:var(--raise);
+  border:1px solid var(--rule); border-radius:4px; padding:3px 5px;
+}
+
+/* la papelera lee del disco: mientras tanto, un giro en vez de un hueco */
+.tload{
+  display:flex; flex-direction:column; align-items:center; gap:12px;
+  padding:44px 16px; color:var(--faint);
+  font:400 13px/1.4 var(--sans); text-align:center;
+}
+.tload .sspin{width:20px; height:20px; border-width:2px}
+
 .addp{
   display:flex; align-items:center; gap:9px; width:100%;
   background:var(--amber); color:var(--on-amber); border:none;
@@ -1406,6 +1590,12 @@ main:has(#spin) .empty{display:none}
   background:transparent; color:var(--amber); border:1px solid var(--rule);
   margin-top:8px;
 }
+/* con proyectos ya guardados, anadir uno es una accion de vez en cuando:
+   baja a secundaria y deja mandar a recientes y proyectos */
+body.hasproj .addp:not(.ghost){
+  background:transparent; color:var(--amber); border:1px solid var(--rule);
+}
+body.hasproj .addp:not(.ghost):hover{background:var(--surface)}
 .addp.ghost:hover{background:var(--surface)}
 /* ---------- buscar conversacion: pantalla completa sobre el rail ---------- */
 /* papelera y busqueda: bottom sheet con el mismo cromo que el picker de
@@ -1429,6 +1619,26 @@ main:has(#spin) .empty{display:none}
   display:flex; align-items:center; gap:10px; flex:none;
   padding:calc(10px + env(safe-area-inset-top)) 14px 11px;
   border-bottom:1px solid var(--rule);
+}
+/* la papelera es una hoja, igual que el menu: mismo gutter, cabecera sin
+   borde ni inset (no toca el borde de la pantalla) y rotulo pequeno */
+#trashView{padding:14px var(--gut) 0}
+#trashView .grab{margin:-8px 0 2px}
+#trashView .sbar2{
+  padding:0; border-bottom:none; margin:2px 0 12px;
+}
+#trashView .stitle{
+  font:700 11px/1 var(--sans); letter-spacing:.1em; color:var(--faint);
+  text-transform:uppercase;
+}
+/* el cuerpo se funde abajo, no arriba: la mascara de arriba difuminaba la
+   primera fila aunque no hubiera scroll (el mismo fallo que tenia el menu) */
+#trashView #trashList{
+  padding:0 0 calc(18px + env(safe-area-inset-bottom));
+  -webkit-mask-image:linear-gradient(to bottom, #000 0,
+    #000 calc(100% - 14px), transparent 100%);
+  mask-image:linear-gradient(to bottom, #000 0,
+    #000 calc(100% - 14px), transparent 100%);
 }
 .sbar2 .sic{width:20px;height:20px;color:var(--faint);flex:none}
 .sbar2 input{
@@ -1694,12 +1904,23 @@ main:has(#spin) .empty{display:none}
   .slimb svg{width:20px;height:20px}
   /* logo: el cubo de pi remote; al pasar el raton se convierte en el
      icono de barra lateral (el clic es lo que despliega, no el hover) */
-  .slimb.logo .cubemask{width:26px; height:26px; display:block}
-  .slimb.logo .hov{display:none; align-items:center; justify-content:center}
+  /* el logo y el icono de barra lateral se cruzan con fundido: apilados en
+     el mismo hueco, no turnandose con display (que no puede animar) */
+  .slimb.logo{position:relative}
+  .slimb.logo .cubemask, .slimb.logo .hov{
+    position:absolute; top:50%; left:50%; translate:-50% -50%;
+    transition:opacity .18s ease;
+  }
+  .slimb.logo .cubemask{width:26px; height:26px; display:block; opacity:1}
+  .slimb.logo .hov{
+    display:flex; align-items:center; justify-content:center; opacity:0;
+  }
   .slimb.logo .hov svg{width:20px;height:20px}
-  .slimb.logo:hover .cubemask{display:none}
-  .slimb.logo:hover .hov{display:flex}
+  .slimb.logo:hover .cubemask{opacity:0}
+  .slimb.logo:hover .hov{opacity:1}
   .slimfoot{margin-top:auto}
+  /* con el rail fino, el logo ya pliega y despliega: la hamburguesa sobra */
+  body.folded #railBtn{display:none}
   body.dragging .rail{transition:none}   /* el tirador manda al instante */
   .scrim{display:none!important}
   body:not(.folded) #railBtn{display:none}
@@ -1776,6 +1997,16 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
   *{animation:none!important;transition:none!important;scroll-behavior:auto}
 }
 </style>
+<script id="bootbar">
+/* color de la barra del sistema, antes del primer paint: el tema ya esta
+   puesto (#boot) y el CSS ya esta parseado, asi que --plate-a resuelve. */
+(function(){try{
+  var m=document.querySelector('meta[name="theme-color"]');
+  var v=getComputedStyle(document.documentElement)
+          .getPropertyValue("--plate-a").trim();
+  if(m&&v) m.content=v;
+}catch(e){}})();
+</script>
 </head>
 <body>
 
@@ -1867,6 +2098,7 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
 </div>
 
 <div class="searchview" id="trashView">
+  <div class="grab"></div>
   <div class="sbar2">
     <button class="xb" id="trashBack" aria-label="back"></button>
     <span class="stitle" data-t="trashTitle"></span>
@@ -2758,10 +2990,11 @@ function placeActions(){
   const acts = document.createElement("div");
   acts.className = "msgacts";
   acts.innerHTML =
-    `<button class="mact copy" aria-label="${esc(T("copy"))}">`
-    + `${ico("copy")}</button>`
+    `<button class="mact copy" aria-label="${esc(T("copy"))}"`
+    + ` data-tip="${esc(T("copy"))}">${ico("copy")}</button>`
     + (it.stats ? `<button class="mact stats"`
-        + ` aria-label="${esc(T("statsTitle"))}">${ico("stats")}</button>` : "");
+        + ` aria-label="${esc(T("statsTitle"))}"`
+        + ` data-tip="${esc(T("statsTitle"))}">${ico("stats")}</button>` : "");
   last.appendChild(acts);
   placeSuggests(last);
   // al terminar, las sugerencias crecen el feed: si seguias el final, baja
@@ -3270,7 +3503,7 @@ function hideScrim(){
 /* ---------- side rail ---------- */
 function openRail(){
   showScrim();
-  $("#rail").classList.add("on");
+  $("#rail").classList.add("on"); navArm();
   // a mitad del deslizamiento los anchos aun no valen: medir al terminar
   setTimeout(()=> marqueeAll($("#rail")), 320);
 }
@@ -3280,8 +3513,14 @@ function closeRail(){
 }
 /* clic derecho en una fila: su menu (el gesto de escritorio;
    en movil lo da el boton de tres puntos) */
+/* clic derecho: el menu sale donde esta el puntero, no pegado a la fila */
 function ctxMenu(el, run){
-  el.addEventListener("contextmenu", e=>{ e.preventDefault(); run(); });
+  el.addEventListener("contextmenu", e=>{
+    e.preventDefault();
+    ctxAt = {x: e.clientX, y: e.clientY};
+    run();
+    ctxAt = null;
+  });
 }
 
 let openProj = "";                 // one folder unfolded at a time
@@ -3342,6 +3581,7 @@ function menuModal(title, rows){
 /* menu contextual flotante: anclado a la fila que lo llamo, no al centro.
    Se cierra con clic fuera, Esc o eligiendo una opcion */
 let ctxPop = null;
+let ctxAt = null;   // punto del clic derecho, si lo hubo
 function ctxPopup(anchor, rows, fromDots){
   closeCtxPop();
   if(!rows.length) return;
@@ -3359,13 +3599,19 @@ function ctxPopup(anchor, rows, fromDots){
   const a = (fromDots || anchor).getBoundingClientRect();
   const pw = pop.offsetWidth, ph = pop.offsetHeight;
   let x, y;
-  if(fromDots){ x = a.left; y = a.top; }   // esquina arriba-izq sobre el boton
-  else { x = a.right + 6; y = a.top - 4; } // a la derecha de la fila
-  if(x + pw > innerWidth - 8) x = Math.max(8, a.left + 12);
+  if(ctxAt){ x = ctxAt.x + 2; y = ctxAt.y + 2; }  // clic derecho: junto al raton
+  else if(fromDots){ x = a.left; y = a.top; } // esquina arriba-izq del boton
+  else { x = a.right + 6; y = a.top - 4; }    // a la derecha de la fila
+  // si no cabe, se alinea por su derecha con el ancla (a.left + 12 lo movia
+  // MAS a la derecha: en movil los tres puntos ya estan pegados al borde)
+  if(x + pw > innerWidth - 8)
+    x = Math.max(8, ctxAt ? innerWidth - pw - 8
+                  : Math.min(a.right - pw, innerWidth - pw - 8));
   if(y + ph > innerHeight - 8) y = innerHeight - ph - 8;
   if(y < 8) y = 8;
   pop.style.left = x + "px"; pop.style.top = y + "px";
   requestAnimationFrame(() => pop.classList.add("on"));
+  navArm();
 }
 function closeCtxPop(){
   if(!ctxPop) return;
@@ -3413,7 +3659,7 @@ async function loadChats(){
   (d.results || []).slice(0, 4).forEach(x=>{
     const b = pickBtn({
       cls:"sess", label:x.label,
-      hint:new Date(x.mtime*1000).toLocaleString(),
+      hint:projName(x.cwd) + "  ·  " + when(x.mtime*1000),
       dots: d => sessMenu(b, x.cwd, x, d),
       run: () => { closeRail();
         send({type:"open_project", path:x.cwd, session:x.path}); }});
@@ -3438,7 +3684,7 @@ function searchRow(x){
   const b = document.createElement("button");
   b.className = "srow";
   b.innerHTML = `<span>${esc(x.label)}</span>`
-    + `<small>${new Date(x.mtime*1000).toLocaleDateString()}</small>`
+    + `<small>${esc(projName(x.cwd))}  ·  ${esc(when(x.mtime*1000))}</small>`
     + `<span class="dotsb" role="button" aria-label="${esc(T("menu"))}">` + ico("more") + `</span>`;
   b.onclick = () => { closeSearch();
     send({type:"open_project", path:x.cwd, session:x.path}); };
@@ -3463,7 +3709,7 @@ async function doSearch(){
 }
 function openSearch(){
   closeRail(); showScrim();
-  $("#searchView").classList.add("on");
+  $("#searchView").classList.add("on"); navArm();
   $("#searchInput").value = "";
   $("#searchX").classList.remove("on");
   doSearch();
@@ -3494,8 +3740,12 @@ $("#searchInput").addEventListener("input", () => {
 function trashRow(x){
   const b = document.createElement("div");
   b.className = "trow"; b.dataset.path = x.path;
+  // proyecto y fecha: cuatro sesiones homonimas del mismo proyecto eran
+  // cuatro filas identicas, sin forma de saber cual se restaura
   b.innerHTML = `<div class="tinfo"><span class="tt">${esc(x.label)}</span>`
-    + `<small class="tp">${esc(x.cwd || "")}</small></div>`
+    + `<small class="tp">${esc(projName(x.cwd))}`
+    + (x.mtime ? `  ·  ${esc(when(x.mtime * 1000))}` : "")
+    + `</small></div>`
     + `<div class="tacts">`
     + `<button class="tact restore" aria-label="${esc(T("restore"))}">`
     + `${ico("restore")}</button>`
@@ -3517,16 +3767,27 @@ function removeTrashCard(path){
   if(!$("#trashList .trow")) trashEmpty();     // vacia: dilo
 }
 async function loadTrash(){
+  const list = $("#trashList");
+  // se lee del disco: ensenar que algo pasa en vez de un hueco vacio
+  list.innerHTML = `<div class="tload"><span class="sspin"></span></div>`;
   let d;
   try { d = await (await fetch("/api/trash?token="
     + encodeURIComponent(TOKEN))).json(); }
-  catch(e){ return; }
-  const list = $("#trashList"); list.innerHTML = "";
+  catch(e){
+    // antes se volvia sin pintar nada: la papelera parecia vacia
+    list.innerHTML = "";
+    const e2 = document.createElement("div");
+    e2.className = "tload"; e2.textContent = T("loadError");
+    list.appendChild(e2);
+    return;
+  }
+  list.innerHTML = "";
   const res = d.results || [];
   if(!res.length) return trashEmpty();
   res.forEach(x => list.appendChild(trashRow(x)));
 }
-function openTrash(){ closeRail(); showScrim(); $("#trashView").classList.add("on"); loadTrash(); }
+function openTrash(){ closeRail(); showScrim();
+  $("#trashView").classList.add("on"); navArm(); loadTrash(); }
 function closeTrash(){ $("#trashView").classList.remove("on"); hideScrim(); }
 function restoreConfirm(x){
   openModal(T("restoreQ").replace("{name}", x.label || ""), "",
@@ -3546,6 +3807,9 @@ $("#trashBack").onclick = closeTrash;
 function paintRail(){
   const list = $("#recents"), rec = state.recent || [];
   $("#projHead").hidden = !rec.length;
+  // con la lista vacia, anadir proyecto es LA accion; con proyectos ya
+  // guardados pasa a secundaria y lo diario recupera el primer plano
+  document.body.classList.toggle("hasproj", rec.length > 0);
   list.innerHTML = "";
   rec.forEach(r=>{
     const group = document.createElement("div");
@@ -3554,7 +3818,9 @@ function paintRail(){
 
     const head = pickBtn({
       cls: "proj" + (r.path === state.cwd ? " on" : ""),
-      icon: "folder", label: r.name, hint: r.path, chevron: true,
+      // con ~ cabe la parte que distingue: truncada, la ruta completa solo
+      // ensenaba el prefijo que comparten todos los proyectos
+      icon: "folder", label: r.name, hint: tilde(r.path), chevron: true,
       dots: d => projMenu(head, r, d),
       run: () => toggleProj(r.path)});
     ctxMenu(head, () => projMenu(head, r));
@@ -3592,7 +3858,7 @@ function fillSubs(group, path){
   cached.forEach(x=>{
     const b = pickBtn({
       cls:"sess", label:x.label,
-      hint:new Date(x.mtime*1000).toLocaleString(),
+      hint:when(x.mtime*1000),
       dots: d => sessMenu(b, path, x, d),
       run: () => { closeRail();
         send({type:"open_project", path, session:x.path}); }});
@@ -3650,6 +3916,19 @@ $("#slimSearch").innerHTML = ico("search");
 $("#slimChat").innerHTML = ico("chat");
 $("#slimTrash").innerHTML = ico("remove");
 $("#slimLogo").onclick = () => setFolded(false);
+/* rotulos del rail fino: se repintan al cambiar de idioma */
+function slimTips(){
+  const tips = {slimNew: "newSession", slimSearch: "searchConv",
+                slimChat: "sessions", slimTrash: "trashTitle",
+                trashBtn: "trashTitle"};
+  for(const id in tips){
+    const b = $("#" + id);
+    if(b){ b.dataset.tip = T(tips[id]); b.setAttribute("aria-label", b.dataset.tip); }
+  }
+}
+/* no se llama aqui: T() se declara mas abajo y usarla ahora aborta el script
+   entero (y con el todo lo que quede por inicializar). applyLang() la invoca
+   al arrancar y en cada cambio de idioma */
 $("#slimNew").onclick = () => {
   if(state.cwd) send({type:"new_session"});
   else browse("");                 // sin proyecto: primero elegir carpeta
@@ -3725,7 +4004,7 @@ function openModal(title, body, run, opts){
   ok.onclick = run ? () => { modalCancel = null; closeModal(); run(); }
                    : () => closeModal();
   no.onclick = () => closeModal();
-  $("#modal").classList.add("open");
+  $("#modal").classList.add("open"); navArm();
 }
 const modal = (title, body) => openModal(title, body, null);
 const confirmModal = (title, body, run) => openModal(title, body, run);
@@ -3751,6 +4030,7 @@ function openLightbox(src){
   LBimg.src = src; lbScale = 1; lbX = 0; lbY = 0; lbApply();
   LB.style.opacity = ""; LB.hidden = false;
   requestAnimationFrame(()=> LB.classList.add("open"));
+  navArm();
 }
 function closeLightbox(){
   LB.classList.remove("open"); LB.style.opacity = "";
@@ -3924,7 +4204,7 @@ function paintCtx(){
   if(!ctxIntro) fill.style.width = p + "%";   // durante la entrada: a cero
   bar.classList.toggle("hot", p > 60 && p <= 85);
   bar.classList.toggle("max", p > 85);
-  label.textContent = p.toFixed(2) + "%"
+  label.textContent = Math.round(p) + "%"
     + (c.tokens != null ? "  |  " + kilo(c.tokens) + "/" + kilo(c.window) : "");
 }
 function elapsed(){
@@ -3990,7 +4270,12 @@ const DRAW_MS = 2050;  // trazo + relleno de las 8 letras (~69% de los 2.9s)
 const RM_CURTAIN = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 function leaveCurtain(){                    // transicion final a la ui
-  requestAnimationFrame(()=> $("#curtain").classList.add("gone"));
+  requestAnimationFrame(()=> {
+    $("#curtain").classList.add("gone");
+    // el telon tapaba la pantalla mientras se pintaba: la barra del sistema
+    // se quedaba negra hasta el primer gesto. Reaplicar el color al salir
+    statusBar();
+  });
 }
 function drawDone(){
   if(drawn) return;
@@ -4955,6 +5240,7 @@ const STR = {
       forkTitle:"A copy of the conversation up to this message will be created:",
       forkTrash:"Send the original conversation to trash", forkDo:"Fork",
       trashTitle:"Trash", restoreQ:"Restore {name}?", restore:"Restore",
+      loadError:"Could not load",
       noTrash:"Trash is empty", restoreFail:"could not restore the session",
       purgeQ:"Delete {name} permanently?", purgeB:"This cannot be undone.", purgeDo:"Delete",
       deleteQ:"Delete conversation?",
@@ -4991,11 +5277,33 @@ const STR = {
       resources:"Resources", skills:"Skills", extensions:"Extensions",
       addSkill:"New skill", editSkill:"Edit skill",
       deleteSkillQ:"Permanently delete skill {name}?",
-      discardSkillQ:"Discard changes?",
+      deleteLbl:"Delete",
+      deleteModelQ:"Delete model {name}?",
+      defaultReasoning:"Default reasoning",
+      visionLbl:"Accepts images",
+      agentBehaviour:"Agent behaviour",
+      needsRestart:"This page needs pi remote to be restarted",
+      steeringMode:"Queue while working",
+      followUpMode:"Follow-up queue",
+      transport:"Transport",
+      mode_one:"One at a time", mode_all:"All at once",
+      thinkingMap:"Reasoning map",
+      thinkingMapHelp:"One value per level: what the server expects for each of pi's levels. Empty means the level is sent unchanged.",
+      deleteSkillB:"The skill folder and every file inside it are deleted from disk. This cannot be undone.",
+      discardQ:"Discard changes?",
       skillApplyRestart:"Applies after restarting pi remote",
       skillName:"Name", skillDesc:"Description", skillBody:"Instructions",
       extraFiles:"{n} extra files", noSkills:"No skills",
       noExtensions:"No extensions",
+      contextComp:"Context", autoCompact:"Auto compact",
+      reserveLabel:"Reserve for response",
+      keepRecentLabel:"Keep recent context",
+      summaryBudget:"Summary budget", modelReasoning:"model reasoning",
+      reserveHelp:"Space kept free in the window so the summary can be written when the context is compacted.",
+      keepRecentHelp:"How much of the latest conversation survives compaction as-is; everything older is replaced by the summary.",
+      cycleWork:"Work",
+      presetAggr:"Aggressive", presetBal:"Balanced", presetCons:"Conservative",
+      compactionB:"This action modifies pi's <em>settings.json</em> file.<br>The changes apply when pi remote restarts.",
       autoname:"Auto-name sessions", experimental:"Experimental",
       autonameWarn:"This feature asks your local model for a session name. This is an experimental feature and may fail.",
       piRemoteSettings:"pi remote settings", piAgentSettings:"pi agent settings",
@@ -5012,7 +5320,7 @@ const STR = {
       provGlobal:"Global", provProject:"Project",
       providers:"Providers", addProvider:"Add provider", providerEdit:"Edit provider",
       baseUrl:"Base URL", apiType:"API type", apiKey:"API key",
-      keySet:"configured", applyRestart:"These changes apply after a restart (/restart).",
+      keySet:"configured", applyRestart:"Changes apply after restarting pi remote",
       addModel:"Add model", reasoning:"Reasoning", modelName:"Model name",
       untitled:"Untitled session",
       motion_fade:"Fade", motion_instant:"Instant", image:"Image",
@@ -5056,6 +5364,7 @@ const STR = {
       forkTitle:"Se crear\u00e1 una copia de la conversaci\u00f3n hasta este mensaje:",
       forkTrash:"Enviar conversaci\u00f3n original a la papelera", forkDo:"Ramificar",
       trashTitle:"Papelera", restoreQ:"\u00bfRestaurar {name}?", restore:"Restaurar",
+      loadError:"No se pudo cargar",
       noTrash:"Papelera vac\u00eda", restoreFail:"no se pudo restaurar la sesi\u00f3n",
       purgeQ:"¿Eliminar {name} permanentemente?", purgeB:"No se puede deshacer.", purgeDo:"Eliminar",
       deleteQ:"\u00bfEliminar conversaci\u00f3n?",
@@ -5093,11 +5402,33 @@ const STR = {
       resources:"Recursos", skills:"Skills", extensions:"Extensiones",
       addSkill:"Nueva skill", editSkill:"Editar skill",
       deleteSkillQ:"¿Eliminar la skill {name} de forma permanente?",
-      discardSkillQ:"¿Descartar cambios?",
+      deleteLbl:"Eliminar",
+      deleteModelQ:"¿Eliminar el modelo {name}?",
+      defaultReasoning:"Razonamiento por defecto",
+      visionLbl:"Acepta imágenes",
+      agentBehaviour:"Comportamiento del agente",
+      needsRestart:"Esta página necesita reiniciar pi remote",
+      steeringMode:"Cola mientras trabaja",
+      followUpMode:"Cola de seguimiento",
+      transport:"Transporte",
+      mode_one:"De uno en uno", mode_all:"Todos a la vez",
+      thinkingMap:"Mapa de razonamiento",
+      thinkingMapHelp:"Un valor por nivel: lo que espera el servidor para cada nivel de pi. Vacío envía el nivel tal cual.",
+      deleteSkillB:"Se borra del disco la carpeta de la skill con todos sus ficheros. No se puede deshacer.",
+      discardQ:"¿Descartar cambios?",
       skillApplyRestart:"Se aplica al reiniciar pi remote",
       skillName:"Nombre", skillDesc:"Descripción", skillBody:"Instrucciones",
       extraFiles:"{n} ficheros extra", noSkills:"Sin skills",
       noExtensions:"Sin extensiones",
+      contextComp:"Contexto", autoCompact:"Compactación automática",
+      reserveLabel:"Reserva para la respuesta",
+      keepRecentLabel:"Conservar contexto reciente",
+      summaryBudget:"Presupuesto del resumen", modelReasoning:"razonamiento del modelo",
+      reserveHelp:"Espacio que se deja libre en la ventana para poder escribir el resumen al compactar.",
+      keepRecentHelp:"Cuánta conversación reciente sobrevive tal cual a la compactación; lo anterior lo sustituye el resumen.",
+      cycleWork:"Trabajo",
+      presetAggr:"Agresivo", presetBal:"Equilibrado", presetCons:"Conservador",
+      compactionB:"Esta acción modifica el fichero <em>settings.json</em> de pi.<br>Los cambios se aplican al reiniciar pi remote.",
       autoname:"Nombres de sesión automáticos", experimental:"Experimental",
       autonameWarn:"Esta función pide al modelo local un nombre de sesión. Es una función experimental y puede fallar.",
       piRemoteSettings:"ajustes de pi remote", piAgentSettings:"ajustes de pi agent",
@@ -5114,7 +5445,7 @@ const STR = {
       provGlobal:"Global", provProject:"Proyecto",
       providers:"Proveedores", addProvider:"Añadir proveedor", providerEdit:"Editar proveedor",
       baseUrl:"URL base", apiType:"Tipo de API", apiKey:"Clave API",
-      keySet:"configurada", applyRestart:"Los cambios se aplican al reiniciar (/restart).",
+      keySet:"configurada", applyRestart:"Los cambios se aplican al reiniciar pi remote",
       addModel:"Añadir modelo", reasoning:"Razonamiento", modelName:"Nombre del modelo",
       untitled:"Sesión sin título",
       motion_fade:"Fundido", motion_instant:"Directo", image:"Imagen",
@@ -5157,6 +5488,7 @@ const STR = {
       forkTitle:"Es wird eine Kopie des Gespr\u00e4chs bis zu dieser Nachricht erstellt:",
       forkTrash:"Urspr\u00fcngliches Gespr\u00e4ch in den Papierkorb verschieben", forkDo:"Abzweigen",
       trashTitle:"Papierkorb", restoreQ:"{name} wiederherstellen?", restore:"Wiederherstellen",
+      loadError:"Konnte nicht geladen werden",
       noTrash:"Papierkorb ist leer", restoreFail:"Sitzung konnte nicht wiederhergestellt werden",
       purgeQ:"{name} endgültig löschen?", purgeB:"Das kann nicht rückgängig gemacht werden.", purgeDo:"Löschen",
       deleteQ:"Unterhaltung l\u00f6schen?",
@@ -5195,11 +5527,34 @@ const STR = {
       resources:"Ressourcen", skills:"Skills", extensions:"Erweiterungen",
       addSkill:"Neue Skill", editSkill:"Skill bearbeiten",
       deleteSkillQ:"Skill {name} dauerhaft l\u00f6schen?",
-      discardSkillQ:"\u00c4nderungen verwerfen?",
+      deleteLbl:"Löschen",
+      deleteModelQ:"Modell {name} löschen?",
+      defaultReasoning:"Standard-Reasoning",
+      visionLbl:"Akzeptiert Bilder",
+      agentBehaviour:"Agent-Verhalten",
+      needsRestart:"Für diese Seite muss pi remote neu gestartet werden",
+      steeringMode:"Warteschlange beim Arbeiten",
+      followUpMode:"Folge-Warteschlange",
+      transport:"Transport",
+      mode_one:"Nacheinander", mode_all:"Alle auf einmal",
+      thinkingMap:"Reasoning-Map",
+      thinkingMapHelp:"Ein Wert pro Stufe: was der Server für jede Stufe von pi erwartet. Leer sendet die Stufe unverändert.",
+      deleteSkillB:"Der Skill-Ordner und alle darin enthaltenen Dateien werden von der Festplatte gelöscht. Das lässt sich nicht rückgängig machen.",
+      discardQ:"\u00c4nderungen verwerfen?",
       skillApplyRestart:"Wird nach Neustart von pi remote wirksam",
       skillName:"Name", skillDesc:"Beschreibung", skillBody:"Anweisungen",
       extraFiles:"{n} zus\u00e4tzliche Dateien", noSkills:"Keine Skills",
       noExtensions:"Keine Erweiterungen",
+      contextComp:"Kontext", autoCompact:"Automatisches Compact",
+      reserveLabel:"Reserve für die Antwort",
+      keepRecentLabel:"Neuen Kontext behalten",
+      summaryBudget:"Budget der Zusammenfassung",
+      modelReasoning:"Modell-Reasoning",
+      reserveHelp:"Freier Platz im Fenster, damit die Zusammenfassung beim Compact geschrieben werden kann.",
+      keepRecentHelp:"Wie viel der jüngsten Konversation das Compact unverändert übersteht; alles Ältere ersetzt die Zusammenfassung.",
+      cycleWork:"Arbeit",
+      presetAggr:"Aggressiv", presetBal:"Ausgewogen", presetCons:"Konservativ",
+      compactionB:"Diese Aktion ändert die Datei <em>settings.json</em> von pi.<br>Die Änderungen gelten nach einem Neustart von pi remote.",
       autoname:"Sitzungen automatisch benennen", experimental:"Experimentell",
       autonameWarn:"Diese Funktion bittet das lokale Modell um einen Sitzungsnamen. Dies ist eine experimentelle Funktion und kann fehlschlagen.",
       piRemoteSettings:"pi remote Einstellungen", piAgentSettings:"pi agent Einstellungen",
@@ -5216,7 +5571,7 @@ const STR = {
       provGlobal:"Global", provProject:"Projekt",
       providers:"Provider", addProvider:"Provider hinzufügen", providerEdit:"Provider bearbeiten",
       baseUrl:"Basis-URL", apiType:"API-Typ", apiKey:"API-Schlüssel",
-      keySet:"konfiguriert", applyRestart:"Änderungen werden nach einem Neustart (/restart) wirksam.",
+      keySet:"konfiguriert", applyRestart:"Änderungen gelten nach dem Neustart von pi remote",
       addModel:"Modell hinzufügen", reasoning:"Reasoning", modelName:"Modellname",
       untitled:"Unbenannte Sitzung",
       motion_fade:"Einblenden", motion_instant:"Sofort", image:"Bild",
@@ -5257,6 +5612,7 @@ const STR = {
       forkTitle:"Une copie de la conversation jusqu'à ce message sera créée :",
       forkTrash:"Envoyer la conversation d'origine à la corbeille", forkDo:"Bifurquer",
       trashTitle:"Corbeille", restoreQ:"Restaurer {name} ?", restore:"Restaurer",
+      loadError:"Chargement impossible",
       noTrash:"Corbeille vide", restoreFail:"impossible de restaurer la session",
       purgeQ:"Supprimer {name} définitivement ?", purgeB:"Cette action est irréversible.", purgeDo:"Supprimer",
       deleteQ:"Supprimer la conversation ?",
@@ -5295,11 +5651,33 @@ const STR = {
       resources:"Ressources", skills:"Skills", extensions:"Extensions",
       addSkill:"Nouvelle skill", editSkill:"Modifier la skill",
       deleteSkillQ:"Supprimer d\u00e9finitivement la skill {name} ?",
-      discardSkillQ:"Abandonner les modifications ?",
+      deleteLbl:"Supprimer",
+      deleteModelQ:"Supprimer le modèle {name} ?",
+      defaultReasoning:"Raisonnement par défaut",
+      visionLbl:"Accepte les images",
+      agentBehaviour:"Comportement de l'agent",
+      needsRestart:"Cette page nécessite de redémarrer pi remote",
+      steeringMode:"File pendant le travail",
+      followUpMode:"File de relance",
+      transport:"Transport",
+      mode_one:"Un par un", mode_all:"Tous à la fois",
+      thinkingMap:"Carte de raisonnement",
+      thinkingMapHelp:"Une valeur par niveau : ce qu'attend le serveur pour chaque niveau de pi. Vide envoie le niveau tel quel.",
+      deleteSkillB:"Le dossier de la skill et tous ses fichiers sont supprimés du disque. Action irréversible.",
+      discardQ:"Abandonner les modifications ?",
       skillApplyRestart:"S'applique apr\u00e8s red\u00e9marrage de pi remote",
       skillName:"Nom", skillDesc:"Description", skillBody:"Instructions",
       extraFiles:"{n} fichiers en plus", noSkills:"Aucune skill",
       noExtensions:"Aucune extension",
+      contextComp:"Contexte", autoCompact:"Compactage automatique",
+      reserveLabel:"Réserve pour la réponse",
+      keepRecentLabel:"Conserver le contexte récent",
+      summaryBudget:"Budget du résumé", modelReasoning:"raisonnement du modèle",
+      reserveHelp:"Espace laissé libre dans la fenêtre pour pouvoir écrire le résumé lors du compactage.",
+      keepRecentHelp:"Quelle part de la conversation récente survit telle quelle au compactage ; le reste est remplacé par le résumé.",
+      cycleWork:"Travail",
+      presetAggr:"Agressif", presetBal:"Équilibré", presetCons:"Conservateur",
+      compactionB:"Cette action modifie le fichier <em>settings.json</em> de pi.<br>Les modifications s'appliquent au redémarrage de pi remote.",
       autoname:"Noms de session automatiques", experimental:"Expérimental",
       autonameWarn:"Cette fonction demande au modèle local un nom de session. C'est une fonction expérimentale et peut échouer.",
       piRemoteSettings:"paramètres de pi remote", piAgentSettings:"paramètres de pi agent",
@@ -5316,7 +5694,7 @@ const STR = {
       provGlobal:"Global", provProject:"Projet",
       providers:"Fournisseurs", addProvider:"Ajouter un fournisseur", providerEdit:"Modifier le fournisseur",
       baseUrl:"URL de base", apiType:"Type d'API", apiKey:"Clé API",
-      keySet:"configurée", applyRestart:"Les modifications s'appliquent après redémarrage (/restart).",
+      keySet:"configurée", applyRestart:"Les modifications s'appliquent au redémarrage de pi remote",
       addModel:"Ajouter un modèle", reasoning:"Raisonnement", modelName:"Nom du modèle",
       untitled:"Session sans titre",
       motion_fade:"fondu", motion_instant:"instantan\u00e9", image:"image",
@@ -5357,6 +5735,7 @@ const STR = {
       forkTitle:"Ser\u00e1 criada uma c\u00f3pia da conversa at\u00e9 esta mensagem:",
       forkTrash:"Enviar a conversa original para o lixo", forkDo:"Ramificar",
       trashTitle:"Lixo", restoreQ:"Restaurar {name}?", restore:"Restaurar",
+      loadError:"Não foi possível carregar",
       noTrash:"Lixo vazio", restoreFail:"não foi possível restaurar a sessão",
       purgeQ:"Eliminar {name} permanentemente?", purgeB:"Isto não pode ser desfeito.", purgeDo:"Eliminar",
       deleteQ:"Eliminar conversa?",
@@ -5395,11 +5774,33 @@ const STR = {
       resources:"Recursos", skills:"Skills", extensions:"Extensões",
       addSkill:"Nova skill", editSkill:"Editar skill",
       deleteSkillQ:"Eliminar a skill {name} de forma permanente?",
-      discardSkillQ:"Descartar altera\u00e7\u00f5es?",
+      deleteLbl:"Eliminar",
+      deleteModelQ:"Eliminar o modelo {name}?",
+      defaultReasoning:"Raciocínio predefinido",
+      visionLbl:"Aceita imagens",
+      agentBehaviour:"Comportamento do agente",
+      needsRestart:"Esta página precisa de reiniciar o pi remote",
+      steeringMode:"Fila enquanto trabalha",
+      followUpMode:"Fila de seguimento",
+      transport:"Transporte",
+      mode_one:"Um a um", mode_all:"Todos de uma vez",
+      thinkingMap:"Mapa de raciocínio",
+      thinkingMapHelp:"Um valor por nível: o que o servidor espera para cada nível do pi. Vazio envia o nível tal como está.",
+      deleteSkillB:"A pasta da skill e todos os seus ficheiros são apagados do disco. Não pode ser desfeito.",
+      discardQ:"Descartar altera\u00e7\u00f5es?",
       skillApplyRestart:"Aplica-se ap\u00f3s reiniciar o pi remote",
       skillName:"Nome", skillDesc:"Descri\u00e7\u00e3o", skillBody:"Instru\u00e7\u00f5es",
       extraFiles:"{n} ficheiros extra", noSkills:"Sem skills",
       noExtensions:"Sem extens\u00f5es",
+      contextComp:"Contexto", autoCompact:"Compacta\u00e7\u00e3o autom\u00e1tica",
+      reserveLabel:"Reserva para a resposta",
+      keepRecentLabel:"Manter contexto recente",
+      summaryBudget:"Or\u00e7amento do resumo", modelReasoning:"racioc\u00ednio do modelo",
+      reserveHelp:"Espaço deixado livre na janela para escrever o resumo ao compactar.",
+      keepRecentHelp:"Quanta conversa recente sobrevive tal como está à compactação; o anterior é substituído pelo resumo.",
+      cycleWork:"Trabalho",
+      presetAggr:"Agressivo", presetBal:"Equilibrado", presetCons:"Conservador",
+      compactionB:"Esta a\u00e7\u00e3o modifica o ficheiro <em>settings.json</em> do pi.<br>As altera\u00e7\u00f5es aplicam-se ao reiniciar o pi remote.",
       autoname:"Nomes de sessão automáticos", experimental:"Experimental",
       autonameWarn:"Esta função pede ao modelo local um nome de sessão. É uma função experimental e pode falhar.",
       piRemoteSettings:"ajustes de pi remote", piAgentSettings:"ajustes de pi agent",
@@ -5416,7 +5817,7 @@ const STR = {
       provGlobal:"Global", provProject:"Projeto",
       providers:"Provedores", addProvider:"Adicionar provedor", providerEdit:"Editar provedor",
       baseUrl:"URL base", apiType:"Tipo de API", apiKey:"Chave API",
-      keySet:"configurada", applyRestart:"As alterações aplicam-se após reiniciar (/restart).",
+      keySet:"configurada", applyRestart:"As alterações aplicam-se ao reiniciar o pi remote",
       addModel:"Adicionar modelo", reasoning:"Raciocínio", modelName:"Nome do modelo",
       untitled:"Sessão sem título",
       motion_fade:"fundido", motion_instant:"instant\u00e2neo", image:"imagem",
@@ -5456,6 +5857,7 @@ const STR = {
       forkTitle:"将创建到此消息为止的对话副本：",
       forkTrash:"将原始对话移入回收站", forkDo:"分叉",
       trashTitle:"回收站", restoreQ:"恢复 {name}？", restore:"恢复",
+      loadError:"加载失败",
       noTrash:"回收站为空", restoreFail:"无法恢复会话",
       purgeQ:"永久删除 {name}？", purgeB:"此操作无法撤销。", purgeDo:"删除",
       deleteQ:"删除会话？",
@@ -5494,11 +5896,32 @@ const STR = {
       resources:"资源", skills:"技能", extensions:"扩展",
       addSkill:"新建技能", editSkill:"编辑技能",
       deleteSkillQ:"永久删除技能 {name}？",
-      discardSkillQ:"放弃修改？",
+      deleteLbl:"删除",
+      deleteModelQ:"删除模型 {name}？",
+      defaultReasoning:"默认推理强度",
+      visionLbl:"接受图像",
+      agentBehaviour:"代理行为",
+      needsRestart:"此页面需要重启 pi remote",
+      steeringMode:"工作时的队列",
+      followUpMode:"后续队列",
+      transport:"传输方式",
+      mode_one:"逐个处理", mode_all:"一次全部",
+      thinkingMap:"推理映射",
+      thinkingMapHelp:"每个级别一个值：服务器对 pi 各级别的期望值。留空则原样发送。",
+      deleteSkillB:"该 skill 的文件夹及其中所有文件将从磁盘删除，且无法撤销。",
+      discardQ:"放弃修改？",
       skillApplyRestart:"重启 pi remote 后生效",
       skillName:"名称", skillDesc:"描述", skillBody:"说明",
       extraFiles:"{n} 个额外文件", noSkills:"暂无技能",
       noExtensions:"暂无扩展",
+      contextComp:"上下文", autoCompact:"自动压缩",
+      reserveLabel:"响应预留", keepRecentLabel:"保留近期上下文",
+      summaryBudget:"摘要预算", modelReasoning:"模型推理",
+      reserveHelp:"在上下文窗口中预留的空间，用于在压缩时写入摘要。",
+      keepRecentHelp:"压缩后有多少最近的对话原样保留；更早的内容由摘要替代。",
+      cycleWork:"可用",
+      presetAggr:"激进", presetBal:"均衡", presetCons:"保守",
+      compactionB:"此操作会修改 pi 的 <em>settings.json</em> 文件。<br>更改在 pi remote 重启后生效。",
       autoname:"自动命名会话", experimental:"实验性",
       autonameWarn:"此功能会请求本地模型为会话命名。这是实验性功能，可能会失败。",
       piRemoteSettings:"pi remote 设置", piAgentSettings:"pi agent 设置",
@@ -5515,7 +5938,7 @@ const STR = {
       provGlobal:"全局", provProject:"项目",
       providers:"提供商", addProvider:"添加提供商", providerEdit:"编辑提供商",
       baseUrl:"基础 URL", apiType:"API 类型", apiKey:"API 密钥",
-      keySet:"已配置", applyRestart:"更改将在重启（/restart）后生效。",
+      keySet:"已配置", applyRestart:"更改将在重启 pi remote 后生效",
       addModel:"添加模型", reasoning:"推理", modelName:"模型名称",
       untitled:"未命名会话",
       motion_fade:"淡入", motion_instant:"即时", image:"图片",
@@ -5545,6 +5968,7 @@ function setLang(v){
 }
 function applyLang(){
   document.documentElement.lang = lang();
+  if(typeof slimTips === "function") slimTips();   // rotulos del rail fino
   document.querySelectorAll("[data-t]").forEach(el=>{
     el.textContent = T(el.dataset.t);
   });
@@ -6041,8 +6465,19 @@ function statusBar(){
   if(!meta) return;
   const v = getComputedStyle(document.documentElement)
               .getPropertyValue("--plate-a").trim();
-  meta.content = v || MANIFEST_BG;
+  const val = v || MANIFEST_BG;
+  if(meta.content === val) return;   // ya esta puesto: tocarlo lo estropea
+  meta.content = val;
+  // al CAMBIAR de tema, Chrome Android no repinta la barra solo con cambiar
+  // el content: reinsertar el nodo le obliga a releerlo
+  const head = meta.parentNode;
+  if(head){ meta.remove(); head.appendChild(meta); }
 }
+/* al volver a la app el sistema re-evalua el color: es justo el gesto que lo
+   arreglaba a mano, asi que se hace solo */
+document.addEventListener("visibilitychange",
+  () => { if(!document.hidden) statusBar(); });
+addEventListener("pageshow", statusBar);
 
 function applyTheme(famId, mode){
   document.documentElement.dataset.theme = resolveTheme(famId, mode);
@@ -6300,11 +6735,24 @@ let editModel = null;     // el modelo que se esta editando en modelEdit
 let skillDraft = null, skillOrig = null;
 let skillCache = {global: null, project: null}, extCache = {global: null, project: null};
 
+/* ---------- compaction: fase hasta el check ---------- */
+let compDraft = null;     // {enabled, reserveTokens, keepRecentTokens}
+let compOrig = null;      // lo que trajo el puente, para saber si hay cambios
+let compInfo = null;      // {window, maxTokens, defaults} del modelo en uso
+let compErr = null;       // el puente no supo responder (p.ej. sin reiniciar)
+let compAnimRAF = 0;      // tween de los sliders al pulsar un preset
+
 /* ---------- ajustes por proyecto: fase hasta el check ---------- */
 let projStaged = null;    // {model:{provider,id}|null, thinking:str|null}
 let projRef = null;       // fingerprint del ultimo estado guardado (dirty)
 let projSavedKey = null;  // fingerprint de los settings que trajo el puente
 let thinkLevels = [];     // niveles disponibles, cacheados
+let thinkMap = null;      // {map, levels} del modelo en edicion
+let thinkMapErr = null;   // el puente no supo responder
+let agentPrefs = null;   // modos de cola y transporte, del settings global
+let agentPrefsErr = null; // el puente no supo responder (sin reiniciar)
+let prefKey = null, prefList = null;
+let defThink = null;      // nivel por defecto del puente (null: sin pedir)
 
 function projInit(){
   const saved = state.projSettings || {};
@@ -6333,7 +6781,7 @@ async function trustAsk(path){
   if(d.decision === false) return false;
   if(!d.needsTrust) return true;   // sin recursos .pi tras la puerta: pi confia por defecto
   return new Promise(res => openModal(T("projectTrustTitle"),
-    `<p><em>${esc(path)}</em></p><p>${esc(T("projectTrustB"))}</p>`,
+    `<p><em>${esc(tilde(path))}</em></p><p>${esc(T("projectTrustB"))}</p>`,
     () => { send({type:"trust_set", path, decision:true}); res(true); },
     {ok: T("trustYes"), no: T("trustNo"), cancel: () => res(false)}));
 }
@@ -6379,6 +6827,7 @@ function paintProjSet(){
         && m.id === projStaged.model.id) || {}).name || projStaged.model.id)
     : T("useGlobal");
   const tval = () => projStaged.thinking || T("useGlobal");
+  let rcard = null;        // se crea mas abajo; sync() lo tolera nulo
   const mcard = pickBtn({icon:"chip", label:T("model"), val:"| " + mname(),
     chevron:true, run:()=>goPage("projmodel")});
   const tcard = pickBtn({icon:"thinkO", label:T("reasoning"), val:"| " + tval(),
@@ -6387,7 +6836,8 @@ function paintProjSet(){
   const okb = $("#sheetOk");
   const sync = () => {
     const on = !!(projStaged.model || projStaged.thinking);
-    [mcard, tcard].forEach(c => { c.classList.toggle("off", !on); c.disabled = !on; });
+    [mcard, tcard, rcard].filter(Boolean).forEach(c => {
+      c.classList.toggle("off", !on); c.disabled = !on; });
     mcard.querySelector(".pval").textContent = "| " + mname();
     tcard.querySelector(".pval").textContent = "| " + tval();
     sw.setAttribute("aria-checked", on ? "true" : "false");
@@ -6408,11 +6858,10 @@ function paintProjSet(){
   };
   okb.onclick = () => openModal(T("saveProjQ"), `<p>${T("saveProjB")}</p>`,
     () => saveProjSet(), {ok: T("ok")});
-  const rh = document.createElement("div");
-  rh.className = "shead"; rh.textContent = T("resources");
-  body.appendChild(rh);
-  body.appendChild(pickBtn({icon:"package", label:T("resources"),
-    chevron:true, run:()=>goPage("resproj")}));
+  // sin rotulo: la card ya se llama "recursos" y repetirlo encima sobra
+  rcard = pickBtn({icon:"package", label:T("resources"),
+    chevron:true, run:()=>goPage("resproj")});
+  body.appendChild(rcard);
   sync();
 }
 
@@ -6451,10 +6900,12 @@ function paintSkillRows(scope){
     const isPkg = s.source === "package";
     if(isPkg) r.style.cursor = "default";
     const sub = [s.description,
-                 isPkg ? s.pkg : null,
                  !isPkg && s.extra ? T("extraFiles").replace("{n}", s.extra) : null]
       .filter(Boolean).join("  ·  ");
-    r.innerHTML = `<span class="stxt"><span>${esc(s.name)}</span>`
+    // el origen va como insignia: en el subtitulo se perdia entre la prosa
+    r.innerHTML = `<span class="stxt"><span>${esc(s.name)}`
+      + (isPkg && s.pkg ? `<i class="pkgb">${esc(s.pkg)}</i>` : "")
+      + `</span>`
       + (sub ? `<small>${esc(sub)}</small>` : "")
       + `</span>`;
     if(isPkg){
@@ -6466,15 +6917,20 @@ function paintSkillRows(scope){
     sw.setAttribute("aria-checked", String(!!s.enabled));
     sw.innerHTML = `<span class="knob"></span>`;
     sw.onclick = e => { e.stopPropagation();
+      // se mueve ya, sin esperar al puente: el repintado de la respuesta
+      // destruye la fila y el knob no llegaria a animar nunca
+      sw.setAttribute("aria-checked", String(!s.enabled));
       send({type:"skill_toggle", scope, dir:s.dir, enabled:!s.enabled}); };
     r.appendChild(sw);
     const dots = document.createElement("span");
     dots.className = "dotsb"; dots.setAttribute("role", "button");
     dots.innerHTML = ico("more");
     dots.onclick = e => { e.stopPropagation();
-      ctxPopup(r, [{icon:"remove", bad:true, label:T("deleteSkillQ")
-          .replace("{name}", s.name), run:()=>
-        confirmModal(T("deleteSkillQ").replace("{name}", s.name), "",
+      // la fila del menu dice solo "eliminar"; el aviso de que borra la
+      // carpeta entera va en el dialogo de confirmacion
+      ctxPopup(r, [{icon:"remove", bad:true, label:T("deleteLbl"), run:()=>
+        confirmModal(T("deleteSkillQ").replace("{name}", s.name),
+          esc(T("deleteSkillB")),
           ()=>send({type:"skill_delete", scope, dir:s.dir}))}], dots); };
     r.appendChild(dots);
     r.onclick = () => {
@@ -6511,9 +6967,184 @@ function paintExtRows(scope){
 function skillGuard(){
   if(sheetPage !== "skilledit") return false;
   if(!skillDirty()) return false;
-  openModal(T("discardSkillQ"), "", goBack,
+  openModal(T("discardQ"), "", goBack,
     {ok: T("yes"), no: T("no")});
   return true;
+}
+
+/* ---------- compaction ----------
+   Las reglas son de pi (core/compaction): corta en ventana - reserva, y el
+   resumen dispone de min(0.8*reserva, maxTokens del modelo). De ahi salen los
+   limites: pasado el CODO (maxTokens*1.25) la reserva no da mas resumen, solo
+   adelanta el corte. Los presets mueven SOLO el contexto reciente, que es lo
+   unico donde hay eleccion real; la reserva va siempre al codo. */
+const COMP_MIN_R = 4096, COMP_MIN_K = 2000;
+const COMP_PRESETS = {aggr: 1 / 15, bal: 2 / 15, cons: 4 / 15};
+function compKnee(){ return Math.round((compInfo.maxTokens || 16384) * 1.25); }
+function compSummary(r){
+  return Math.min(Math.floor(0.8 * r), compInfo.maxTokens || Infinity);
+}
+/* el slider topa en el codo: pasado ahi la reserva no compra resumen (S topa
+   en maxTokens) y el margen que daria ya sobra, porque el prompt del resumen
+   es el contexto MENOS lo reciente. Si el fichero trae un valor mayor puesto
+   a mano, se sigue pudiendo representar: la pagina no miente sobre el disco */
+function compMaxR(){
+  const lo = compKnee();
+  return Math.max(COMP_MIN_R + 1, lo,
+                  compOrig ? compOrig.reserveTokens : 0);
+}
+function compMaxK(r){
+  // el limite duro es S + K < ventana - reserva; el tercio da precision
+  const hard = compInfo.window - r - compSummary(r) - COMP_MIN_R;
+  return Math.max(COMP_MIN_K + 1,
+                  Math.min(Math.round(compInfo.window / 3), hard));
+}
+function compCycle(r, k){        // tokens de trabajo entre compactaciones
+  return Math.max(0, (compInfo.window - r) - (compSummary(r) + k));
+}
+function compPresetK(which){
+  return Math.round(compInfo.window * COMP_PRESETS[which]);
+}
+function compWhich(){            // preset que casa con el draft, si alguno
+  if(!compDraft || !compInfo) return null;
+  if(compDraft.reserveTokens !== compKnee()) return null;
+  for(const w in COMP_PRESETS)
+    if(compDraft.keepRecentTokens === compPresetK(w)) return w;
+  return null;
+}
+function compDirty(){
+  return !!(compDraft && compOrig)
+    && (compDraft.enabled !== compOrig.enabled
+        || compDraft.reserveTokens !== compOrig.reserveTokens
+        || compDraft.keepRecentTokens !== compOrig.keepRecentTokens);
+}
+function compGuard(){
+  if(sheetPage !== "compaction") return false;
+  if(!compDirty()) return false;
+  openModal(T("discardQ"), "",
+    () => { compDraft = compOrig ? Object.assign({}, compOrig) : null;
+            goBack(); },
+    {ok: T("yes"), no: T("no")});
+  return true;
+}
+
+/* mostrar/ocultar el check con fundido: `hidden` es display:none y no anima,
+   asi que la salida espera a que termine la transicion */
+let compOkT = 0;
+function compSetOk(on){
+  const b = $("#sheetOk");
+  if(!b) return;
+  clearTimeout(compOkT);
+  if(on){ b.classList.remove("out"); b.hidden = false; return; }
+  if(b.hidden) return;
+  b.classList.add("out");
+  compOkT = setTimeout(() => { b.hidden = true; b.classList.remove("out"); },
+                       160);
+}
+
+/* el check de la sbar: unico camino a disco. Avisa de que escribe el
+   settings.json de pi y de que aplica al reiniciar, como providers */
+function wireCompOk(){
+  $("#sheetOk").onclick = () => openModal(T("confirmChanges"),
+    T("compactionB"), () => {
+      send({type:"compaction_save", compaction: {
+        enabled: !!compDraft.enabled,
+        reserveTokens: compDraft.reserveTokens,
+        keepRecentTokens: compDraft.keepRecentTokens}});
+      compOrig = Object.assign({}, compDraft);
+      $("#sheetOk").hidden = true;
+      goBack();
+    }, {ok: T("confirm"), no: T("no")});
+}
+
+/* cubic-bezier(.32,.72,0,1), la curva de la casa, evaluada en JS: el valor de
+   un input[type=range] no lo puede animar el CSS */
+function bez(p1x, p1y, p2x, p2y){
+  const cx = 3 * p1x, bx = 3 * (p2x - p1x) - cx, ax = 1 - cx - bx;
+  const cy = 3 * p1y, by = 3 * (p2y - p1y) - cy, ay = 1 - cy - by;
+  const fx = t => ((ax * t + bx) * t + cx) * t;
+  const dx = t => (3 * ax * t + 2 * bx) * t + cx;
+  return x => {
+    let t = x;
+    for(let i = 0; i < 6; i++){
+      const e = fx(t) - x;
+      if(Math.abs(e) < 1e-4) break;
+      const d = dx(t);
+      if(Math.abs(d) < 1e-6) break;
+      t -= e / d;
+    }
+    return ((ay * t + by) * t + cy) * t;
+  };
+}
+const COMP_EASE = bez(.32, .72, 0, 1);
+const COMP_MS = 380;
+
+/* refresca lo que depende de los valores. Durante el tween solo se llama
+   esto: reconstruir el DOM 60 veces por segundo mataria la animacion */
+function compRefresh(){
+  const r = compDraft.reserveTokens, k = compDraft.keepRecentTokens;
+  const rs = $("#compR"), ks = $("#compK");
+  if(!rs || !ks) return;
+  const s = compSummary(r), W = compInfo.window;
+  ks.max = compMaxK(r);
+  if(k > +ks.max){ compDraft.keepRecentTokens = +ks.max; }
+  rs.value = r; ks.value = compDraft.keepRecentTokens;
+  const rn = $("#compRn"), kn = $("#compKn");
+  if(document.activeElement !== rn) rn.value = r;
+  if(document.activeElement !== kn) kn.value = compDraft.keepRecentTokens;
+  // el slider topa en el codo, asi que el presupuesto sube en todo el
+  // recorrido: no hay zona muerta que explicar
+  $("#compHint").textContent = T("summaryBudget") + ": " + kilo(s);
+  // reparto de la ventana: trabajo | reciente | resumen | reserva
+  const kk = compDraft.keepRecentTokens, work = compCycle(r, kk);
+  const seg = [["cwork", work], ["ckeep", kk], ["csum", s], ["cres", r]];
+  seg.forEach(([cls, v]) => {
+    const el = document.querySelector(".cbar ." + cls);
+    if(el) el.style.width = (100 * v / W).toFixed(3) + "%";
+  });
+  const lg = $("#compLegend");
+  if(lg) lg.innerHTML = seg.map(([cls, v], i) =>
+    `<span><i class="${cls}"></i>${esc(T(["cycleWork", "keepRecentLabel",
+      "summaryBudget", "reserveLabel"][i]))} <b>${esc(kilo(v))}</b></span>`)
+    .join("");
+  // los presets se marcan solos: si no casa ninguno, ninguno marcado
+  const w = compWhich();
+  document.querySelectorAll(".preset").forEach(b =>
+    b.classList.toggle("sel", b.dataset.p === w));
+  compSetOk(compDirty());
+}
+
+/* el preset lleva los dos sliders a su sitio; el numero viaja con ellos, o se
+   verian dos cosas distintas moviendose */
+function compAnimTo(r, k){
+  cancelAnimationFrame(compAnimRAF);
+  const r0 = compDraft.reserveTokens, k0 = compDraft.keepRecentTokens;
+  if(REDUCED || (r0 === r && k0 === k)){
+    compDraft.reserveTokens = r; compDraft.keepRecentTokens = k;
+    compRefresh(); return;
+  }
+  const t0 = performance.now();
+  const step = now => {
+    const p = Math.min(1, (now - t0) / COMP_MS), e = COMP_EASE(p);
+    compDraft.reserveTokens = Math.round(r0 + (r - r0) * e);
+    compDraft.keepRecentTokens = Math.round(k0 + (k - k0) * e);
+    if(p >= 1){ compDraft.reserveTokens = r; compDraft.keepRecentTokens = k; }
+    compRefresh();
+    if(p < 1) compAnimRAF = requestAnimationFrame(step);
+  };
+  compAnimRAF = requestAnimationFrame(step);
+}
+
+/* "usar el global" es una opcion mas de la lista, no un boton aparte: si se
+   pinta con pickBtn({icon:"check"}) sale un tick fijo a la izquierda MIENTRAS
+   la fila elegida saca el suyo en el chkslot, y se ven dos ticks a la vez */
+function globalRow(sel, run){
+  const b = document.createElement("button");
+  b.className = "pick mrow" + (sel ? " sel" : "");
+  b.innerHTML = `<span class="chkslot">${ico("check")}</span>`
+    + `<span class="txt">${esc(T("useGlobal"))}</span>`;
+  b.onclick = () => { if(!sel) run(); };
+  return b;
 }
 
 function paintProjModels(){
@@ -6527,8 +7158,8 @@ function paintProjModels(){
     return;
   }
   // "usar global": borra el override
-  body.appendChild(pickBtn({icon:"check", label:T("useGlobal"),
-    run:()=>{ projStaged.model = null; goBack(); }}));
+  body.appendChild(globalRow(!projStaged.model,
+    ()=>{ projStaged.model = null; goBack(); }));
   models.forEach(m => {
     const sel = projStaged.model && m.provider === projStaged.model.provider
       && m.id === projStaged.model.id;
@@ -6548,8 +7179,8 @@ function paintProjThink(){
   const body = $("#sheetBody");
   const draw = () => {
     body.innerHTML = "";
-    body.appendChild(pickBtn({icon:"check", label:T("useGlobal"),
-      run:()=>{ projStaged.thinking = null; goBack(); }}));
+    body.appendChild(globalRow(!projStaged.thinking,
+      ()=>{ projStaged.thinking = null; goBack(); }));
     (thinkLevels.length ? thinkLevels : [state.thinking].filter(Boolean))
       .forEach(l => {
         const sel = l === projStaged.thinking;
@@ -6700,7 +7331,14 @@ function paintSheet(page){
     // arrancan con los valores actuales: el check exige ambos validos y
     // alguno distinto del original
     const fields = {contextWindow: editModel.contextWindow,
-                    maxTokens: editModel.maxTokens};
+                    maxTokens: editModel.maxTokens,
+                    input: (editModel.input || ["text"]).slice()};
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    // el check aparece con los numeros validos y algo distinto de lo guardado
+    const editDirty = () => !!(fields.contextWindow && fields.maxTokens
+      && (fields.contextWindow !== editModel.contextWindow
+          || fields.maxTokens !== editModel.maxTokens
+          || !same(fields.input, editModel.input || ["text"])));
     const row = (key, value, readonly) => {
       const f = document.createElement("div");
       f.className = "mfield";
@@ -6714,9 +7352,7 @@ function paintSheet(page){
           const v = parseInt(inp.value, 10);
           fields[key] = (isFinite(v) && v > 0) ? v : null;
           // el check solo aparece con los dos campos validos y distintos
-          okb.hidden = !(fields.contextWindow && fields.maxTokens
-            && (fields.contextWindow !== editModel.contextWindow
-                || fields.maxTokens !== editModel.maxTokens));
+          okb.hidden = !editDirty();
         });
       }
       const lbl = document.createElement("label");
@@ -6726,14 +7362,45 @@ function paintSheet(page){
     row("contextWindow", editModel.contextWindow);
     row("maxTokens", editModel.maxTokens);
     row("modelId", editModel.id, true);
-    row("modalities", (editModel.input || []).join(", "), true);
+    // las modalidades SI se editan: si cambia el servidor donde corre el
+    // modelo, el dato declarado deja de ser verdad. El id sigue de solo
+    // lectura porque es la clave con la que pi lo encuentra
+    const vc = document.createElement("div");
+    vc.className = "fcard";
+    vc.style.marginTop = "18px";
+    vc.innerHTML = `<div class="frow"><div class="ftext">`
+      + `<div class="flbl">${esc(T("visionLbl"))}`
+      + ` <small>${esc(T("modalities"))}</small></div></div>`
+      + `<button class="sw" role="switch"`
+      + ` aria-checked="${fields.input.indexOf("image") >= 0}"`
+      + ` aria-label="${esc(T("visionLbl"))}"><span class="knob"></span></button>`;
+    const vsw = vc.querySelector(".sw");
+    vsw.onclick = () => {
+      const on = vsw.getAttribute("aria-checked") !== "true";
+      vsw.setAttribute("aria-checked", String(on));
+      fields.input = on ? ["text", "image"] : ["text"];
+      okb.hidden = !editDirty();
+    };
+    body.appendChild(vc);
+    // el mapa traduce el nivel de pi al valor que entiende el servidor.
+    // Con cromo de campo, como los de arriba: una fila de menu entre campos
+    // rompe la columna. Sin rotulo flotante: el nombre va dentro
+    const mrow = document.createElement("div");
+    mrow.className = "mfield sel";
+    const mb = document.createElement("button");
+    mb.type = "button";
+    mb.innerHTML = `<span>${esc(T("thinkingMap"))}</span>`;
+    mb.onclick = () => goPage("thinkmap");
+    mrow.appendChild(mb);
+    mrow.insertAdjacentHTML("beforeend", ico("chevron", "ch"));
+    body.appendChild(mrow);
     okb.onclick = () => openModal(
       T("confirmChanges"),
       `<p>${T("confirmBody")}</p>`,
       () => send({type:"save_model_params", provider:editModel.provider,
                   modelId:editModel.id,
                   contextWindow:fields.contextWindow,
-                  maxTokens:fields.maxTokens}),
+                  maxTokens:fields.maxTokens, input:fields.input}),
       {ok: T("confirm")});
     return;
   }
@@ -6802,8 +7469,310 @@ function paintSheet(page){
     body.appendChild(pickBtn({icon:"chip", label:T("model"),
       val: state.model ? "| " + state.model : null,
       chevron:true, run: () => goPage("modelList")}));
+    // nivel de razonamiento por defecto: pi lo resuelve con
+    // getDefaultThinkingLevel() sobre el settings global
+    body.appendChild(pickBtn({icon:"thinkO", label:T("defaultReasoning"),
+      val: defThink ? "| " + defThink : null,
+      chevron:true, run: () => goPage("defthink")}));
+    if(defThink === null) send({type:"thinking_default_get"});
+    // el contexto vive junto al modelo a proposito: el presupuesto del
+    // resumen lo topa maxTokens, que se edita dos clics mas alla
+    body.appendChild(pickBtn({icon:"stats", label:T("contextComp"),
+      chevron:true, run: () => goPage("compaction")}));
+    body.appendChild(pickBtn({icon:"settings", label:T("agentBehaviour"),
+      chevron:true, run: () => goPage("agentprefs")}));
     body.appendChild(pickBtn({icon:"package", label:T("resources"),
       chevron:true, run: () => goPage("resglobal")}));
+    return;
+  }
+  if(page === "compaction"){
+    $("#sheetTitle").textContent = T("contextComp");
+    if(compErr){                      // el puente no respondio: decirlo
+      const e = document.createElement("div");
+      e.className = "cwarn"; e.textContent = rpcErrText(compErr);
+      body.appendChild(e);
+      return;
+    }
+    if(!compInfo || !compDraft){      // aun sin datos: pedirlos y esperar
+      send({type:"compaction_get"});
+      head("loadingModels");
+      return;
+    }
+    const card = document.createElement("div");
+    card.className = "fcard";
+    card.innerHTML = `<div class="frow"><div class="ftext">`
+      + `<div class="flbl">${esc(T("autoCompact"))}</div></div>`
+      + `<button class="sw" role="switch" aria-label="${esc(T("autoCompact"))}"`
+      + ` aria-checked="${!!compDraft.enabled}"><span class="knob"></span></button>`;
+    body.appendChild(card);
+    // sin modelo conocido no hay limites que calcular: la ventana y maxTokens
+    // salen de el. Se dice, en vez de esconder los sliders sin explicacion
+    const known = compInfo.window && compInfo.maxTokens;
+    const sw = card.querySelector(".sw");
+    sw.onclick = () => {
+      // in situ, no repintando: el knob no puede animar si el nodo renace
+      compDraft.enabled = !compDraft.enabled;
+      sw.setAttribute("aria-checked", String(!!compDraft.enabled));
+      const bd = document.querySelector(".cbody");
+      if(bd) bd.classList.toggle("on", !!compDraft.enabled);
+      compSetOk(compDirty());
+    };
+    // la lectura del reasoning va siempre, fuera del cuerpo plegable
+    const foot = () => {
+      const f = document.createElement("div");
+      f.className = "cfoot";
+      f.textContent = T("modelReasoning") + ": " + (state.thinking || "-");
+      body.appendChild(f);
+    };
+    if(!known){
+      const w = document.createElement("div");
+      w.className = "cwarn"; w.textContent = T("loadingModels");
+      body.appendChild(w);
+      foot();
+      compSetOk(compDirty());
+      wireCompOk();
+      return;
+    }
+    // todo lo que depende de los numeros vive en el cuerpo plegable
+    const cbody = document.createElement("div");
+    cbody.className = "cbody" + (compDraft.enabled ? " on" : "");
+    const host = document.createElement("div");
+    host.className = "cbin";
+    cbody.appendChild(host);
+    body.appendChild(cbody);
+    // presets: mueven SOLO el contexto reciente; la reserva va al codo
+    const ps = document.createElement("div");
+    ps.className = "presets";
+    [["aggr", "presetAggr"], ["bal", "presetBal"], ["cons", "presetCons"]]
+      .forEach(([w, key]) => {
+        const b = document.createElement("button");
+        b.className = "preset"; b.dataset.p = w;
+        b.textContent = T(key);
+        b.onclick = () => compAnimTo(compKnee(), compPresetK(w));
+        ps.appendChild(b);
+      });
+    host.appendChild(ps);
+
+    const slider = (id, key, val, lo, hi) => {
+      const row = document.createElement("div");
+      row.className = "crow";
+      row.innerHTML = `<div class="chead"><span class="clbl">${esc(T(key))}`
+        + `</span><input class="cnum" id="${id}n" inputmode="numeric"`
+        + ` aria-label="${esc(T(key))}" value="${val}"></div>`
+        + `<input type="range" id="${id}" min="${lo}"`
+        + ` max="${hi}" step="1" value="${val}">`;
+      host.appendChild(row);
+      return row;
+    };
+    const help = key => {
+      const h = document.createElement("div");
+      h.className = "chelp"; h.textContent = T(key);
+      host.appendChild(h);
+    };
+    slider("compR", "reserveLabel", compDraft.reserveTokens,
+           COMP_MIN_R, compMaxR());
+    help("reserveHelp");
+    const hint = document.createElement("div");
+    hint.className = "chint"; hint.id = "compHint";
+    host.appendChild(hint);
+    slider("compK", "keepRecentLabel", compDraft.keepRecentTokens,
+           COMP_MIN_K, compMaxK(compDraft.reserveTokens));
+    help("keepRecentHelp");
+
+    const bar = document.createElement("div");
+    bar.className = "cbar";
+    bar.innerHTML = `<i class="cwork"></i><i class="ckeep"></i>`
+      + `<i class="csum"></i><i class="cres"></i>`;
+    host.appendChild(bar);
+    const lg = document.createElement("div");
+    lg.className = "clegend"; lg.id = "compLegend";
+    host.appendChild(lg);
+    foot();
+
+    // arrastrar el slider manda; el numero acepta lo que se teclee al salir
+    const bind = (sid, nid, field, lo, hiFn) => {
+      const s = $("#" + sid), n = $("#" + nid);
+      s.oninput = () => { cancelAnimationFrame(compAnimRAF);
+                          compDraft[field] = +s.value; compRefresh(); };
+      n.onchange = () => {
+        const v = parseInt(String(n.value).replace(/\D+/g, ""), 10);
+        compDraft[field] = isNaN(v) ? compDraft[field]
+          : Math.max(lo, Math.min(hiFn(), v));
+        compRefresh();
+      };
+      n.onkeydown = e => { if(e.key === "Enter") n.blur(); };
+    };
+    bind("compR", "compRn", "reserveTokens", COMP_MIN_R, compMaxR);
+    bind("compK", "compKn", "keepRecentTokens", COMP_MIN_K,
+         () => compMaxK(compDraft.reserveTokens));
+    compRefresh();
+    wireCompOk();
+    return;
+  }
+  if(page === "thinkmap"){
+    if(!editModel) return;
+    $("#sheetTitle").textContent = T("thinkingMap");
+    const sub = document.createElement("div");
+    sub.className = "shead"; sub.textContent = editModel.name;
+    body.appendChild(sub);
+    if(thinkMapErr){
+      const e = document.createElement("div");
+      e.className = "cwarn"; e.textContent = rpcErrText(thinkMapErr);
+      body.appendChild(e);
+      return;
+    }
+    if(!thinkMap){                    // aun sin datos: pedirlos y esperar
+      send({type:"thinking_map_get", provider:editModel.provider,
+            modelId:editModel.id});
+      head("loadingModels");
+      return;
+    }
+    const help = document.createElement("div");
+    help.className = "chelp"; help.textContent = T("thinkingMapHelp");
+    body.appendChild(help);
+    const okb = $("#sheetOk");
+    const draft = Object.assign({}, thinkMap.map);
+    const dirty = () => JSON.stringify(draft) !== JSON.stringify(thinkMap.map);
+    /* Tres estados por nivel, no dos (asi los usa pi en
+       getSupportedThinkingLevels):
+         apagado  -> null, el modelo NO ofrece ese nivel
+         vacio    -> fuera del mapa, el nivel viaja tal cual
+         con texto-> se traduce a lo que espera el servidor
+       Ojo: xhigh y max solo aparecen si estan EN el mapa con valor. */
+    thinkMap.levels.forEach(lv => {
+      const row = document.createElement("div");
+      row.className = "mfield lvl";
+      const on = draft[lv] !== null;
+      const inp = document.createElement("input");
+      inp.placeholder = " ";
+      inp.value = draft[lv] == null ? "" : draft[lv];
+      inp.disabled = !on;
+      const sw = document.createElement("button");
+      sw.className = "sw"; sw.setAttribute("role", "switch");
+      sw.setAttribute("aria-checked", String(on));
+      sw.setAttribute("aria-label", lv);
+      sw.innerHTML = `<span class="knob"></span>`;
+      sw.onclick = () => {
+        const nowOn = sw.getAttribute("aria-checked") !== "true";
+        sw.setAttribute("aria-checked", String(nowOn));
+        inp.disabled = !nowOn;
+        if(nowOn){ const v = inp.value.trim();
+                   if(v) draft[lv] = v; else delete draft[lv]; }
+        else { draft[lv] = null; }        // apagado: pi excluye el nivel
+        okb.hidden = !dirty();
+      };
+      inp.addEventListener("input", () => {
+        const v = inp.value.trim();
+        if(v) draft[lv] = v; else delete draft[lv];
+        okb.hidden = !dirty();
+      });
+      const lbl = document.createElement("label");
+      lbl.textContent = lv;
+      row.append(inp, lbl, sw);
+      body.appendChild(row);
+    });
+    okb.onclick = () => openModal(T("confirmChanges"),
+      `<p>${T("confirmBody")}</p>`,
+      () => { send({type:"thinking_map_save", provider:editModel.provider,
+                    modelId:editModel.id, thinkingLevelMap:draft});
+              thinkMap = null; okb.hidden = true; goBack(); },
+      {ok: T("confirm")});
+    return;
+  }
+  if(page === "agentprefs"){
+    $("#sheetTitle").textContent = T("agentBehaviour");
+    if(agentPrefsErr){            // decirlo, en vez de pintar undefined
+      const e = document.createElement("div");
+      e.className = "cwarn"; e.textContent = rpcErrText(agentPrefsErr);
+      body.appendChild(e);
+      return;
+    }
+    if(!agentPrefs){
+      send({type:"agent_prefs_get"});
+      head("loadingModels");
+      return;
+    }
+    // los modos de cola aplican EN VIVO (van por RPC ademas de al fichero);
+    // el transporte lo relee pi al arrancar
+    const label = v => v === "one-at-a-time" ? T("mode_one")
+      : v === "all" ? T("mode_all") : v;
+    [["steeringMode", "queueModes"], ["followUpMode", "queueModes"],
+     ["transport", "transports"]].forEach(([key, listKey]) => {
+      body.appendChild(pickBtn({label:T(key),
+        val:"| " + label(agentPrefs[key]),
+        chevron:true, run:()=>{ prefKey = key; prefList = listKey;
+                                goPage("agentpref1"); }}));
+    });
+    const n = document.createElement("div");
+    n.className = "chelp"; n.textContent = T("applyRestart");
+    body.appendChild(n);
+    return;
+  }
+  if(page === "agentpref1"){
+    if(!agentPrefs || !prefKey) return;
+    $("#sheetTitle").textContent = T(prefKey);
+    const label = v => v === "one-at-a-time" ? T("mode_one")
+      : v === "all" ? T("mode_all") : v;
+    (agentPrefs[prefList] || []).forEach(v => {
+      const sel = v === agentPrefs[prefKey];
+      const b = document.createElement("button");
+      b.className = "pick mrow" + (sel ? " sel" : "");
+      b.innerHTML = `<span class="chkslot">${ico("check")}</span>`
+        + `<span class="txt">${esc(label(v))}</span>`;
+      b.onclick = () => { if(!sel){
+        agentPrefs[prefKey] = v;
+        send({type:"agent_prefs_save", [prefKey]: v});
+        goBack(); } };
+      body.appendChild(b);
+    });
+    return;
+  }
+  if(page === "provApi"){
+    if(!provDraft) return;
+    $("#sheetTitle").textContent = T("apiType");
+    // si el provider trae una API de una extension, se lista igual: la lista
+    // de pi es la de serie, no la unica posible
+    const list = PI_APIS.includes(provDraft.api)
+      ? PI_APIS : [provDraft.api].concat(PI_APIS);
+    list.forEach(a => {
+      const sel = a === provDraft.api;
+      const b = document.createElement("button");
+      b.className = "pick mrow" + (sel ? " sel" : "");
+      b.innerHTML = `<span class="chkslot">${ico("check")}</span>`
+        + `<span class="txt">${esc(a)}</span>`;
+      b.onclick = () => { if(!sel){ provDraft.api = a; goBack(); } };
+      body.appendChild(b);
+    });
+    return;
+  }
+  if(page === "defthink"){
+    $("#sheetTitle").textContent = T("defaultReasoning");
+    // se piden SIEMPRE que falten: con el nivel de la sesion como unico
+    // respaldo, la lista se quedaba en esa sola opcion y no se pedia nunca
+    if(!thinkLevels.length) send({type:"get_available_thinking_levels"});
+    const levels = thinkLevels.length ? thinkLevels
+      : [state.thinking].filter(Boolean);
+    if(!levels.length){
+      head("loadingModels");
+      return;
+    }
+    // "usar el de pi": borra la clave y pi vuelve a su propio default
+    body.appendChild(globalRow(!defThink,
+      () => { defThink = ""; send({type:"thinking_default_save",
+                                   level:null}); goBack(); }));
+    levels.forEach(l => {
+      const sel = l === defThink;
+      const b = document.createElement("button");
+      b.className = "pick mrow" + (sel ? " sel" : "");
+      b.innerHTML = `<span class="chkslot">${ico("check")}</span>`
+        + `<span class="txt">${esc(l)}</span>`;
+      b.onclick = () => { if(!sel){ defThink = l;
+        send({type:"thinking_default_save", level:l}); goBack(); } };
+      body.appendChild(b);
+    });
+    const n = document.createElement("div");
+    n.className = "chelp"; n.textContent = T("applyRestart");
+    body.appendChild(n);
     return;
   }
   if(page === "modelList"){
@@ -6823,13 +7792,21 @@ function paintSheet(page){
         + `<span class="txt">` + mqSpan("span", m.name || m.id)
         + (m.contextWindow ? mqSpan("small", kilo(m.contextWindow) + " ctx") : "")
         + `</span>`
-        + `<span class="pen" role="button" aria-label="${esc(T("editModel"))}">` + ico("pen") + `</span>`;
+        + `<span class="pen" role="button" aria-label="${esc(T("editModel"))}">` + ico("pen") + `</span>`
+        + `<span class="pen del" role="button" aria-label="${esc(T("deleteLbl"))}">` + ico("remove") + `</span>`;
       b.querySelector(".pen").onclick = e => {
         e.stopPropagation();
         editModel = {provider:m.provider, id:m.id, name:m.name || m.id,
                      contextWindow:m.contextWindow, maxTokens:m.maxTokens,
                      input:m.input};
         goPage("modelEdit");
+      };
+      b.querySelector(".del").onclick = e => {
+        e.stopPropagation();
+        openModal(T("deleteModelQ").replace("{name}", m.name || m.id),
+          `<p>${T("confirmBody")}</p>`,
+          () => send({type:"model_delete", provider:m.provider, modelId:m.id}),
+          {ok: T("confirm")});
       };
       b.onclick = () => {
         if(b.classList.contains("sel")) return;   // ya elegido
@@ -6929,7 +7906,11 @@ function paintSheet(page){
     label:T("piRemoteSettings"), chevron:true, run:()=>goPage("premote")}));
   body.appendChild(pickBtn({mask:"piagentmask",
     label:T("piAgentSettings"), chevron:true, run:()=>goPage("pagent")}));
-  head("\u00a0");
+  // separador real entre los dos grupos: antes era una cabecera con un
+  // espacio duro, o sea solo aire, y se leia como un fallo de maquetacion
+  const div = document.createElement("div");
+  div.className = "sdiv";
+  body.appendChild(div);
   body.appendChild(pickBtn({icon:"help", label:T("help"),
     run: () => helpModal()}));
   body.appendChild(pickBtn({icon:"info", label:T("about"),
@@ -6951,6 +7932,7 @@ function goPage(page){
 function goBack(){
   if(projGuard()) return;
   if(skillGuard()) return;
+  if(compGuard()) return;
   turnTo(sheetStack.pop() || "root", -1);
 }
 /* salir de ajustes por proyecto con cambios sin guardar: preguntar */
@@ -7005,7 +7987,7 @@ function statsSheet(st){
   rows.push(statsRow(T("stTotal"), nfmt(st.total), T("tks")));
   if(st.cost) rows.push(statsRow(T("stCost"), "$" + st.cost.toFixed(4), ""));
   $("#statsBody").innerHTML = rows.join("");
-  $("#statsheet").classList.add("open");
+  $("#statsheet").classList.add("open"); navArm();
 }
 $("#statsheet").onclick = e => {
   if(e.target.id === "statsheet") e.target.classList.remove("open");
@@ -7115,7 +8097,7 @@ dragToDismiss(palette, ".grab, .phead", closePalette, null);
 function menuSheet(){
   sheetStack = [];                   // abrir el menu es raiz de la pila
   paintSheet("root");
-  $("#sheet").classList.add("open");
+  $("#sheet").classList.add("open"); navArm();
   marqueeAll($("#sheetBody"));
 }
 $("#menuBtn").onclick = menuSheet;
@@ -7173,12 +8155,50 @@ if(window.visualViewport){
   const fitKeyboard = ()=>{
     const gap = Math.max(0, innerHeight - vv.height - vv.offsetTop);
     anchorKb(Math.round(gap));
+    // al enfocar la caja, el navegador desplaza el viewport de maquetacion
+    // para dejar el cursor a la vista y se lleva la cabecera fuera de
+    // pantalla. El documento no scrollea (main es quien lo hace), asi que
+    // devolverlo a cero recupera la toolbar sin mover el chat
+    if(vv.offsetTop > 0 || scrollY > 0) scrollTo(0, 0);
   };
   vv.addEventListener("resize", fitKeyboard);
   vv.addEventListener("scroll", fitKeyboard);
   fitKeyboard();
 }
 STILL.addEventListener("change", ()=> marqueeAll());
+
+/* la carpeta del usuario se pinta como ~: mas corto y no ensena el nombre
+   de la cuenta. Solo para MOSTRAR; las rutas que viajan al puente van enteras */
+function tilde(p){
+  // el puente publica el home; si aun no lo manda (puente sin reiniciar) se
+  // deduce del propio camino, que es lo bastante regular en los tres sistemas
+  const h = state.home
+    || ((p || "").match(/^([A-Za-z]:[\\/]Users[\\/][^\\/]+|\/Users\/[^/]+|\/home\/[^/]+)/) || [])[1]
+    || "";
+  if(!h || !p) return p || "";
+  const n = x => x.split("\\").join("/").replace(/\/+$/, "");
+  const a = n(p), b = n(h);
+  if(a === b) return "~";
+  if(a.toLowerCase().startsWith(b.toLowerCase() + "/"))
+    return "~/" + a.slice(b.length + 1);
+  return p;
+}
+
+/* de que proyecto es una sesion: dos sesiones homonimas de proyectos
+   distintos eran indistinguibles en recientes y en la busqueda */
+/* "command not allowed" es lo que responde un puente que aun no conoce un
+   comando nuevo. Al usuario no le dice nada: se traduce a lo que tiene que
+   hacer. Cualquier otro error se ensena tal cual, que ahi si es diagnostico */
+const rpcErrText = e =>
+  String(e || "") === "command not allowed" ? T("needsRestart") : String(e || "");
+
+const projName = p =>
+  (p || "").split("\\").join("/").split("/").filter(Boolean).pop() || "";
+/* fecha y hora sin segundos: cinco sesiones nacidas en el mismo minuto se
+   distinguen por el nombre, no por el segundo */
+const when = ms => new Date(ms).toLocaleString(lang(),
+  {year:"numeric", month:"2-digit", day:"2-digit",
+   hour:"2-digit", minute:"2-digit", hour12:false});
 
 const mqSpan = (cls, text) =>
   `<${cls} class="mq"><span>${esc(text)}</span></${cls}>`;
@@ -7214,11 +8234,71 @@ function sheet(title, rows){
     r.run = (run => () => { $("#sheet").classList.remove("open"); run(); })(r.run);
     body.appendChild(pickBtn(r));
   });
-  $("#sheet").classList.add("open");
+  $("#sheet").classList.add("open"); navArm();
   marqueeAll(body);
 }
+/* ---------- el boton atras del movil cierra capas, no la pagina ----------
+   Se mantiene UNA entrada de guardia en el historial mientras haya algo
+   abierto. Cada "atras" la consume: si hay capa que cerrar, se cierra y se
+   vuelve a armar; si no queda nada, no se rearma y el siguiente atras sale
+   de verdad. Asi no se acumulan entradas ni se secuestra la navegacion. */
+let navArmed = false;
+function navArm(){
+  if(navArmed) return;
+  try { history.pushState({pi:1}, ""); navArmed = true; } catch(e){}
+}
+/* de la capa mas alta a la mas baja, en el orden en que se apilan */
+function topLayer(){
+  const lb = $("#lightbox"), pal = $("#palette");
+  if(ctxPop) return "ctx";
+  if(lb && !lb.hidden) return "lightbox";
+  if($("#modal").classList.contains("open")) return "modal";
+  if(pal && pal.classList.contains("open")) return "palette";
+  if($("#statsheet").classList.contains("open")) return "stats";
+  if($("#searchView").classList.contains("on")) return "search";
+  if($("#trashView").classList.contains("on")) return "trash";
+  if($("#sheet").classList.contains("open")) return "sheet";
+  if($("#rail").classList.contains("on")) return "rail";
+  return null;
+}
+function closeTopLayer(){
+  switch(topLayer()){
+    case "ctx": closeCtxPop(); return true;
+    case "lightbox": closeLightbox(); return true;
+    case "modal": closeModal(); return true;
+    case "palette": $("#palette").classList.remove("open"); return true;
+    case "stats": $("#statsheet").classList.remove("open"); return true;
+    case "search": closeSearch(); return true;
+    case "trash": closeTrash(); return true;
+    case "sheet":
+      // dentro del menu, atras camina las paginas antes de cerrar la hoja
+      if(sheetPage !== "root"){ goBack(); return true; }
+      $("#sheet").classList.remove("open"); return true;
+    case "rail": closeRail(); return true;
+  }
+  return false;
+}
+/* red de seguridad: enumerar las aperturas se queda corto (la paleta, el
+   menu del mas, un sheet abierto desde otro sitio...). Tras cualquier toque,
+   si hay capa arriba y no hay guardia, se arma. Sin esto un atras con una
+   capa abierta pero sin armar cerraba la aplicacion */
+document.addEventListener("pointerdown", () => {
+  if(topLayer()) navArm();
+}, true);
+addEventListener("popstate", () => {
+  navArmed = false;                    // el atras se comio la guardia
+  if(closeTopLayer()) navArm();        // queda UI: volver a armar
+});
+
+/* cerrar tocando el velo, pero solo si el gesto EMPEZO ahi: el click salta
+   en el ancestro comun del down y el up, asi que seleccionar texto dentro de
+   un campo y soltar fuera llegaba aqui con target #sheet y cerraba la hoja */
+let sheetDownOut = false;
+$("#sheet").addEventListener("pointerdown", e => {
+  sheetDownOut = e.target.id === "sheet";
+});
 $("#sheet").onclick = e => {
-  if(e.target.id === "sheet") e.target.classList.remove("open");
+  if(e.target.id === "sheet" && sheetDownOut) e.target.classList.remove("open");
 };
 addEventListener("keydown", e => {
   if($("#modal").classList.contains("open")){
@@ -7248,7 +8328,7 @@ async function loadSessions(){
       [{label:T("noSessions"), hint:d.dir, run(){}}]);
   sheet(T("sessions"), d.sessions.map(s=>({
     label: s.label,
-    hint: new Date(s.mtime*1000).toLocaleString(),
+    hint: when(s.mtime*1000),
     run: () => send({type:"switch_session", sessionPath:s.path})
   })));
 }
@@ -7276,7 +8356,7 @@ async function browse(path){
   up.disabled = !d.parent || d.upBlocked;   // subir a zona prohibida: off
   up.onclick = () => browse(d.parent);
   const where = document.createElement("span");
-  where.className = "path"; where.textContent = d.path;
+  where.className = "path"; where.textContent = tilde(d.path);
   nav.append(up, where); body.appendChild(nav);
 
   const use = document.createElement("button");
@@ -7307,12 +8387,21 @@ async function browse(path){
     p.className = "nosub"; p.textContent = T("noSub");
     body.appendChild(p);
   }
-  $("#sheet").classList.add("open");
+  $("#sheet").classList.add("open"); navArm();
 }
 
 // ---- providers (models.json): ver, editar y añadir. Pi los relee al
 // arrancar, por eso todo cambio avisa de que aplica tras /restart ----
 let provList = [], provEditId = null;
+let provDraft = null;     // el formulario en curso, para la pagina de API
+/* Las APIs que pi trae de serie (BUILTIN_APIS de @earendil-works/pi-ai,
+   dist/compat.js). Una extension puede registrar otras, asi que si el
+   provider ya trae una que no esta aqui, se respeta y se lista tambien. */
+const PI_APIS = ["openai-completions", "openai-responses",
+                 "openai-codex-responses", "azure-openai-responses",
+                 "anthropic-messages", "google-generative-ai",
+                 "google-vertex", "mistral-conversations",
+                 "bedrock-converse-stream", "pi-messages"];
 function paintProvRows(){      // dibuja solo las filas; el add vive en paintSheet
   const body = $("#sheetBody");
   body.querySelectorAll(".prow").forEach(x => x.remove());
@@ -7351,9 +8440,22 @@ function paintProvForm(page){
     okb.hidden = !(fields.baseUrl && (page === "provAdd"
       ? fields.id : true));
   };
+  provDraft = fields;
   if(page === "provAdd") row("id", "");
   row("baseUrl", fields.baseUrl);
-  row("apiType", fields.api);
+  // escrito a mano, un dedazo creaba un provider que pi no sabe usar y no se
+  // veia hasta reiniciar: se elige de la lista que pi implementa. Con cromo
+  // de campo, no de fila de menu: va entre los demas campos del formulario
+  const sel = document.createElement("div");
+  sel.className = "mfield sel";
+  const sb = document.createElement("button");
+  sb.type = "button";
+  sb.innerHTML = `<span>${esc(T("apiType"))}</span>`
+    + `<span class="pval">| ${esc(fields.api)}</span>`;
+  sb.onclick = () => goPage("provApi");
+  sel.appendChild(sb);
+  sel.insertAdjacentHTML("beforeend", ico("chevron", "ch"));
+  body.appendChild(sel);
   if(page === "provAdd") row("apiKey", "");
   else {
     const f = document.createElement("div");
@@ -7387,7 +8489,7 @@ function paintModelAdd(){
   const body = $("#sheetBody");
   const okb = $("#sheetOk");
   const fields = {modelId: "", modelName: "", contextWindow: null,
-                  maxTokens: null, reasoning: false};
+                  maxTokens: null, reasoning: false, input: ["text"]};
   const modelAddValid = () => {
     okb.hidden = !(fields.modelId && fields.contextWindow
                    && fields.maxTokens);
@@ -7434,13 +8536,31 @@ function paintModelAdd(){
   };
   card.style.marginTop = "18px";
   body.appendChild(card);
+  // modalidades: al CREAR se describe el modelo (al editar seria mentirle a
+  // pi sobre la vision, que rompe el pipeline, y por eso alli es solo ver)
+  const ic = document.createElement("div");
+  ic.className = "fcard";
+  // el subtitulo va dentro del label, como el resto de cards (.flbl small)
+  ic.innerHTML = `<div class="frow"><div class="ftext">`
+    + `<div class="flbl">${esc(T("visionLbl"))}`
+    + ` <small>${esc(T("modalities"))}</small></div></div>`
+    + `<button class="sw" role="switch" aria-checked="false"`
+    + ` aria-label="${esc(T("visionLbl"))}"><span class="knob"></span></button>`;
+  const isw = ic.querySelector(".sw");
+  isw.onclick = () => {
+    const on = isw.getAttribute("aria-checked") !== "true";
+    isw.setAttribute("aria-checked", String(on));
+    fields.input = on ? ["text", "image"] : ["text"];
+  };
+  body.appendChild(ic);
   modelAddValid();
   okb.onclick = () => openModal(
     T("addModel"), `<p>${T("applyRestart")}</p>`,
     () => send({type:"model_add", provider: provEditId,
                 id: fields.modelId, name: fields.modelName,
                 contextWindow: fields.contextWindow,
-                maxTokens: fields.maxTokens, reasoning: fields.reasoning}),
+                maxTokens: fields.maxTokens, reasoning: fields.reasoning,
+                input: fields.input}),
     {ok: T("confirm")});
 }
 // filas de la whitelist: las fijas van atenuadas y sin papelera
@@ -7452,7 +8572,7 @@ function paintWhitelist(dirs){
   (dirs||[]).forEach(x=>{
     const row = document.createElement("div");
     row.className = "wrow" + (x.fixed ? " fixed" : "");
-    row.innerHTML = `<span class="wpath">${esc(x.path)}</span>`;
+    row.innerHTML = `<span class="wpath">${esc(tilde(x.path))}</span>`;
     if(!x.fixed){
       const del = document.createElement("button");
       del.className = "trashb"; del.setAttribute("aria-label", T("removeDir"));
@@ -7488,6 +8608,69 @@ function onRpc(m){
     send({type:"get_available_models"});
     sheetStack = [];
     turnTo("modelList", -1);
+    return;
+  }
+  if(m.command === "agent_prefs_get"){
+    if(d && d.error){ agentPrefs = null; agentPrefsErr = d.error; }
+    else { agentPrefsErr = null; agentPrefs = d || {}; }
+    if(sheetPage === "agentprefs") paintSheet("agentprefs");
+    return;
+  }
+  if(m.command === "agent_prefs_save"){
+    if(d && d.error) return note(d.error);
+    return;
+  }
+  if(m.command === "thinking_map_get"){
+    // igual que agent_prefs: un puente sin reiniciar no conoce el comando
+    if(d && d.error){ thinkMap = null; thinkMapErr = d.error; }
+    else { thinkMapErr = null;
+           thinkMap = {map: d.map || {}, levels: d.levels || [],
+                       forModel: editModel ? editModel.id : null}; }
+    if(sheetPage === "thinkmap" || sheetPage === "modelEdit")
+      paintSheet(sheetPage);
+    return;
+  }
+  if(m.command === "thinking_map_save"){
+    if(d && d.error) return note(d.error);
+    return;
+  }
+  if(m.command === "thinking_default_get"
+     || m.command === "thinking_default_save"){
+    if(d && d.error) return note(d.error);
+    defThink = d.level || "";
+    if(sheetPage === "model") paintSheet("model");
+    return;
+  }
+  if(m.command === "model_delete"){
+    if(d && d.error) return note(d.error);
+    send({type:"get_available_models"});     // la lista viva la da pi
+    if(sheetPage === "modelList") paintSheet("modelList");
+    return;
+  }
+  if(m.command === "compaction_get"){
+    // un puente sin reiniciar no conoce el comando: no fabricar una pagina
+    // con la ventana a cero, que esconderia los sliders sin decir por que
+    if(d && d.error){
+      compErr = d.error; compInfo = null; compDraft = null;
+      if(sheetPage === "compaction") paintSheet("compaction");
+      return;
+    }
+    compErr = null;
+    // el efectivo es lo que aplica pi: el proyecto (confiado) pisa al global
+    const df = d.defaults || {}, g = d.global || {}, pj = d.project || {};
+    const pick = k => pj[k] !== undefined ? pj[k]
+      : (g[k] !== undefined ? g[k] : df[k]);
+    compInfo = {window: d.window || 0, maxTokens: d.maxTokens || 0,
+                defaults: df, fromProject: Object.keys(pj).length > 0};
+    compOrig = {enabled: !!pick("enabled"),
+                reserveTokens: pick("reserveTokens"),
+                keepRecentTokens: pick("keepRecentTokens")};
+    compDraft = Object.assign({}, compOrig);
+    if(sheetPage === "compaction") paintSheet("compaction");
+    return;
+  }
+  if(m.command === "compaction_save"){
+    if(d && d.error) return note(d.error);
     return;
   }
   if(m.command === "skills_list"){
@@ -7537,7 +8720,10 @@ function onRpc(m){
   }
   if(m.command === "get_available_thinking_levels"){
     thinkLevels = d.levels || [];
-    if(sheetPage === "projthink") return paintSheet("projthink");
+    // las paginas que los listan se repintan; sin esto, "defthink" caia al
+    // selector de nivel de SESION y se comia la pagina
+    if(sheetPage === "projthink" || sheetPage === "defthink")
+      return paintSheet(sheetPage);
     return sheet("thinking", thinkLevels.map(l=>({
       label:l, run:()=>send({type:"set_thinking_level", level:l})})));
   }

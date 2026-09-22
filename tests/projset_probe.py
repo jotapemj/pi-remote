@@ -159,8 +159,10 @@ async def ui():
                           sw:sw?sw.getAttribute('aria-checked'):null,
                           ok:$('#sheetOk').hidden};})()""")
                 checks += [
-                    ("toggle off: las dos cards estan deshabilitadas",
-                     off["n"] == 2 and off["dis"] is True),
+                    # tres: modelo, razonamiento y recursos. La de recursos
+                    # tambien cuelga del toggle (sin confianza pi los ignora)
+                    ("toggle off: las tres cards estan deshabilitadas",
+                     off["n"] == 3 and off["dis"] is True),
                     ("toggle off: el switch esta apagado", off["sw"] == "false"),
                     ("toggle off: sin check de guardar", off["ok"] is True),
                 ]
@@ -300,8 +302,11 @@ async def ui():
                 checks += [
                     ("toggle sin confianza abre el dialogo",
                      bool(tw) and tw[0] == "Project trust"),
+                    # la carpeta del usuario se PINTA como ~ (el temp de
+                    # Windows cuelga de ella): basta con que salga la cola
                     ("el texto lleva la carpeta en cursiva",
-                     bool(tw) and "<em>" in tw[1] and str(projU) in tw[1].replace("\\\\", "\\")),
+                     bool(tw) and "<em>" in tw[1]
+                     and Path(str(projU)).name in tw[1]),
                     ("los botones son Trust / Don't trust",
                      bool(tw) and tw[2] == "Trust" and tw[3] == "Don't trust"),
                 ]
