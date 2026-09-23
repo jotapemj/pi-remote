@@ -73,6 +73,15 @@ async def main():
                  bool(orphan) and orphan[0]["name"] == "bash"),
                 ("un comando cortado queda stale, no running",
                  bool(cut) and cut[0]["status"] == "stale"),
+                ("la foto del usuario sobrevive al historial",
+                 any(i["kind"] == "user"
+                     and i.get("text") == "mira esta foto"
+                     and i.get("images")
+                     for i in hist)),
+                ("con el mime normalizado (sin ;base64)",
+                 all(im["mimeType"] == "image/jpeg"
+                     for i in hist if i.get("images")
+                     for im in i["images"])),
                 ("la nota del proyecto cierra", kinds[-1] == "note"),
                 ("sin ids repetidos", len(ids) == len(set(ids))),
             ])

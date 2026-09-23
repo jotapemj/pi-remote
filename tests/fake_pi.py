@@ -375,6 +375,14 @@ MESSAGES = [
              "short line of plain text, in the user's language."}]},
     {"role": "assistant", "timestamp": 1756000008500, "content": [
         {"type": "text", "text": "Parado. Estaba mirando el build."}]},
+    # foto adjunta: pi la guarda como bloque de imagen. El mime a veces
+    # llega con ";base64" (pegado en Android) y debe normalizarse,
+    # o la imagen se pierde al reconstruir el historial.
+    {"role": "user", "timestamp": 1756000009000, "content": [
+        {"type": "text", "text": "mira esta foto"},
+        {"type": "image", "mimeType": "image/jpeg;base64",
+         "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ"
+                 "AAAADUlEQVR4nGNgYPj/PwAG9wJhQAAAAABJRU5ErkJggg=="}]},
 ]
 
 TOKENS = 9000

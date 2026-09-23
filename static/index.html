@@ -5197,6 +5197,9 @@ function downscale(url, type){
   });
 }
 async function addImage(im){
+  // unico punto de entrada: el mime viaja limpio (sin ";base64"),
+  // pase por camara, galeria o pegado
+  im.mimeType = (im.mimeType || "image/png").split(";")[0];
   const ds = await downscale(im.url, im.mimeType);
   if(ds){
     const c = ds.indexOf(",");

@@ -7,8 +7,11 @@ clic dispare el input, y el downscale de addImage (lado mayor >2048 → canvas
 → jpeg q0.85; PNG conserva alpha; imagen pequena viaja tal cual).
 """
 import asyncio
+import json
 
-from harness import Bridge, Page, report
+import websockets
+
+from harness import Bridge, Page, report, WS_URL
 
 
 async def desktop_checks(p, js):
@@ -148,7 +151,41 @@ async def main():
             await p.go()
             checks += await mobile_checks(p, js)
             checks += await downscale_checks(p, js)
+            checks += await chat_checks(p, js)
     return checks
+
+
+async def chat_checks(p, js):
+    # lo que entra por camara debe verse en la burbuja del chat, no solo
+    # en el compositor: prompt con imagen -> item user -> .uimgs en el DOM
+    u = await js("(()=>{const c=document.createElement('canvas');"
+                 "c.width=120;c.height=90;"
+                 "const g=c.getContext('2d');g.fillStyle='#5af';"
+                 "g.fillRect(0,0,120,90);return c.toDataURL()})()")
+    c = u.index(",")
+    img = {"type": "image", "data": u[c + 1:],
+           "mimeType": u[5:c].split(";")[0]}
+    async with websockets.connect(WS_URL, max_size=40 * 1024 * 1024) as ws:
+        while True:
+            m = json.loads(await asyncio.wait_for(ws.recv(), 15))
+            if m.get("type") == "snapshot":
+                break
+        await ws.send(json.dumps({"type": "prompt", "message": "mira",
+                                  "images": [img], "lang": "es"}))
+        item = None
+        for _ in range(60):
+            m = json.loads(await asyncio.wait_for(ws.recv(), 15))
+            if m.get("type") == "item" and m["item"].get("kind") == "user":
+                item = m["item"]
+                break
+    await asyncio.sleep(1.0)
+    dom = await js("(()=>{const u=document.querySelector('.uimgs');"
+                   "return u?u.querySelectorAll('img').length:-1})()")
+    print("  chat: item=%s dom=%s" % (bool(item and item.get("images")), dom))
+    return [
+        ("el item user lleva la imagen", bool(item and item.get("images"))),
+        ("y la burbuja del chat la pinta", dom == 1),
+    ]
 
 
 raise SystemExit(report(asyncio.run(main())))

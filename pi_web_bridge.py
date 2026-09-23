@@ -613,11 +613,13 @@ def images_of(content):
         if not isinstance(b, dict):
             continue
         data = b.get("data")
+        # el mime a veces llega con ";base64" (pegado en Android): se
+        # normaliza antes de comparar, o la foto se pierde del historial
+        mime = (b.get("mimeType") or "").split(";")[0]
         if (b.get("type") == "image" and data
-                and IMG_MIME.match(b.get("mimeType") or "")
+                and IMG_MIME.match(mime)
                 and len(data) <= IMG_CAP):
-            out.append({"type": "image", "data": data,
-                        "mimeType": b["mimeType"]})
+            out.append({"type": "image", "data": data, "mimeType": mime})
     return out
 
 
@@ -2613,7 +2615,11 @@ class Bridge:
                 text = SUGGEST_HINT_RE.sub("", text_of(m.get("content")))
                 # el prompt inyectado del resumen-al-parar no es del usuario
                 if text.strip() and not is_stop_summary(text):
-                    add({"kind": "user", "text": text, "t": stamp})
+                    item = {"kind": "user", "text": text, "t": stamp}
+                    imgs = images_of(m.get("content"))
+                    if imgs:
+                        item["images"] = imgs
+                    add(item)
 
             elif role == "assistant":
                 for b in m.get("content") or []:
