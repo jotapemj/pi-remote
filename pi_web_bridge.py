@@ -1199,6 +1199,30 @@ def save_global_settings(patch):
     return None
 
 
+def save_model_thinking_level(key, level):
+    """Merge anidado en modelThinkingLevels del settings global (pi escribe
+    ahi con setModelThinkingLevel; su getter lee el merge global+proyecto).
+    level None borra la entrada; mapa vacio se limpia por completo."""
+    p = AGENT_DIR / "settings.json"
+    d = _read_json(p)
+    m = dict(d.get("modelThinkingLevels") or {})
+    if level is None:
+        m.pop(key, None)
+    else:
+        m[key] = level
+    if m:
+        d["modelThinkingLevels"] = m
+    else:
+        d.pop("modelThinkingLevels", None)
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with open(p, "w", encoding="utf-8") as fh:
+            json.dump(d, fh, indent=2)
+    except OSError as exc:
+        return "cannot write settings.json: %s" % exc
+    return None
+
+
 def save_project_settings(cwd, patch):
     """Fusiona claves en el .pi/settings.json del proyecto (round-trip: el
     resto del fichero se conserva). None borra la clave: asi se limpia un
@@ -2398,6 +2422,20 @@ class Bridge:
         self.send_pi({"type": "set_model", "provider": want["provider"],
                       "modelId": want["id"]})
 
+    def apply_default_thinking(self):
+        """Imponer el nivel de razonamiento por defecto si el usuario fijo uno.
+        Mismo patrón que apply_default_model: pi resuelve el nivel de sus
+        settings en memoria al arrancar cada sesion; un pi vivo no relee el
+        fichero, así que sin esto una sesion nueva saldría con el default de
+        pi (medium). El override por modelo gana al global, como en pi."""
+        g = read_global_settings()
+        key = f"{self.state.get('modelProvider')}/{self.state.get('modelId')}"
+        per_model = (g.get("modelThinkingLevels") or {}).get(key)
+        want = per_model if per_model is not None else g.get(
+            "defaultThinkingLevel")
+        if want and want != self.state.get("thinking"):
+            self.send_pi({"type": "set_thinking_level", "level": want})
+
     def _autoname_then_send(self, text, lang, cmd):
         t = autoname_title(text, lang,
                            self.state.get("modelProvider"),
@@ -2440,6 +2478,7 @@ class Bridge:
             # pi resuelve su propio default al arrancar cada sesion; si el
             # usuario fijo uno, lo imponemos aqui (cada pi nuevo, cada sesion)
             self.apply_default_model()
+            self.apply_default_thinking()
             self.refresh_proj_state()
             self.push_state()
 
@@ -3055,6 +3094,31 @@ class Bridge:
                            "data": {"error": "level must be a string"}})
                 return
             err = save_global_settings({"defaultThinkingLevel": lv})
+            if not err and lv:
+                # sin esto el pi vivo no lo vería hasta reiniciar; con esto
+                # la sesion actual cambia de nivel al instante
+                self.send_pi({"type": "set_thinking_level", "level": lv})
+            self.emit({"type": "rpc", "command": t,
+                       "data": {"error": err} if err else {"level": lv}})
+            return
+
+        if t == "model_thinking_get":
+            # override por modelo: gana al global en la piramide de pi
+            key = "%s/%s" % (msg.get("provider"), msg.get("modelId"))
+            self.emit({"type": "rpc", "command": t,
+                       "data": {"level": (read_global_settings()
+                                           .get("modelThinkingLevels")
+                                           or {}).get(key)}})
+            return
+
+        if t == "model_thinking_save":
+            lv = msg.get("level")
+            if lv is not None and not isinstance(lv, str):
+                self.emit({"type": "rpc", "command": t,
+                           "data": {"error": "level must be a string"}})
+                return
+            key = "%s/%s" % (msg.get("provider"), msg.get("modelId"))
+            err = save_model_thinking_level(key, lv)
             self.emit({"type": "rpc", "command": t,
                        "data": {"error": err} if err else {"level": lv}})
             return

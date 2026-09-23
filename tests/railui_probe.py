@@ -220,13 +220,13 @@ async def ui():
             checks.append(("el menu aparece junto al puntero",
                            abs(pos["x"] - 402) < 2 and abs(pos["y"] - 302) < 2))
 
-            # ---- modelos: el borrar vive junto al lapiz y confirma ----
+            # ---- modelos: el borrar vive junto al lapiz y confirma (en Models) ----
             await js("onRpc({command:'get_available_models', data:{models:["
                      "{id:'m-a',name:'Model A',provider:'local',"
                      "contextWindow:32768,maxTokens:4096},"
                      "{id:'m-b',name:'Model B',provider:'local',"
                      "contextWindow:16384,maxTokens:2048}]}})")
-            await js("$('#sheet').classList.add('open'); paintSheet('modelList')")
+            await js("$('#sheet').classList.add('open'); paintSheet('models')")
             await asyncio.sleep(0.3)
             rows = await js("""(()=>{
               const r=document.querySelector('#sheetBody .mrow');
@@ -431,7 +431,10 @@ async def ui():
               sheetStack=[]; paintSheet('modelEdit');""")
             await asyncio.sleep(0.3)
             me = await js("""(()=>{
-              const sel=document.querySelector('#sheetBody .mfield.sel');
+              // el ultimo campo de eleccion es el mapa (el primero es el
+              // razonamiento por modelo)
+              const sels=document.querySelectorAll('#sheetBody .mfield.sel');
+              const sel=sels[sels.length-1];
               if(!sel) return {found:false};
               const b=sel.querySelector('button');
               const txt=document.querySelector('#sheetBody .mfield:not(.sel) input');

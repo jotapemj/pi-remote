@@ -39,6 +39,26 @@ def backend():
                            "not found" in B.save_model_params("swift", "z", 1, 1)))
         finally:
             del B.AGENT_DIR
+
+    # override por modelo: merge anidado en settings.json
+    with tempfile.TemporaryDirectory() as td2:
+        B.AGENT_DIR = Path(td2)
+        try:
+            err = B.save_model_thinking_level("swift/b", "xhigh")
+            d = json.loads((Path(td2) / "settings.json")
+                           .read_text(encoding="utf-8"))
+            checks.append(("modelThinkingLevel se escribe sin error",
+                           err is None
+                           and d["modelThinkingLevels"]["swift/b"] == "xhigh"))
+            # null borra la entrada y limpia el mapa vacio
+            err = B.save_model_thinking_level("swift/b", None)
+            d = json.loads((Path(td2) / "settings.json")
+                           .read_text(encoding="utf-8"))
+            checks.append(("null borra la entrada y el mapa",
+                           err is None
+                           and "modelThinkingLevels" not in d))
+        finally:
+            del B.AGENT_DIR
     return checks
 
 
@@ -60,39 +80,57 @@ async def ui():
                 await js("window.__om = ws.onmessage; ws.onmessage = null;")
                 await js("setLang('es')")
 
-                # abrir la pagina de modelos; la lista se inyecta (fake_pi
+                # abrir la pagina Models; la lista se inyecta (fake_pi
                 # trae su propia) y coincide con lo que hay en models.json
                 await js("menuSheet()")
                 await asyncio.sleep(0.1)
-                await js("paintSheet('modelList')")
+                await js("paintSheet('pagent')")
+                await asyncio.sleep(0.1)
+                await js("paintSheet('models')")
                 await js("onRpc({command:'get_available_models', data:{models:["
                          "{id:'qwen3-8b',name:'Qwen3 8B',provider:'local',"
                          "contextWindow:32768,maxTokens:4096,input:['text']}]}})")
                 await asyncio.sleep(0.2)
 
-                # cada fila lleva su lapiz
+                # cada fila lleva lapiz y papelera; la primera fila es anadir
                 pens = await js("""(()=>{
                   const b=[...document.querySelectorAll('#sheetBody .mrow')];
                   return {n:b.length,
-                          pen:b.map(x=>!!x.querySelector('.pen svg')),
+                          pen:b.filter(x=>x.querySelector('.pen svg')).length,
+                          add:!!document.querySelector('#sheetBody .pick'),
                           title:$('#sheetTitle').textContent};})()""")
                 print("  filas: %r" % pens)
                 checks += [
-                    ("la pagina lista el modelo", pens["n"] == 1),
-                    ("cada fila lleva el lapiz", all(pens["pen"])),
+                    ("la pagina Models lista el modelo", pens["n"] == 1),
+                    ("cada fila lleva el lapiz y la primera es anadir",
+                     pens["pen"] == 1 and pens["add"] is True),
                 ]
+
+                # en global la lista es solo eleccion: sin lapiz ni papelera
+                await js("paintSheet('modelList')")
+                await asyncio.sleep(0.2)
+                nopens = await js("(()=>{" + """
+                  const b=[...document.querySelectorAll('#sheetBody .mrow')];
+                  return {n:b.length,
+                          pen:b.filter(x=>x.querySelector('.pen')).length};})()""")
+                checks.append(("global: solo eleccion, sin lapiz",
+                               nopens["n"] == 1 and nopens["pen"] == 0))
+                await js("paintSheet('models')")
+                await asyncio.sleep(0.2)
 
                 # pulsar el lapiz abre modelEdit con los valores cargados
                 await js("document.querySelector('#sheetBody .mrow .pen').click()")
                 await asyncio.sleep(0.4)
                 ed = await js("""(()=>{
-                  // .sel es el campo de eleccion: no lleva input
-                  const f=[...document.querySelectorAll('.mfield:not(.sel)')];
+                  // .sel son los campos de eleccion: no llevan input
+                  const f=[...document.querySelectorAll('.mfield')]
+                    .filter(x=>x.querySelector('input'));
                   return {title:$('#sheetTitle').textContent,
                           sub:document.querySelector('#sheetBody .shead').textContent,
                           n:f.length,
                           vals:f.map(x=>x.querySelector('input').value),
                           ro:f.map(x=>x.querySelector('input').readOnly),
+                          think:(document.querySelector('.mfield.sel .pval')||{}).textContent,
                           ok:$('#sheetOk').hidden};})()""")
                 print("  edit: %r" % ed)
                 checks += [
@@ -103,6 +141,8 @@ async def ui():
                     # (gana o pierde vision) hay que poder corregirlas. El id
                     # sigue bloqueado: es la clave con la que pi lo encuentra
                     ("tres campos, en orden", ed["n"] == 3),
+                    ("razonamiento por modelo: «Usar global» sin override",
+                     ed["think"] == "Usar global"),
                     ("carga los valores existentes",
                      ed["vals"] == ["32768", "4096", "qwen3-8b"]),
                     ("solo el id es de solo lectura",
@@ -169,8 +209,8 @@ async def ui():
                 print("  escrito: %r, vuelta: %r" % (m["contextWindow"], back))
                 checks += [
                     ("confirmar escribe models.json", m["contextWindow"] == 65536),
-                    ("vuelve a la lista de modelos",
-                     back[0] == "Modelo" and back[1] is True),
+                    ("vuelve a la pagina Models",
+                     back[0] == "Modelos" and back[1] is True),
                 ]
 
                 # atras por niveles: modelEdit -> model -> raiz
@@ -184,9 +224,9 @@ async def ui():
                 t2 = await js("$('#sheetTitle').textContent")
                 print("  atras: %r -> %r" % (t1, t2))
                 checks += [
-                    ("atras desde modelEdit vuelve a la lista de modelos",
-                     t1 == "Modelo"),
-                    ("atras desde la lista vuelve a la raiz del menu",
+                    ("atras desde modelEdit vuelve a Models",
+                     t1 == "Modelos"),
+                    ("atras desde Models vuelve a la raiz del menu",
                      t2 == "men\u00fa"),
                 ]
     return checks

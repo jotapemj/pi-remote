@@ -5418,7 +5418,7 @@ const STR = {
       saveProjB:"This writes <em>.pi/settings.json</em> in the project folder.",
       unsavedQ:"Save changes?",
       provGlobal:"Global", provProject:"Project",
-      providers:"Providers", addProvider:"Add provider", providerEdit:"Edit provider",
+      providers:"Providers", models:"Models", addProvider:"Add provider", providerEdit:"Edit provider",
       baseUrl:"Base URL", apiType:"API type", apiKey:"API key",
       keySet:"configured", applyRestart:"Changes apply after restarting pi remote",
       addModel:"Add model", reasoning:"Reasoning", modelName:"Model name",
@@ -5548,7 +5548,7 @@ const STR = {
       saveProjB:"Esto escribe <em>.pi/settings.json</em> en la carpeta del proyecto.",
       unsavedQ:"¿Guardar cambios?",
       provGlobal:"Global", provProject:"Proyecto",
-      providers:"Proveedores", addProvider:"Añadir proveedor", providerEdit:"Editar proveedor",
+      providers:"Proveedores", models:"Modelos", addProvider:"Añadir proveedor", providerEdit:"Editar proveedor",
       baseUrl:"URL base", apiType:"Tipo de API", apiKey:"Clave API",
       keySet:"configurada", applyRestart:"Los cambios se aplican al reiniciar pi remote",
       addModel:"Añadir modelo", reasoning:"Razonamiento", modelName:"Nombre del modelo",
@@ -5679,7 +5679,7 @@ const STR = {
       saveProjB:"Dies schreibt <em>.pi/settings.json</em> in den Projektordner.",
       unsavedQ:"Änderungen speichern?",
       provGlobal:"Global", provProject:"Projekt",
-      providers:"Provider", addProvider:"Provider hinzufügen", providerEdit:"Provider bearbeiten",
+      providers:"Provider", models:"Modelle", addProvider:"Provider hinzufügen", providerEdit:"Provider bearbeiten",
       baseUrl:"Basis-URL", apiType:"API-Typ", apiKey:"API-Schlüssel",
       keySet:"konfiguriert", applyRestart:"Änderungen gelten nach dem Neustart von pi remote",
       addModel:"Modell hinzufügen", reasoning:"Reasoning", modelName:"Modellname",
@@ -5807,7 +5807,7 @@ const STR = {
       saveProjB:"Cela écrit <em>.pi/settings.json</em> dans le dossier du projet.",
       unsavedQ:"Enregistrer les modifications ?",
       provGlobal:"Global", provProject:"Projet",
-      providers:"Fournisseurs", addProvider:"Ajouter un fournisseur", providerEdit:"Modifier le fournisseur",
+      providers:"Fournisseurs", models:"Modèles", addProvider:"Ajouter un fournisseur", providerEdit:"Modifier le fournisseur",
       baseUrl:"URL de base", apiType:"Type d'API", apiKey:"Clé API",
       keySet:"configurée", applyRestart:"Les modifications s'appliquent au redémarrage de pi remote",
       addModel:"Ajouter un modèle", reasoning:"Raisonnement", modelName:"Nom du modèle",
@@ -5935,7 +5935,7 @@ const STR = {
       saveProjB:"Isso escreve <em>.pi/settings.json</em> na pasta do projeto.",
       unsavedQ:"Salvar alterações?",
       provGlobal:"Global", provProject:"Projeto",
-      providers:"Provedores", addProvider:"Adicionar provedor", providerEdit:"Editar provedor",
+      providers:"Provedores", models:"Modelos", addProvider:"Adicionar provedor", providerEdit:"Editar provedor",
       baseUrl:"URL base", apiType:"Tipo de API", apiKey:"Chave API",
       keySet:"configurada", applyRestart:"As alterações aplicam-se ao reiniciar o pi remote",
       addModel:"Adicionar modelo", reasoning:"Raciocínio", modelName:"Nome do modelo",
@@ -6061,7 +6061,7 @@ const STR = {
       saveProjB:"这将在项目文件夹中写入 <em>.pi/settings.json</em>。",
       unsavedQ:"保存更改？",
       provGlobal:"全局", provProject:"项目",
-      providers:"提供商", addProvider:"添加提供商", providerEdit:"编辑提供商",
+      providers:"提供商", models:"模型", addProvider:"添加提供商", providerEdit:"编辑提供商",
       baseUrl:"基础 URL", apiType:"API 类型", apiKey:"API 密钥",
       keySet:"已配置", applyRestart:"更改将在重启 pi remote 后生效",
       addModel:"添加模型", reasoning:"推理", modelName:"模型名称",
@@ -6880,6 +6880,7 @@ let agentPrefs = null;   // modos de cola y transporte, del settings global
 let agentPrefsErr = null; // el puente no supo responder (sin reiniciar)
 let prefKey = null, prefList = null;
 let defThink = null;      // nivel por defecto del puente (null: sin pedir)
+let modelThinking = null; // override por modelo en modelEdit (null: sin pedir)
 
 function projInit(){
   const saved = state.projSettings || {};
@@ -7529,13 +7530,18 @@ function paintSheet(page){
     // alguno distinto del original
     const fields = {contextWindow: editModel.contextWindow,
                     maxTokens: editModel.maxTokens,
-                    input: (editModel.input || ["text"]).slice()};
+                    input: (editModel.input || ["text"]).slice(),
+                    thinking: modelThinking};   // null: usar el global
     const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     // el check aparece con los numeros validos y algo distinto de lo guardado
     const editDirty = () => !!(fields.contextWindow && fields.maxTokens
       && (fields.contextWindow !== editModel.contextWindow
           || fields.maxTokens !== editModel.maxTokens
-          || !same(fields.input, editModel.input || ["text"])));
+          || !same(fields.input, editModel.input || ["text"])
+          || fields.thinking !== modelThinking));
+    if(modelThinking === null)   // null: sin pedir todavia; "": usar el global
+      send({type:"model_thinking_get", provider:editModel.provider,
+            modelId:editModel.id});
     const row = (key, value, readonly) => {
       const f = document.createElement("div");
       f.className = "mfield";
@@ -7576,6 +7582,35 @@ function paintSheet(page){
       okb.hidden = !editDirty();
     };
     body.appendChild(vc);
+    // razonamiento por modelo: gana al global en la piramide de pi. Staged
+    // como el resto del formulario: el check de la sbar lo guarda junto
+    const tr = document.createElement("div");
+    tr.className = "mfield sel";
+    const tb = document.createElement("button");
+    tb.type = "button";
+    tb.innerHTML = `<span>${esc(T("modelReasoning"))}</span>`
+      + `<span class="pval">${esc(fields.thinking || T("useGlobal"))}</span>`;
+    tb.onclick = () => {
+      const lv = (thinkLevels.length ? thinkLevels
+        : [state.thinking].filter(Boolean));
+      // filas con data-i y re-ligado: el mismo idiom que menuModal, porque
+      // el innerHTML del modal clona sin listeners
+      const rows = [{txt:T("useGlobal"), val:""}]
+        .concat(lv.map(l => ({txt:l, val:l})));
+      openModal(T("modelReasoning"),
+        rows.map((r, i) =>
+          `<button class="pick mrow${fields.thinking === r.val ? " sel" : ""}`
+          + ` data-i="${i}"><span class="chkslot">${ico("check")}</span>`
+          + `<span class="txt">${esc(r.txt)}</span></button>`).join(""), null);
+      $("#modalOk").textContent = T("close");   // aqui solo cierra
+      $("#modalBody").querySelectorAll(".mrow").forEach(b => {
+        b.onclick = () => { fields.thinking = rows[+b.dataset.i].val;
+          okb.hidden = !editDirty(); closeModal(); };
+      });
+    };
+    tr.appendChild(tb);
+    tr.insertAdjacentHTML("beforeend", ico("chevron", "ch"));
+    body.appendChild(tr);
     // el mapa traduce el nivel de pi al valor que entiende el servidor.
     // Con cromo de campo, como los de arriba: una fila de menu entre campos
     // rompe la columna. Sin rotulo flotante: el nombre va dentro
@@ -7591,10 +7626,16 @@ function paintSheet(page){
     okb.onclick = () => openModal(
       T("confirmChanges"),
       `<p>${T("confirmBody")}</p>`,
-      () => send({type:"save_model_params", provider:editModel.provider,
-                  modelId:editModel.id,
-                  contextWindow:fields.contextWindow,
-                  maxTokens:fields.maxTokens, input:fields.input}),
+      () => {
+        send({type:"save_model_params", provider:editModel.provider,
+              modelId:editModel.id,
+              contextWindow:fields.contextWindow,
+              maxTokens:fields.maxTokens, input:fields.input});
+        // el override viaja aparte: vive en settings.json, no en models.json
+        if(fields.thinking !== modelThinking)
+          send({type:"model_thinking_save", provider:editModel.provider,
+                modelId:editModel.id, level:fields.thinking || null});
+      },
       {ok: T("confirm")});
     return;
   }
@@ -7617,6 +7658,8 @@ function paintSheet(page){
       chevron:true, run: () => goPage("model")}));
     act("projectSettings", "folder", () => goPage("projset"));
     act("providers", "package", () => goPage("providers"));
+    // los modelos en si (editar, borrar, anadir): la eleccion vive en global
+    act("models", "chip", () => goPage("models"));
     return;
   }
   if(page === "providers"){
@@ -8042,7 +8085,41 @@ function paintSheet(page){
       const sel = m.provider === state.modelProvider && m.id === state.modelId;
       const b = document.createElement("button");
       b.className = "pick mrow" + (sel ? " sel" : "");
+      // solo eleccion: editar y borrar viven en la pagina Models
       b.innerHTML = `<span class="chkslot">${ico("check")}</span>`
+        + `<span class="txt">` + mqSpan("span", m.name || m.id)
+        + (m.contextWindow ? mqSpan("small", kilo(m.contextWindow) + " ctx") : "")
+        + `</span>`;
+      b.onclick = () => {
+        if(b.classList.contains("sel")) return;   // ya elegido
+        send({type:"set_model", provider:m.provider, modelId:m.id});
+        // animar sin reconstruir: el viejo hace el movimiento inverso y el
+        // nuevo desplaza su texto y saca el check
+        body.querySelectorAll(".mrow.sel").forEach(x => x.classList.remove("sel"));
+        b.classList.add("sel");
+        state.modelProvider = m.provider; state.modelId = m.id;
+        state.model = m.name || m.id;
+      };
+      body.appendChild(b);
+    });
+    return;
+  }
+  if(page === "models"){
+    // los modelos en si: editar, borrar, anadir. La eleccion vive en global
+    $("#sheetTitle").textContent = T("models");
+    if(!models.length){
+      send({type:"get_available_models"});
+      const h = document.createElement("div");
+      h.className = "shead"; h.textContent = T("loadingModels");
+      body.appendChild(h);
+      return;
+    }
+    body.appendChild(pickBtn({icon:"add", label:T("addModel"),
+      run: () => goPage("modelAdd")}));
+    models.forEach(m => {
+      const b = document.createElement("button");
+      b.className = "pick mrow";
+      b.innerHTML = `<span class="chkslot"></span>`
         + `<span class="txt">` + mqSpan("span", m.name || m.id)
         + (m.contextWindow ? mqSpan("small", kilo(m.contextWindow) + " ctx") : "")
         + `</span>`
@@ -8061,16 +8138,6 @@ function paintSheet(page){
           `<p>${T("confirmBody")}</p>`,
           () => send({type:"model_delete", provider:m.provider, modelId:m.id}),
           {ok: T("confirm")});
-      };
-      b.onclick = () => {
-        if(b.classList.contains("sel")) return;   // ya elegido
-        send({type:"set_model", provider:m.provider, modelId:m.id});
-        // animar sin reconstruir: el viejo hace el movimiento inverso y el
-        // nuevo desplaza su texto y saca el check
-        body.querySelectorAll(".mrow.sel").forEach(x => x.classList.remove("sel"));
-        b.classList.add("sel");
-        state.modelProvider = m.provider; state.modelId = m.id;
-        state.model = m.name || m.id;
       };
       body.appendChild(b);
     });
@@ -8856,11 +8923,18 @@ function onRpc(m){
   }
   if(m.command === "save_model_params"){
     if(d && d.error) return note(d.error);
-    // el fichero ya esta escrito: refrescar la lista y volver a ella (el
-    // lapiz vivia alli), limpiando la pila para que el atras vaya a raiz
+    // el fichero ya esta escrito: refrescar la lista y volver a Models (el
+    // lapiz vive alli), limpiando la pila para que el atras vaya a raiz
     send({type:"get_available_models"});
     sheetStack = [];
-    turnTo("modelList", -1);
+    turnTo("models", -1);
+    return;
+  }
+  if(m.command === "model_thinking_get"
+     || m.command === "model_thinking_save"){
+    if(d && d.error) return note(d.error);
+    modelThinking = d.level || "";   // null: sin pedir; "": usar el global
+    if(sheetPage === "modelEdit") paintSheet("modelEdit");
     return;
   }
   if(m.command === "prompts_list"){
@@ -8981,7 +9055,7 @@ function onRpc(m){
     // /model, que no fija sheetPage, cae al picker rapido de siempre
     if($("#sheet").classList.contains("open")
        && (sheetPage === "model" || sheetPage === "modelList"
-           || sheetPage === "projmodel"))
+           || sheetPage === "models" || sheetPage === "projmodel"))
       return paintSheet(sheetPage);
     return sheet("model", models.map(x=>({
       label:x.name || x.id, hint:`${x.provider}  ·  ${kilo(x.contextWindow||0)} ctx`,
@@ -8991,7 +9065,8 @@ function onRpc(m){
     thinkLevels = d.levels || [];
     // las paginas que los listan se repintan; sin esto, "defthink" caia al
     // selector de nivel de SESION y se comia la pagina
-    if(sheetPage === "projthink" || sheetPage === "defthink")
+    if(sheetPage === "projthink" || sheetPage === "defthink"
+       || sheetPage === "modelEdit")
       return paintSheet(sheetPage);
     return sheet("thinking", thinkLevels.map(l=>({
       label:l, run:()=>send({type:"set_thinking_level", level:l})})));

@@ -384,15 +384,22 @@ The settings menu has a **Model** card on its root and a **Functions** page
 of optional switches, each remembered per browser.
 
 - **Model** (settings root): pick the active model; the choice is remembered
-  for every new session. Each row has a pencil to edit it and a bin to remove
-  it from `models.json`. The editor covers context window, max tokens and
+  for every new session. Selection only — the collection lives elsewhere.
+- **Models** (pi agent settings, next to Providers): the models themselves.
+  Each row has a pencil to edit it and a bin to remove it from `models.json`,
+  plus an add button at the top. The editor covers context window, max tokens,
   whether the model accepts images — that last one matters when the server
-  behind it changes. The model id stays read-only: it is the key pi looks it
-  up by. A **reasoning map** page translates pi's levels (`off` … `max`) into
-  whatever the server expects, one value per level; a level switched off is
-  one pi will not offer at all, which is how the available levels are decided.
+  behind it changes — and the **per-model reasoning level**, which outranks
+  the global default in pi's resolution order (`modelThinkingLevels` in
+  `settings.json`; "use global" clears it). The model id stays read-only: it
+  is the key pi looks it up by. A **reasoning map** page translates pi's levels
+  (`off` … `max`) into whatever the server expects, one value per level; a
+  level switched off is one pi will not offer at all, which is how the
+  available levels are decided.
 - **Default reasoning** (next to Model): the level new sessions start at,
-  stored as `defaultThinkingLevel`. The list is the one pi reports for the
+  stored as `defaultThinkingLevel`, applied to a running session at once
+  (no restart). It loses to a per-model level if one exists. The list is the
+  one pi reports for the
   active model, so it already reflects that model's reasoning map.
 - **Agent behaviour**: how messages sent while pi is working are queued
   (`steeringMode`, `followUpMode`) and the provider transport. The two queue
