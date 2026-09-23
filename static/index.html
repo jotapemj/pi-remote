@@ -938,6 +938,7 @@ footer > *{position:relative; z-index:1}
 .pmi .pmi-ic{display:flex; flex:none}
 .pmi .i{width:20px; height:20px; color:var(--dim)}
 .pmi:focus-visible{outline:2px solid var(--amber); outline-offset:-2px}
+.pmi[hidden]{display:none}
 /* miniaturas sobre el compositor */
 /* la fila de miniaturas respira: el alto del compositor se anima al
    ampliar y al compactar, no salta */
@@ -2080,9 +2081,11 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
       <div class="plusmenu" id="plusMenu" hidden>
         <button class="pmi" data-act="commands"><span class="pmi-ic" data-ic="terminal2"></span><span data-t="commands"></span></button>
         <button class="pmi" data-act="image"><span class="pmi-ic" data-ic="image"></span><span data-t="image"></span></button>
+        <button class="pmi" data-act="camera"><span class="pmi-ic" data-ic="photoCamera"></span><span data-t="camera"></span></button>
         <button class="pmi" data-act="macros"><span class="pmi-ic" data-ic="codeXml"></span><span data-t="macros"></span></button>
       </div>
       <input type="file" id="imgInput" accept="image/*" multiple hidden>
+      <input type="file" id="camInput" accept="image/*" capture="environment" hidden>
     </div>
   </div>
   <div class="cmeta" id="cmeta"></div>
@@ -2240,6 +2243,8 @@ const ICONS = {
   // bombilla hueca (lightbulb_outline): mientras piensa; rellena al terminar
   thinkO:"M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7m2.85 11.1-.85.6V16h-4v-2.3l-.85-.6C7.8 12.16 7 10.63 7 9c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.63-.8 3.16-2.15 4.1",
   image:"M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z",
+  // camara (photo_camera): foto con la app por defecto del movil
+  photoCamera:"M9 2 7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z",
   // abre en otra pagina (open_in_new): cuadrado con flecha saliente
   external:"M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z",
   // escudo (Material shield): whitelist del firewall
@@ -5110,9 +5115,12 @@ box.addEventListener("focusout", e => {
 
 // el '+' abre un popup con Commands e Image; el '/' teclado sigue valiendo
 $("#slashBtn").innerHTML = ico("add");
-const plusMenu = $("#plusMenu"), imgInput = $("#imgInput"), thumbs = $("#thumbs"),
+const plusMenu = $("#plusMenu"), imgInput = $("#imgInput"),
+      camInput = $("#camInput"), thumbs = $("#thumbs"),
       thumbsIn = $("#thumbsIn");
 plusMenu.querySelectorAll(".pmi-ic").forEach(s => s.innerHTML = ico(s.dataset.ic));
+// la camara es solo tactil: en escritorio abrria la webcam
+if(!COARSE.matches) plusMenu.querySelector('[data-act="camera"]').hidden = true;
 function plusOpen(on){
   $("#slashBtn").classList.toggle("on", on);   // borde ambar solo con menu abierto
   if(on){ plusMenu.hidden = false;
@@ -5137,6 +5145,7 @@ plusMenu.querySelectorAll(".pmi").forEach(b => {
     plusOpen(false);
     if(b.dataset.act === "commands"){ box.value = "/"; paintPalette(); slashToggle(); }
     else if(b.dataset.act === "image"){ imgInput.value = ""; imgInput.click(); }
+    else if(b.dataset.act === "camera"){ camInput.value = ""; camInput.click(); }
     else if(b.dataset.act === "macros"){ openMacros(); }
   };
 });
@@ -5148,8 +5157,8 @@ document.addEventListener("pointerdown", e => {   // dismiss tocando fuera
 
 /* --- imagenes adjuntas: la fila anima al entrar y al salir --- */
 let pendingImages = [];              // {data, mimeType, url}
-imgInput.onchange = () => {
-  [...imgInput.files].forEach(f => {
+function filesToImages(files){
+  [...files].forEach(f => {
     if(!/^image\//.test(f.type)) return;
     const r = new FileReader();
     r.onload = () => {
@@ -5158,9 +5167,42 @@ imgInput.onchange = () => {
     };
     r.readAsDataURL(f);
   });
-  imgInput.value = "";
-};
-function addImage(im){
+}
+imgInput.onchange = () => { filesToImages(imgInput.files); imgInput.value = ""; };
+camInput.onchange = () => { filesToImages(camInput.files); camInput.value = ""; };
+// fotos de camara o galeria pesan 10-15 MB: un modelo de vision remuestrea
+// a ~2k, asi que se reduce antes de mandarlo por WS (jpeg q0.85; los PNG
+// conservan su alpha). Si el decode falla, la imagen viaja tal cual.
+const MAX_EDGE = 2048;
+function downscale(url, type){
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      const w = img.naturalWidth, h = img.naturalHeight;
+      if(Math.max(w, h) <= MAX_EDGE) return res(null);
+      const s = MAX_EDGE / Math.max(w, h), c = document.createElement("canvas");
+      c.width = Math.round(w * s); c.height = Math.round(h * s);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      const out = type === "image/png" ? "image/png" : "image/jpeg";
+      c.toBlob(b => {
+        if(!b) return res(null);
+        const r = new FileReader();
+        r.onload = () => res(String(r.result));
+        r.onerror = () => res(null);
+        r.readAsDataURL(b);
+      }, out, 0.85);
+    };
+    img.onerror = () => res(null);
+    img.src = url;
+  });
+}
+async function addImage(im){
+  const ds = await downscale(im.url, im.mimeType);
+  if(ds){
+    const c = ds.indexOf(",");
+    // data:image/jpeg;base64,... → mime sin el "base64"
+    im = {data: ds.slice(c + 1), mimeType: ds.slice(5, c).split(";")[0], url: ds};
+  }
   pendingImages.push(im);
   const el = document.createElement("div");
   el.className = "thumb"; el.__img = im;
@@ -5423,7 +5465,7 @@ const STR = {
       keySet:"configured", applyRestart:"Changes apply after restarting pi remote",
       addModel:"Add model", reasoning:"Reasoning", modelName:"Model name",
       untitled:"Untitled session",
-      motion_fade:"Fade", motion_instant:"Instant", image:"Image",
+      motion_fade:"Fade", motion_instant:"Instant", image:"Image", camera:"Camera",
       output:"output", noOutput:"no output", command:"command",
       pasted:"Pasted text {n} lines", prefilling:"prefilling",
       ranN:"Ran {n} commands", ranNShown:"{n} commands",
@@ -5553,7 +5595,7 @@ const STR = {
       keySet:"configurada", applyRestart:"Los cambios se aplican al reiniciar pi remote",
       addModel:"Añadir modelo", reasoning:"Razonamiento", modelName:"Nombre del modelo",
       untitled:"Sesión sin título",
-      motion_fade:"Fundido", motion_instant:"Directo", image:"Imagen",
+      motion_fade:"Fundido", motion_instant:"Directo", image:"Imagen", camera:"Cámara",
       ranN:"Ejecutados {n} comandos", ranNShown:"{n} comandos",
       statsTitle:"Estad\u00edsticas de respuesta", stGen:"Generaci\u00f3n",
       stPrompt:"Prompt", stCache:"En cach\u00e9", stReason:"Razonamiento",
@@ -5684,7 +5726,7 @@ const STR = {
       keySet:"konfiguriert", applyRestart:"Änderungen gelten nach dem Neustart von pi remote",
       addModel:"Modell hinzufügen", reasoning:"Reasoning", modelName:"Modellname",
       untitled:"Unbenannte Sitzung",
-      motion_fade:"Einblenden", motion_instant:"Sofort", image:"Bild",
+      motion_fade:"Einblenden", motion_instant:"Sofort", image:"Bild", camera:"Kamera",
       ranN:"{n} Befehle ausgef\u00fchrt", ranNShown:"{n} Befehle",
       statsTitle:"Antwort-Statistik", stGen:"Generierung",
       stPrompt:"Prompt", stCache:"Zwischengespeichert",
@@ -5812,7 +5854,7 @@ const STR = {
       keySet:"configurée", applyRestart:"Les modifications s'appliquent au redémarrage de pi remote",
       addModel:"Ajouter un modèle", reasoning:"Raisonnement", modelName:"Nom du modèle",
       untitled:"Session sans titre",
-      motion_fade:"fondu", motion_instant:"instantan\u00e9", image:"image",
+      motion_fade:"fondu", motion_instant:"instantan\u00e9", image:"image", camera:"caméra",
       ranN:"{n} commandes ex\u00e9cut\u00e9es", ranNShown:"{n} commandes",
       statsTitle:"Statistiques de la r\u00e9ponse", stGen:"G\u00e9n\u00e9ration",
       stPrompt:"Invite", stCache:"Mis en cache",
@@ -5940,7 +5982,7 @@ const STR = {
       keySet:"configurada", applyRestart:"As alterações aplicam-se ao reiniciar o pi remote",
       addModel:"Adicionar modelo", reasoning:"Raciocínio", modelName:"Nome do modelo",
       untitled:"Sessão sem título",
-      motion_fade:"fundido", motion_instant:"instant\u00e2neo", image:"imagem",
+      motion_fade:"fundido", motion_instant:"instant\u00e2neo", image:"imagem", camera:"câmera",
       ranN:"{n} comandos executados", ranNShown:"{n} comandos",
       statsTitle:"Estat\u00edsticas da resposta", stGen:"Gera\u00e7\u00e3o",
       stPrompt:"Prompt", stCache:"Em cache",
@@ -6066,7 +6108,7 @@ const STR = {
       keySet:"已配置", applyRestart:"更改将在重启 pi remote 后生效",
       addModel:"添加模型", reasoning:"推理", modelName:"模型名称",
       untitled:"未命名会话",
-      motion_fade:"淡入", motion_instant:"即时", image:"图片",
+      motion_fade:"淡入", motion_instant:"即时", image:"图片", camera:"相机",
       ranN:"执行了 {n} 条命令", ranNShown:"{n} 条命令",
       statsTitle:"回答统计", stGen:"生成",
       stPrompt:"提示词", stCache:"缓存",

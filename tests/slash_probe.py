@@ -1,5 +1,5 @@
 """El boton '+' del compositor: se queda visible al escribir, abre un popup
-con Commands, Image y Macros (transicion, dismiss tocando fuera), y
+con Commands, Image, Camara y Macros (transicion, dismiss tocando fuera), y
 'Commands' abre la paleta sin robar el foco ni hacer amago. Teclear '/'
 tambien la abre.
 """
@@ -48,8 +48,8 @@ async def main():
                 ("el '+' abre el popup", pop[0] is True and pop[1] == 1),
                 # los macros se anadieron al menu: se lanzan desde donde
                 # estas cuando se te ocurre usarlos, el compositor
-                ("con Commands, Image y Macros",
-                 pop[2] == "commands,image,macros"),
+                ("con Commands, Image, Camara y Macros",
+                 pop[2] == "commands,image,camera,macros"),
                 ("cada item con su titulo", "|" in pop[3]
                  and all(pop[3].split("|"))),
                 ("y su icono", pop[4] is True),
