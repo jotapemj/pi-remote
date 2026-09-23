@@ -130,7 +130,7 @@ async def ui():
                           n:f.length,
                           vals:f.map(x=>x.querySelector('input').value),
                           ro:f.map(x=>x.querySelector('input').readOnly),
-                          think:(document.querySelector('.mfield.sel .pval')||{}).textContent,
+                          think:(document.querySelectorAll('.mfield.sel')[0].querySelector('.pval')||{}).textContent,
                           ok:$('#sheetOk').hidden};})()""")
                 print("  edit: %r" % ed)
                 checks += [
@@ -149,6 +149,49 @@ async def ui():
                      ed["ro"] == [False, False, True]),
                     ("sin cambios no hay check", ed["ok"] is True),
                 ]
+
+                # el campo abre una pagina de sheet, no un modal centrado
+                # los niveles llegan por onRpc (sincrono): si el clic llegara
+                # antes que la respuesta, la pagina saldria en estado de carga
+                await js("onRpc({command:'get_available_thinking_levels',"
+                         " data:{levels:['off','medium','high']}})")
+                await asyncio.sleep(0.3)
+                await js("document.querySelectorAll('.mfield.sel button')[0].click()")
+                await asyncio.sleep(0.3)
+                pg = await js("""(()=>{
+                  const b=[...document.querySelectorAll('#sheetBody .mrow')];
+                  return {title:$('#sheetTitle').textContent,
+                          n:b.length, first:b[0].textContent.trim(),
+                          modal:$('#modal').classList.contains('open'),
+                          help:!!document.querySelector('#sheetBody .chelp')};})()""")
+                checks += [
+                    ("razonamiento por modelo abre una pagina de sheet",
+                     pg["title"].lower() == "razonamiento del modelo"
+                     and pg["modal"] is False),
+                    ("fila «Usar global» arriba y nota de reinicio",
+                     pg["n"] == 4 and pg["first"] == "Usar global"
+                     and pg["help"] is True),
+                ]
+                # elegir un nivel: staged, vuelve al formulario y sale el check
+                await js("document.querySelectorAll('#sheetBody .mrow')[3].click()")
+                await asyncio.sleep(0.3)
+                st = await js("""(()=>{
+                  return {think:(document.querySelectorAll('.mfield.sel')[0].querySelector('.pval')||{}).textContent,
+                          ok:$('#sheetOk').hidden, sp:sheetPage,
+                          stg:thinkStaged, mt:modelThinking};})()""")
+                checks.append(("elegir un nivel vuelve al formulario con el check",
+                               st["think"] == "high" and st["ok"] is False))
+                # y «Usar global» lo descarta: sin check
+                await js("document.querySelectorAll('.mfield.sel button')[0].click()")
+                await asyncio.sleep(0.3)
+                await js("document.querySelector('#sheetBody .mrow').click()")
+                await asyncio.sleep(0.3)
+                st2 = await js("""(()=>{
+                  return {think:(document.querySelectorAll('.mfield.sel')[0].querySelector('.pval')||{}).textContent,
+                          ok:$('#sheetOk').hidden, sp:sheetPage,
+                          st:thinkStaged, mt:modelThinking};})()""")
+                checks.append(("«Usar global» descarta el staged",
+                               st2["think"] == "Usar global" and st2["ok"] is True))
 
                 # cambiar un valor invalido: el check no aparece
                 await js("""(()=>{

@@ -6881,6 +6881,7 @@ let agentPrefsErr = null; // el puente no supo responder (sin reiniciar)
 let prefKey = null, prefList = null;
 let defThink = null;      // nivel por defecto del puente (null: sin pedir)
 let modelThinking = null; // override por modelo en modelEdit (null: sin pedir)
+let thinkStaged = null;    // eleccion en modelthink; null = sin pasar por la pagina
 
 function projInit(){
   const saved = state.projSettings || {};
@@ -7531,14 +7532,18 @@ function paintSheet(page){
     const fields = {contextWindow: editModel.contextWindow,
                     maxTokens: editModel.maxTokens,
                     input: (editModel.input || ["text"]).slice(),
-                    thinking: modelThinking};   // null: usar el global
+                    thinking: thinkStaged !== null ? thinkStaged
+                                                  : modelThinking};
     const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-    // el check aparece con los numeros validos y algo distinto de lo guardado
+    // el check aparece con los numeros validos y algo distinto de lo guardado.
+    // Con modelThinking null la respuesta RPC sigue en camino: un staged no
+    // vacio ya es un cambio; "" (usar global) se compara al llegar el valor
     const editDirty = () => !!(fields.contextWindow && fields.maxTokens
       && (fields.contextWindow !== editModel.contextWindow
           || fields.maxTokens !== editModel.maxTokens
           || !same(fields.input, editModel.input || ["text"])
-          || fields.thinking !== modelThinking));
+          || (modelThinking === null ? !!fields.thinking
+                                     : fields.thinking !== modelThinking)));
     if(modelThinking === null)   // null: sin pedir todavia; "": usar el global
       send({type:"model_thinking_get", provider:editModel.provider,
             modelId:editModel.id});
@@ -7590,24 +7595,8 @@ function paintSheet(page){
     tb.type = "button";
     tb.innerHTML = `<span>${esc(T("modelReasoning"))}</span>`
       + `<span class="pval">${esc(fields.thinking || T("useGlobal"))}</span>`;
-    tb.onclick = () => {
-      const lv = (thinkLevels.length ? thinkLevels
-        : [state.thinking].filter(Boolean));
-      // filas con data-i y re-ligado: el mismo idiom que menuModal, porque
-      // el innerHTML del modal clona sin listeners
-      const rows = [{txt:T("useGlobal"), val:""}]
-        .concat(lv.map(l => ({txt:l, val:l})));
-      openModal(T("modelReasoning"),
-        rows.map((r, i) =>
-          `<button class="pick mrow${fields.thinking === r.val ? " sel" : ""}`
-          + ` data-i="${i}"><span class="chkslot">${ico("check")}</span>`
-          + `<span class="txt">${esc(r.txt)}</span></button>`).join(""), null);
-      $("#modalOk").textContent = T("close");   // aqui solo cierra
-      $("#modalBody").querySelectorAll(".mrow").forEach(b => {
-        b.onclick = () => { fields.thinking = rows[+b.dataset.i].val;
-          okb.hidden = !editDirty(); closeModal(); };
-      });
-    };
+    tb.onclick = () => { thinkStaged = fields.thinking || "";
+                         goPage("modelthink"); };
     tr.appendChild(tb);
     tr.insertAdjacentHTML("beforeend", ico("chevron", "ch"));
     body.appendChild(tr);
@@ -7637,6 +7626,10 @@ function paintSheet(page){
                 modelId:editModel.id, level:fields.thinking || null});
       },
       {ok: T("confirm")});
+    // un valor staged (razonamiento) no dispara input: evaluar al pintar.
+    // Si la respuesta de model_thinking_get sigue en camino, el check se
+    // reevalua solo: su onRpc repinta esta pagina
+    okb.hidden = !editDirty();
     return;
   }
   if(page === "language"){ 
@@ -8042,6 +8035,33 @@ function paintSheet(page){
     });
     return;
   }
+  if(page === "modelthink"){
+    // razonamiento por modelo: misma anatomia que defthink, pero staged
+    // (el check de modelEdit lo guarda junto al resto del formulario)
+    $("#sheetTitle").textContent = T("modelReasoning");
+    if(!thinkLevels.length) send({type:"get_available_thinking_levels"});
+    const levels = thinkLevels.length ? thinkLevels
+      : [state.thinking].filter(Boolean);
+    if(!levels.length){
+      head("loadingModels");
+      return;
+    }
+    body.appendChild(globalRow(thinkStaged === "",
+      () => { thinkStaged = ""; goBack(); }));
+    levels.forEach(l => {
+      const sel = l === thinkStaged;
+      const b = document.createElement("button");
+      b.className = "pick mrow" + (sel ? " sel" : "");
+      b.innerHTML = `<span class="chkslot">${ico("check")}</span>`
+        + `<span class="txt">${esc(l)}</span>`;
+      b.onclick = () => { if(!sel){ thinkStaged = l; goBack(); } };
+      body.appendChild(b);
+    });
+    const n = document.createElement("div");
+    n.className = "chelp"; n.textContent = T("applyRestart");
+    body.appendChild(n);
+    return;
+  }
   if(page === "defthink"){
     $("#sheetTitle").textContent = T("defaultReasoning");
     // se piden SIEMPRE que falten: con el nivel de la sesion como unico
@@ -8130,6 +8150,8 @@ function paintSheet(page){
         editModel = {provider:m.provider, id:m.id, name:m.name || m.id,
                      contextWindow:m.contextWindow, maxTokens:m.maxTokens,
                      input:m.input};
+        modelThinking = null;  // el override del modelo anterior no se lleva
+        thinkStaged = null;
         goPage("modelEdit");
       };
       b.querySelector(".del").onclick = e => {
@@ -9066,7 +9088,7 @@ function onRpc(m){
     // las paginas que los listan se repintan; sin esto, "defthink" caia al
     // selector de nivel de SESION y se comia la pagina
     if(sheetPage === "projthink" || sheetPage === "defthink"
-       || sheetPage === "modelEdit")
+       || sheetPage === "modelEdit" || sheetPage === "modelthink")
       return paintSheet(sheetPage);
     return sheet("thinking", thinkLevels.map(l=>({
       label:l, run:()=>send({type:"set_thinking_level", level:l})})));
