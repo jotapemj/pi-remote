@@ -2961,6 +2961,10 @@ class Bridge:
                 self.emit({"type": "rpc", "command": t,
                            "data": {"error": "the template expanded to nothing"}})
                 return
+            # feedback visible: mensaje de usuario con el nombre del macro; el
+            # texto resuelto viaja en el mismo item para que el cliente lo muestre
+            # al tocarlo (el prompt real, con los $ ya sustituidos)
+            self.push({"kind": "user", "macro": name, "text": text})
             # ya expandido: para pi es un prompt normal, no un comando
             self.send_pi({"type": "prompt", "message": text})
             self.emit({"type": "rpc", "command": t, "data": {"name": name}})

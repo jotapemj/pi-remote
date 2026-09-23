@@ -153,6 +153,18 @@ async def ui():
               return b ? b.textContent.trim() : '';})()""")
             checks.append(("el menu del + ofrece los macros", entry == "Macros"))
 
+            # iconos: code_xml para macros, terminal_2 para comandos
+            ics = await js("""(()=>{
+              const g=a=>{const b=[...document.querySelectorAll('#plusMenu .pmi')]
+                .find(x=>x.dataset.act===a); return b?b.querySelector('[data-ic]').dataset.ic:'';};
+              return {macros:g('macros'), commands:g('commands')};})()""")
+            checks += [
+                ("el icono de macros es code xml",
+                 ics["macros"] == "codeXml"),
+                ("el icono de comandos es terminal 2",
+                 ics["commands"] == "terminal2"),
+            ]
+
             await js("openMacros()")
             await asyncio.sleep(0.8)
             # las filas de macro llevan /nombre; la primera es crear
@@ -178,6 +190,34 @@ async def ui():
               modal:$('#modal').classList.contains('open')})""")
             checks.append(("un macro sin argumentos se lanza sin preguntar",
                            sent["open"] is False and sent["modal"] is False))
+
+            # feedback: aparece un chip de usuario con el nombre del macro
+            chip = await js("""(()=>{
+              const c=document.querySelector('#feed .macrochip');
+              return c ? {txt:c.textContent.trim(),
+                          icon:!!c.querySelector('svg path')} : null;})()""")
+            checks += [
+                ("el macro deja un chip de usuario en el feed",
+                 isinstance(chip, dict) and "/standup" in chip["txt"]
+                 and chip["icon"]),
+            ]
+
+            # tocarlo muestra el prompt resuelto, solo informativo
+            dlg = await js("""(()=>{
+              document.querySelector('#feed .macrochip').click();
+              return {open:$('#modal').classList.contains('open'),
+                      title:$('#modalTitle').textContent,
+                      body:$('#modalBody').textContent,
+                      noHidden:$('#modalNo').hidden};})()""")
+            checks += [
+                ("el chip abre un dialogo informativo",
+                 dlg["open"] is True and dlg["noHidden"] is True),
+                ("titulo: el nombre del macro",
+                 dlg["title"] == "/standup"),
+                ("cuerpo: el texto con los $ resueltos",
+                 "Summarise what changed today" in dlg["body"]),
+            ]
+            await js("closeModal()")
 
             # ---- sin macros, lo que hay es la accion de crear uno ----
             empty = await js("""(()=>{

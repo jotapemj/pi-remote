@@ -297,14 +297,14 @@ async def ui():
                   const v=sws[1];
                   v.click();
                   return {on:v.getAttribute('aria-checked'),
-                    lbl:v.closest('.fcard').querySelector('.flbl').textContent};
+                    lbl:v.closest('.swrow').querySelector('.mtxt').textContent};
                   })()""")
                 checks += [
                     ("anadir modelo ofrece razonamiento y modalidades",
                      vis["n"] == 2),
                     ("el toggle declara que acepta imagenes",
                      not tog.get("err") and tog["on"] == "true"
-                     and "images" in tog["lbl"]),
+                     and tog["lbl"] == "Image"),
                 ]
     return checks
 
