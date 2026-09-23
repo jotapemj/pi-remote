@@ -1195,21 +1195,21 @@ footer > *{position:relative; z-index:1}
 /* parametros del modelo: campo outlined material. El label vive dentro
    como placeholder y, al enfocar o tener valor, flota pequeno sobre el
    borde (cortandolo con el fondo de la card) en color acento */
-.mfield{position:relative; margin:18px 2px 0}
+.mfield{position:relative; margin:12px 2px 0}
 .mfield input{
   width:100%; box-sizing:border-box; background:none;
   border:1px solid var(--rule); border-radius:8px; color:var(--ink);
-  font:400 16px/1.2 var(--sans); padding:13px 14px; outline:none;
+  font:400 16px/1.2 var(--sans); padding:10px 14px; outline:none;
 }
 .mfield input:focus{border-color:var(--amber)}
 /* fila de interruptor con el cromo del campo: mismo borde, radio, margen y
    tipografia que el input, para que un toggle no rompa la columna */
 .swrow{
   display:flex; align-items:center; justify-content:space-between; gap:12px;
-  margin:18px 2px 0; padding:13px 14px; box-sizing:border-box;
+  margin:12px 2px 0; padding:10px 14px; box-sizing:border-box;
   border:1px solid var(--rule); border-radius:8px;
 }
-.swrow .mtxt{font:400 16px/1.2 var(--sans); color:var(--ink)}
+.swrow .mtxt{font:400 14px/1.2 var(--sans); color:var(--ink)}
 /* los numeros son dato, no prosa: mono y tabular para que no bailen al
    teclear. Misma regla en todas las vistas que editan cifras */
 .mfield input[type=number], .cnum{
@@ -1233,8 +1233,8 @@ footer > *{position:relative; z-index:1}
 .mfield.sel > button{
   width:100%; box-sizing:border-box; text-align:left; cursor:pointer;
   background:none; border:1px solid var(--rule); border-radius:8px;
-  color:var(--ink); font:400 16px/1.2 var(--sans);
-  padding:13px 38px 13px 14px; outline:none;
+  color:var(--ink); font:400 14px/1.2 var(--sans);
+  padding:10px 38px 10px 14px; outline:none;
   display:flex; align-items:baseline; min-width:0;
 }
 .mfield.sel > button:focus-visible{border-color:var(--amber)}
