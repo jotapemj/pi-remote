@@ -437,7 +437,8 @@ async def ui():
               const sel=sels[sels.length-1];
               if(!sel) return {found:false};
               const b=sel.querySelector('button');
-              const txt=document.querySelector('#sheetBody .mfield:not(.sel) input');
+              // el primer campo es number (mono): comparar contra un texto
+              const txt=document.querySelector('#sheetBody .mfield:not(.sel) input:not([type=number])');
               const rb=b.getBoundingClientRect(), rt=txt.getBoundingClientRect();
               const cb=getComputedStyle(b), ct=getComputedStyle(txt);
               return {found:true, val:b.textContent,
@@ -445,14 +446,8 @@ async def ui():
                 dh:Math.abs(rb.height-rt.height),
                 radio:cb.borderRadius===ct.borderRadius,
                 picks:document.querySelectorAll('#sheetBody .pick').length,
-                sameFont:(()=>{ // contra una fila de navegacion de verdad
-                  const probe=pickBtn({label:'x', chevron:true, run:()=>{}});
-                  document.body.appendChild(probe);
-                  const a=getComputedStyle(b), c=getComputedStyle(probe);
-                  const f=a.fontFamily===c.fontFamily;
-                  window.__sz = a.fontSize===c.fontSize;
-                  probe.remove(); return f;})(),
-                sameSize:window.__sz};})()""")
+                sameFont:cb.fontFamily===ct.fontFamily,
+                sameSize:cb.fontSize===ct.fontSize};})()""")
             checks += [
                 ("el mapa se alinea con los campos del modelo",
                  me["found"] and me.get("dx", 9) < 1 and me.get("dw", 9) < 1
@@ -464,10 +459,10 @@ async def ui():
                 # hace pi, no el cliente)
                 ("el campo dice su nombre, sin cifras que interpretar",
                  me.get("val", "").strip() == "Reasoning map"),
-                # coherencia: se lee igual que las 15 filas de navegacion de
-                # la app (misma familia y tamano), aunque el contenedor sea
-                # de campo para poder alinearse dentro de un formulario
-                ("y se lee como las demas filas que abren subpagina",
+                # coherencia: es un campo, se lee como los demas campos del
+                # formulario (misma familia y tamano que el input de 16px);
+                # las filas de navegacion (.pick) son otra clase, de 13px
+                ("y se lee como los demas campos del formulario",
                  me.get("sameFont") is True and me.get("sameSize") is True),
             ]
 
