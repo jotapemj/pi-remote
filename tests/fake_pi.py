@@ -435,6 +435,11 @@ for line in sys.stdin:
             out({"type": "response", "command": "set_model", "success": False,
                  "error": "Model not found: %s/%s"
                           % (cmd.get("provider"), cmd.get("modelId"))})
+    elif t == "set_thinking_level":
+        # como pi: el nivel queda en la sesion y get_state lo reporta
+        STATE["thinkingLevel"] = cmd.get("level")
+        out({"type": "response", "command": "set_thinking_level",
+             "success": True})
     elif t == "set_session_name":
         STATE["sessionName"] = cmd.get("name")
         out({"type": "response", "command": "set_session_name",

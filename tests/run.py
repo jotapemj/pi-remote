@@ -45,15 +45,24 @@ ORDER = ["static_check", "theme_check", "label_check", "notes_check",
 
 BASE_PORT = 8811      # el puente vivo del usuario va en 8770
 
+# tope por probe: un cuelgue (bucle del fake, espera infinita) no puede
+# secuestrar la suite entera. PI_TEST_TIMEOUT lo cambia, en segundos.
+PROBE_TIMEOUT = int(os.environ.get("PI_TEST_TIMEOUT", "180"))
+
 
 def run_one(name, slot):
     env = dict(os.environ)
     env["PI_TEST_PORT"] = str(BASE_PORT + slot * 10)
     env["CHROME_PORT_OFFSET"] = str(slot * 100)
     t0 = time.time()
-    r = subprocess.run([sys.executable, str(HERE / (name + ".py"))],
-                       capture_output=True, text=True, cwd=str(HERE),
-                       env=env)
+    try:
+        r = subprocess.run([sys.executable, str(HERE / (name + ".py"))],
+                           capture_output=True, text=True, cwd=str(HERE),
+                           env=env, timeout=PROBE_TIMEOUT)
+    except subprocess.TimeoutExpired as e:
+        out = ((e.stdout or "") + "\n" + (e.stderr or "")
+               + "\nCUELGA: probe sin terminar tras %ds" % PROBE_TIMEOUT)
+        return False, out, time.time() - t0
     out = (r.stdout or "") + (r.stderr or "")
     ok = r.returncode == 0 and "FALLA" not in out
     return ok, out, time.time() - t0
