@@ -292,6 +292,10 @@ body{
 @keyframes f7{0%,53.2%{fill-opacity:0;stroke-width:.7}57.1%{stroke-width:0}61.8%,100%{fill-opacity:1;stroke-width:0}}
 @keyframes f8{0%,60.8%{fill-opacity:0;stroke-width:.7}64.7%{stroke-width:0}69.4%,100%{fill-opacity:1;stroke-width:0}}
 .curtain.gone{opacity:0; visibility:hidden}
+/* la app ya arranco una vez (pi.booted): en recargas el telon nace oculto.
+   Chrome mata el renderizador en segundo plano y el splash se repagaba.
+   :not(.restarting) deja vivo el telon de /restart. */
+html.booted .curtain:not(.restarting){display:none}
 /* rellenado el titulo (una vez), respira hasta que se puede entrar. El
    -1.2s arranca en la fase 50% (opacidad 1): asi no salta desde el estatico. */
 .curtain.lit svg{animation:breathe 2.4s ease-in-out -1.2s infinite}
@@ -2039,6 +2043,9 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
   var v=getComputedStyle(document.documentElement)
           .getPropertyValue("--plate-a").trim();
   if(m&&v) m.content=v;
+  /* si ya arranco, el telon se oculta antes del primer paint (css arriba) */
+  if(localStorage.getItem("pi.booted"))
+    document.documentElement.classList.add("booted");
 }catch(e){}})();
 </script>
 </head>
@@ -4459,6 +4466,7 @@ function connect(){
         goDown();
         spinner(false);              // ya hay contenido que ensenar
         boot();                      // y con el la cabecera ya tiene alto
+        try{localStorage.setItem("pi.booted","1")}catch(e){}  // recarga sin telon
         if(restartMode) endRestartCurtain();   // el puente volvio: retira el telon
       });
     }

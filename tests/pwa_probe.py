@@ -95,6 +95,30 @@ async def main():
                  tok == "probe-token" and hasQuery == ""),
             ]
 
+            # ---- recarga sin telon: la app ya arranco una vez (pi.booted).
+            # Chrome mata el renderizador en segundo plano y la pagina se
+            # repaga; el snapshot del primer arranque deja la marca y la
+            # recarga nace con el telon oculto. El de /restart sigue vivo.
+            booted = await js("localStorage.getItem('pi.booted')")
+            print("  pi.booted=%r" % booted)
+            await p.cmd("Page.navigate", url=BASE + "/")
+            await asyncio.sleep(0.8)
+            curt = await js("""(()=>{
+              const c=document.getElementById('curtain');
+              const base=getComputedStyle(c).display;
+              c.classList.add('restarting');
+              const rest=getComputedStyle(c).display;
+              c.classList.remove('restarting');
+              return {base, rest};})()""")
+            print("  telon en recarga: base=%s restarting=%s"
+                  % (curt["base"], curt["rest"]))
+            checks += [
+                ("el primer snapshot marca pi.booted", booted == "1"),
+                ("la recarga nace sin telon (display none)",
+                 curt["base"] == "none"),
+                ("el telon de /restart sigue visible", curt["rest"] == "grid"),
+            ]
+
             # el color queda puesto ANTES del primer paint: Android lo lee al
             # pasar de su splash a la pagina, y si cambia despues la barra se
             # queda negra. El script #bootbar va tras el <style>, cuando las
