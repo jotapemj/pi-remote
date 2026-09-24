@@ -183,7 +183,7 @@ async def ui():
                      d["providers"]["local"]["apiKey"] == "secreta"),
                 ]
 
-                # ---- añadir modelo desde la pagina de edicion ----
+                # ---- añadir modelo: una sola puerta, la pagina Models ----
                 await js("""(()=>{[...document.querySelectorAll('#sheetBody .prow')]
                   .find(r=>/local/.test(r.textContent))
                   .click();})()""")
@@ -191,11 +191,24 @@ async def ui():
                 hasbtn = await js("""[...document.querySelectorAll(
                   '#sheetBody .pick')].some(b=>/Add model/.test(
                   b.textContent))""")
-                checks.append(("la pagina de edicion ofrece 'Add model'",
-                               bool(hasbtn)))
+                checks.append(("la pagina de edicion NO ofrece 'Add model'",
+                               hasbtn is False))
+                # la unica puerta: Models -> add, con el Provider a la vista.
+                # sin proyecto abierto el puente no reenvia a pi: inyectar
+                # la lista como modeledit_probe
+                await js("onRpc({command:'get_available_models', data:{models:"
+                         "[{id:'qwen3-8b',name:'Qwen3 8B',provider:'local',"
+                         "contextWindow:32768,maxTokens:4096,input:['text']}]}})")
+                await js("sheetStack=[]; paintSheet('models')")
+                await asyncio.sleep(0.3)
                 await js("""(()=>{[...document.querySelectorAll('#sheetBody .pick')]
                   .find(b=>/Add model/.test(b.textContent)).click();})()""")
                 await asyncio.sleep(0.5)
+                provfield = await js("""(()=>{const s=document.querySelector(
+                  '#sheetBody .mfield.sel');
+                  return s ? s.textContent : "";})()""")
+                checks.append(("add model lleva el Provider a la vista",
+                               "local" in (provfield or "")))
                 okvis = await js("""(()=>{
                   const ins=[...document.querySelectorAll(
                     '#sheetBody .mfield input')];
@@ -210,6 +223,14 @@ async def ui():
                 await js("$('#sheetOk').click()")
                 await asyncio.sleep(0.15)
                 await js("$('#modalOk').click()")
+                ok = await js("""(async()=>{
+                  for(let i=0;i<50;i++){
+                    if(sheetPage === "models") return true;
+                    await new Promise(r=>setTimeout(r,100));
+                  }
+                  return false;})()""")
+                checks.append(("guardar vuelve a la lista de Models", bool(ok)))
+                await js("sheetStack=[]; paintSheet('providers')")
                 ok = await js("""(async()=>{
                   for(let i=0;i<50;i++){
                     if([...document.querySelectorAll('#sheetBody .prow')]
