@@ -445,6 +445,12 @@ of optional switches, each remembered per browser.
   runs code on this machine, and changes apply on the next restart. The
   catalog has no JSON API, so the bridge reads the pages and caches them
   for ten minutes.
+
+<p align="center">
+  <img src="docs/store.png" width="300"
+       alt="The pi.dev packages page: a search box, type filters, a sort button, and packages with their author, monthly downloads and an installed check">
+</p>
+
 - **Context** (next to Model): pi's compaction settings — auto compact, the
   reserve for the response, and how much recent context is kept verbatim.
   Both numbers are sliders bounded by the active model, because pi derives
@@ -475,12 +481,13 @@ of optional switches, each remembered per browser.
   - **Notifications**: a local notification, with the last reply as its body,
     when a turn ends while the tab is hidden. The browser's own; no third
     parties.
-  - **Smooth generation**: streamed text fades in left to right; turned off,
-    it lands all at once.
+  - **Generation animation**: how streamed text appears. *Default* shows it
+    as it arrives, *smooth* fades it in left to right, and *block* keeps each
+    paragraph hidden until it is complete, then fades it in whole.
 
 <p align="center">
   <img src="docs/functions.png" width="300"
-       alt="The Functions page: six switches for show reasoning, response suggestions, summary on agent stop, notifications, smooth generation, and auto-naming sessions">
+       alt="The Functions page: switches for show reasoning, response suggestions, summary on agent stop, notifications and auto-naming sessions, plus the generation animation picker">
 </p>
 
 ## Security
@@ -546,5 +553,5 @@ automatically; point `CHROME` at it otherwise.
 MIT. See [LICENSE](LICENSE).
 
 Third-party components: FastAPI (MIT), Uvicorn and Starlette (BSD-3-Clause),
-Material Icons (Apache-2.0), IBM Plex Mono, Plus Jakarta Sans and Inter
-(OFL-1.1).
+Material Icons (Apache-2.0), IBM Plex Mono, Plus Jakarta Sans, Inter and
+Source Serif 4 (OFL-1.1).
