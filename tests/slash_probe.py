@@ -48,8 +48,10 @@ async def main():
                 ("el '+' abre el popup", pop[0] is True and pop[1] == 1),
                 # los macros se anadieron al menu: se lanzan desde donde
                 # estas cuando se te ocurre usarlos, el compositor
-                ("con Commands, Image, Camara y Macros",
-                 pop[2] == "commands,image,camera,macros"),
+                # orden: lo que se escribe (comandos, macros) y luego lo
+                # que se adjunta (imagen, camara)
+                ("con Commands, Macros, Image y Camara, en ese orden",
+                 pop[2] == "commands,macros,image,camera"),
                 ("cada item con su titulo", "|" in pop[3]
                  and all(pop[3].split("|"))),
                 ("y su icono", pop[4] is True),

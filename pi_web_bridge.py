@@ -35,8 +35,13 @@ import sys
 import tempfile
 import threading
 import time
+import html as _html
+import ipaddress
+import urllib.error
+import urllib.parse
 import urllib.request
 from collections import OrderedDict, deque
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import urlparse
@@ -66,6 +71,17 @@ TOKEN_MADE = bool(not READ_ONLY and not _given)
 # nosotros solo la disparamos. PI_RESTART_CMD (lista JSON) la sustituye
 # en el harness: nunca se toca la tarea real desde los tests.
 RESTART_TASK = "pi-remote-restart"
+# store: el catalogo vive en pi.dev; PI_STORE_BASE lo sustituye en el
+# harness (fixtures locales, sin red). PI_PKG_CMD (lista JSON) sustituye
+# a `pi install|remove` para no tocar la instalacion real desde los tests.
+STORE_BASE = os.environ.get("PI_STORE_BASE", "https://pi.dev").rstrip("/")
+_raw = os.environ.get("PI_PKG_CMD", "").strip()
+try:
+    PKG_CMD = json.loads(_raw) if _raw else None
+except ValueError:
+    PKG_CMD = None
+if not isinstance(PKG_CMD, list):
+    PKG_CMD = [PI_CMD]
 _raw = os.environ.get("PI_RESTART_CMD", "").strip()
 try:
     RESTART_CMD = json.loads(_raw) if _raw else None
@@ -1703,6 +1719,329 @@ def extensions_list(scope, cwd):
     return out
 
 
+# ---- store: catalogo de paquetes de pi.dev. No hay API JSON (verificado:
+# /api/* devuelve 404/501), asi que se parsea el HTML con regex tolerante:
+# si pi.dev cambia la maquetacion, la pagina degrada a una nota de error,
+# no a un crash. Instalar/quitar lo hace `pi` (el dueño de los ficheros);
+# el puente solo lanza y comprueba.
+STORE_TTL = 600                       # 10 min por consulta
+_store_cache = {}                     # clave -> (ts, payload)
+_store_proc = None                    # una sola instalacion a la vez
+
+# ---- imagenes del README: proxy en memoria, sin residuos ----
+# La CSP deja img-src en 'self': el movil no habla con terceros. El puente
+# las baja a RAM (nunca a disco), las sirve con no-store y las borra al
+# cerrar el README (store_img_clear) o, si el cliente muere, por TTL.
+# Solo sirve URLs del README abierto: no es un proxy abierto.
+README_IMG_MAX = 8 * 1024 * 1024       # por imagen (GIFs de demo)
+README_IMG_TOTAL = 40 * 1024 * 1024    # tope de la cache entera
+README_IMG_TTL = 600                   # sin cierre del cliente: 10 min
+_readme_imgs = set()                   # URLs permitidas (README abierto)
+_img_cache = {}                        # url -> (ts, ctype, bytes)
+_img_lock = threading.Lock()
+
+
+def readme_img_urls(readme):
+    return {_html.unescape(u) for u in
+            re.findall(r'<img[^>]*?\ssrc\s*=\s*"(https?://[^"]+)"', readme)}
+
+
+def readme_img_clear():
+    with _img_lock:
+        _img_cache.clear()
+        _readme_imgs.clear()
+
+
+def _public_host(host):
+    """El host resuelve solo a IPs publicas: un README no puede apuntar
+    el puente contra la red local (192.168..., localhost, el router)."""
+    import socket as _s
+    try:
+        infos = _s.getaddrinfo(host, None)
+    except OSError:
+        return False
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0].split("%")[0])
+        if (ip.is_private or ip.is_loopback or ip.is_link_local
+                or ip.is_multicast or ip.is_reserved or ip.is_unspecified):
+            return False
+    return bool(infos)
+
+
+class _SafeRedirect(urllib.request.HTTPRedirectHandler):
+    # cada salto de redireccion pasa la misma aduana que la URL inicial
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        u = urlparse(newurl)
+        if u.scheme not in ("http", "https") or not _public_host(u.hostname):
+            raise urllib.error.URLError("redirect to a non-public host")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_img_opener = urllib.request.build_opener(_SafeRedirect)
+
+
+def readme_img(url):
+    """(ctype, bytes) o None. Solo URLs del README abierto."""
+    now = time.time()
+    with _img_lock:
+        for k in [k for k, v in _img_cache.items()
+                  if now - v[0] > README_IMG_TTL]:
+            del _img_cache[k]
+        if url not in _readme_imgs:
+            return None
+        hit = _img_cache.get(url)
+        if hit:
+            return hit[1], hit[2]
+    u = urlparse(url)
+    if u.scheme not in ("http", "https") or not _public_host(u.hostname):
+        return None
+    try:
+        req = urllib.request.Request(
+            url, headers={"User-Agent": "Mozilla/5.0 (pi-remote)"})
+        with _img_opener.open(req, timeout=15) as r:
+            ctype = (r.headers.get("Content-Type") or "").split(";")[0]
+            if not ctype.startswith("image/"):
+                return None
+            data = r.read(README_IMG_MAX + 1)
+    except Exception:                                # noqa: BLE001
+        return None
+    if len(data) > README_IMG_MAX:
+        return None
+    with _img_lock:
+        if url not in _readme_imgs:              # se cerro mientras bajaba
+            return None
+        while _img_cache and (sum(len(v[2]) for v in _img_cache.values())
+                              + len(data) > README_IMG_TOTAL):
+            del _img_cache[min(_img_cache, key=lambda k: _img_cache[k][0])]
+        _img_cache[url] = (now, ctype, data)
+    return ctype, data
+
+def _store_get(url):
+    req = urllib.request.Request(
+        url, headers={"User-Agent": "Mozilla/5.0 (pi-remote)"})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        return r.read().decode("utf-8", "replace")
+
+def installed_names():
+    """Nombres npm de los paquetes globales (settings.json)."""
+    f = AGENT_DIR / "settings.json"
+    try:
+        d = json.loads(f.read_text(encoding="utf-8")) if f.is_file() else {}
+    except (OSError, ValueError):
+        return set()
+    names = set()
+    for pkg in d.get("packages") or []:
+        src = pkg if isinstance(pkg, str) else (pkg.get("source") or "")
+        if not src.startswith("npm:"):
+            continue
+        spec = src[4:].strip()
+        # scoped (@a/b o @a/b@1.0.0): la version va tras el SEGUNDO @.
+        # rsplit a secas dejaba '' con @a/b sin version
+        scope = "@" if spec.startswith("@") else ""
+        name = spec[len(scope):].split("@", 1)[0]
+        if name:
+            names.add(scope + name)
+    return names
+
+def _store_parse_cards(html):
+    out = []
+    for m in re.finditer(r'<article[^>]*data-package-card="true"[^>]*>',
+                         html):
+        head = m.group(0)
+        nm = re.search(r'data-package-name="([^"]+)"', head)
+        ty = re.search(r'data-package-types="([^"]*)"', head)
+        if not nm:
+            continue
+        nxt = html.find("<article", m.end())
+        body = html[m.end(): nxt if nxt > 0 else m.end() + 4000]
+        desc = re.search(r'packages-desc">([^<]*)', body)
+        meta = re.search(
+            r'packages-meta"><span>([^<]*)</span>'
+            r'<span>([^<]*)</span><span>([^<]*)</span>', body)
+        out.append({
+            "name": _html.unescape(nm.group(1)),
+            "desc": _html.unescape(desc.group(1)) if desc else "",
+            "author": _html.unescape(meta.group(1)) if meta else "",
+            "downloads": _html.unescape(meta.group(2)) if meta else "",
+            "date": _html.unescape(meta.group(3)) if meta else "",
+            "types": [t for t in (ty.group(1) if ty else "").split() if t],
+        })
+    return out
+
+def store_search(q, typ, sort, page):
+    key = ("list", q, typ, sort, page)
+    now = time.time()
+    hit = _store_cache.get(key)
+    if hit and now - hit[0] < STORE_TTL:
+        pkgs, total = hit[1]
+    else:
+        url = STORE_BASE + "/packages?" + urllib.parse.urlencode(
+            {"name": q, "type": typ, "sort": sort, "page": page})
+        try:
+            html = _store_get(url)
+        except Exception as e:                      # noqa: BLE001
+            return {"error": "could not reach pi.dev: %s" % e}
+        pkgs = _store_parse_cards(html)
+        if not pkgs:
+            return {"error":
+                    "catalog unreadable (pi.dev markup changed?)"}
+        tm = re.search(r'packages-count">\d+-\d+ / (\d+)', html)
+        total = int(tm.group(1)) if tm else len(pkgs)
+        _store_cache[key] = (now, (pkgs, total))
+    inst = installed_names()                        # fresco: no se cachea
+    for p in pkgs:
+        p["installed"] = p["name"] in inst
+    return {"packages": pkgs, "total": total, "page": page,
+            "hasMore": page * 50 < total}
+
+def _store_num(s):
+    """'69.1K/mo · 13.1K/wk' -> 69100 (para ordenar)."""
+    m = re.match(r'\s*([\d.,]+)\s*([KMB]?)', s or "")
+    if not m:
+        return 0
+    try:
+        v = float(m.group(1).replace(",", ""))
+    except ValueError:
+        return 0
+    return v * {"K": 1e3, "M": 1e6, "B": 1e9}.get(m.group(2), 1)
+
+def _store_date(s):
+    try:
+        return time.mktime(time.strptime((s or "").strip(), "%b %d, %Y"))
+    except ValueError:
+        return 0
+
+def _installed_card(name):
+    """Tarjeta del catalogo de un paquete instalado: la misma forma que la
+    lista (con descripcion). Si pi.dev no lo encuentra, sale del detalle;
+    si tampoco, la fila minima: instalado es instalado, no se esconde."""
+    r = store_search(name, "", "downloads", 1)
+    for p in r.get("packages") or []:
+        if p["name"] == name:
+            return dict(p, installed=True)
+    d = store_detail(name)
+    if d.get("error"):
+        return {"name": name, "desc": "", "author": "", "downloads": "",
+                "date": "", "types": [], "installed": True}
+    return {"name": name, "desc": d.get("desc") or "",
+            "author": d.get("author") or "",
+            "downloads": d.get("downloads") or "",
+            "date": d.get("published") or "",
+            "types": [t for t in re.split(r'[\s,]+', d.get("types") or "")
+                      if t],
+            "installed": True}
+
+def store_installed(q="", sort="downloads"):
+    """Paquetes instalados, con el filtro de texto y el orden de la lista."""
+    names = sorted(installed_names())
+    ql = q.strip().lower()
+    if ql:
+        names = [n for n in names if ql in n.lower()]
+    # en paralelo: cada uno es un GET a pi.dev (cacheado 10 min)
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        out = list(ex.map(_installed_card, names))
+    if sort == "downloads":
+        out.sort(key=lambda p: -_store_num(p["downloads"]))
+    elif sort == "created":
+        out.sort(key=lambda p: -_store_date(p["date"]))
+    else:
+        out.sort(key=lambda p: p["name"].lower())
+    return {"packages": out, "total": len(out), "page": 1,
+            "hasMore": False}
+
+def store_detail(name):
+    key = ("detail", name)
+    now = time.time()
+    hit = _store_cache.get(key)
+    if hit and now - hit[0] < STORE_TTL:
+        d = dict(hit[1])
+    else:
+        url = STORE_BASE + "/packages/" + urllib.parse.quote(name, safe="@/")
+        try:
+            html = _store_get(url)
+        except Exception as e:                      # noqa: BLE001
+            return {"error": "could not reach pi.dev: %s" % e}
+        d = {"name": name}
+        dl = re.search(r'<dl class="definition-grid[^"]*">(.*?)</dl>',
+                       html, re.S)
+        if not dl:
+            return {"error":
+                    "catalog unreadable (pi.dev markup changed?)"}
+        for dt, dd in re.findall(r'<dt>([^<]+)</dt><dd>(.*?)</dd>',
+                                 dl.group(1), re.S):
+            d[dt.strip().lower()] = _html.unescape(
+                re.sub(r'<[^>]+>', '', dd)).strip()
+        mf = re.search(r'Pi manifest JSON</summary>\s*'
+                       r'<pre class="raw-data-panel">(.*?)</pre>',
+                       html, re.S)
+        if mf:
+            d["manifest"] = _html.unescape(mf.group(1)).strip()
+        rm = re.search(r'<div class="rich-text packages-readme">', html)
+        if rm:                                       # hasta el </section>
+            end = html.find("</section>", rm.end())
+            if end > 0:
+                d["readme"] = html[rm.end():end].removesuffix(
+                    "</div>").strip()
+        lk = re.search(r'packages-detail-links[^>]*>(.*?)</div>',
+                       html, re.S)
+        if lk:
+            hrefs = re.findall(r'<a href="([^"]+)"', lk.group(1))
+            d["links"] = {k: v for k, v in
+                          zip(("npm", "repo", "home"), hrefs[:3])}
+        _store_cache[key] = (now, d)
+    d["installed"] = name in installed_names()
+    return d
+
+def _store_kill(p):
+    if os.name == "nt":
+        try:
+            subprocess.run(["taskkill", "/T", "/F", "/PID", str(p.pid)],
+                           capture_output=True, timeout=10)
+            return
+        except Exception:                            # noqa: BLE001
+            pass
+    p.kill()
+
+def _store_run(action, name, timeout=120):
+    """`pi install|remove npm:<name>`. Devuelve (err, tail)."""
+    global _store_proc
+    try:
+        p = subprocess.Popen(
+            PKG_CMD + [action, "npm:" + name], stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT, encoding="utf-8", errors="replace",
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except OSError as e:
+        return "could not start %s: %s" % (action, e), ""
+    _store_proc = p
+    try:
+        out, _ = p.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _store_kill(p)
+        try:
+            out = p.stdout.read() if p.stdout else ""
+        except Exception:                            # noqa: BLE001
+            out = ""
+        return "timed out after %ds" % timeout, (out or "").strip()[-400:]
+    finally:
+        _store_proc = None
+    tail = (out or "").strip()[-400:]
+    if p.returncode == 0:
+        return None, tail
+    return "pi %s failed (%d)%s" % (action, p.returncode,
+                                    (": " + tail) if tail else ""), tail
+
+def store_remove(name):
+    err, tail = _store_run("remove", name)
+    residue = []
+    if not err:                                      # comprobar que se fue
+        if name in installed_names():
+            residue.append("still listed in settings.json")
+        left = AGENT_DIR / "npm" / "node_modules" / name
+        if left.exists():
+            residue.append("left in node_modules")
+    return {"error": err, "tail": tail, "residue": residue}
+
+
 def project_default_model(cwd):
     """El modelo propio del proyecto, si lo hay (confiado + configurado).
 
@@ -1860,6 +2199,10 @@ class Bridge:
         self.loop = loop
         self.clients = set()
         self.lock = threading.Lock()
+        # send() de uvicorn no tiene lock propio: dos broadcasts a la vez
+        # (ticker de palabra + respuesta de fetch) entrelazan frames y el
+        # cliente cae en la excepcion de broadcast, que lo expulsa del set.
+        self.send_lock = asyncio.Lock()
 
         self.log = deque(maxlen=LOG_CAP)     # transcript for reconnects
         self.seq = 0
@@ -1883,6 +2226,9 @@ class Bridge:
             "alive": True, "cwd": "", "waiting": False, "recent": [],
             "compactAt": None,
             "sessionFile": None, "summarizing": False,
+            # proyecto abierto y su historial aun en camino: el telon de
+            # /restart espera a que sea False para no ensenar la vista a medias
+            "loading": False,
             # para que el cliente pinte ~ en vez de la carpeta del usuario
             "home": str(Path.home()),
             # settings y confianza del proyecto abierto: procedencia del
@@ -1977,7 +2323,7 @@ class Bridge:
         self.gen += 1
         self.state.update(alive=True, running=False, tool=None, cwd=cwd,
                           context=None, sessionName=None, waiting=False,
-                          recent=remember(cwd))
+                          recent=remember(cwd), loading=True)
         self.refresh_proj_state()
         threading.Thread(target=self.reader, args=(self.proc, self.gen),
                          daemon=True).start()
@@ -2079,7 +2425,8 @@ class Bridge:
         dead = []
         for ws in list(self.clients):
             try:
-                await ws.send_json(payload)
+                async with self.send_lock:
+                    await ws.send_json(payload)
             except Exception:                               # noqa: BLE001
                 dead.append(ws)
         for ws in dead:
@@ -2159,6 +2506,7 @@ class Bridge:
             return                       # replaced by another project, hush
         self.state["alive"] = False
         self.state["running"] = False
+        self.state["loading"] = False
         self.settle_tools()
         self.note("error", "pi_exited", "pi exited. reopen the project.")
         self.push_state()
@@ -2465,6 +2813,11 @@ class Bridge:
             self.note("error", "cmd_failed",
                       f"{cmd} failed: {ev.get('error')}",
                       cmd=cmd, err=str(ev.get("error")))
+            # la carga no va a llegar: snapshot con loading False, o el
+            # telon de /restart esperaria hasta su tope
+            if cmd in ("switch_session", "get_messages")                     and self.state.get("loading"):
+                self.state["loading"] = False
+                self.emit(self.snapshot())
             return
 
         if cmd == "get_state":
@@ -2591,7 +2944,9 @@ class Bridge:
         Built in silence and sent as one snapshot: pushing item by item
         would be a few hundred websocket frames for a long session.
         """
+        self.state["loading"] = False      # viaja en el snapshot de abajo
         if messages is None:        # command unsupported: keep what we have
+            self.emit(self.snapshot())
             return
         notes = [i for i in self.log if i.get("kind") == "note"][-4:]
         waiting = [i for i in self.log
@@ -3015,6 +3370,77 @@ class Bridge:
             self.emit({"type": "rpc", "command": t, "data": {"name": name}})
             return
 
+        if t == "store_search":
+            try:
+                page = max(1, int(msg.get("page") or 1))
+            except (TypeError, ValueError):
+                page = 1
+            q, sort = msg.get("q") or "", msg.get("sort") or "downloads"
+            # GET a pi.dev: en hilo. En el loop congelaba la pagina entera
+            # mientras pi.dev contestaba (2,4 s con instalados)
+            def search():
+                data = (store_installed(q, sort) if msg.get("inst")
+                        else store_search(q, msg.get("ptype") or "",
+                                          sort, page))
+                data["seq"] = msg.get("seq")    # el cliente tira las viejas
+                self.emit({"type": "rpc", "command": t, "data": data})
+            threading.Thread(target=search, daemon=True).start()
+            return
+
+        if t == "store_detail":
+            name = msg.get("name") or ""
+            def detail():
+                d = store_detail(name)
+                if d.get("readme"):               # sus imagenes, permitidas
+                    with _img_lock:
+                        _readme_imgs.update(readme_img_urls(d["readme"]))
+                self.emit({"type": "rpc", "command": t, "data": d})
+            threading.Thread(target=detail, daemon=True).start()
+            return
+
+        if t == "store_img_clear":                # README cerrado: fuera todo
+            readme_img_clear()
+            return
+
+        if t in ("store_install", "store_remove"):
+            name = (msg.get("name") or "").strip()
+            if not name:
+                self.emit({"type": "rpc", "command": t,
+                           "data": {"error": "no package name"}})
+                return
+            if _store_proc:                          # una sola a la vez
+                self.emit({"type": "rpc", "command": t,
+                           "data": {"error":
+                                    "an install is already running"}})
+                return
+            def worker(action):
+                if action == "install":
+                    err, tail = _store_run("install", name)
+                    data = {"error": err, "tail": tail}
+                else:
+                    data = store_remove(name)
+                # el nombre viaja en la respuesta: el cliente descarta la
+                # vieja de otro paquete si llega con retraso
+                data["name"] = name
+                self.emit({"type": "rpc", "command": t, "data": data})
+            # args es una TUPLE: con string, Python itera los caracteres y
+            # el worker muere en silencio (TypeError) sin emitir respuesta
+            threading.Thread(
+                target=worker,
+                args=("install" if t == "store_install" else "remove",),
+                daemon=True).start()
+            return
+
+        if t == "store_cancel":
+            p = _store_proc
+            if p:
+                _store_kill(p)
+                self.emit({"type": "rpc", "command": t, "data": {}})
+            else:
+                self.emit({"type": "rpc", "command": t,
+                           "data": {"error": "nothing running"}})
+            return
+
         if t == "agent_prefs_get":
             g = read_global_settings()
             self.emit({"type": "rpc", "command": t,
@@ -3278,6 +3704,8 @@ async def lifespan(app: FastAPI):
     except Exception:
         pass
     print(f"pi-remote {VERSION}  (project: {bridge.cwd or 'none yet'})")
+    if STORE_BASE != "https://pi.dev":
+        print("store base: %s" % STORE_BASE)
     if READ_ONLY:
         print("PI_WEB_TOKEN is off: read only, nothing can be run")
     else:
@@ -3380,6 +3808,22 @@ async def search(q: str = Query(""), token: str = Query("")):
     if bridge.cwd and bridge.cwd not in cwds:
         cwds.append(bridge.cwd)
     return {"q": q, "results": search_sessions(cwds, q)}
+
+
+@app.get("/api/img")
+async def img(u: str = Query(""), token: str = Query("")):
+    """Imagen de un README abierto, pasada por el puente. no-store: ni el
+    navegador ni el service worker la guardan."""
+    if not good_token(token):
+        return JSONResponse({"error": "bad token"}, status_code=403)
+    got = await asyncio.to_thread(readme_img, u)
+    if not got:
+        return Response(status_code=404)
+    return Response(got[1], media_type=got[0], headers={
+        "Cache-Control": "no-store",
+        # un SVG abierto a pelo no puede ejecutar nada
+        "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'",
+        "X-Content-Type-Options": "nosniff"})
 
 
 @app.get("/api/trash")

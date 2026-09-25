@@ -121,7 +121,7 @@ async def wide(p, js):
         ("y las cuatro esquinas redondeadas",
          v[2].split()[0] == "16px" and len(set(v[2].split())) == 1),
         ("despegados de arriba y de abajo", v[3] > 40 and v[4] > 40),
-        ("con las fuentes disponibles", v[5] == 3),
+        ("con las fuentes disponibles", v[5] == 4),
     ]
 
     # la fuente elegida se aplica y se guarda
@@ -137,6 +137,20 @@ async def wide(p, js):
          f[0].startswith('"Source Serif 4"') and f[1] == "serif"),
         ("y esa fuente se sirve desde el puente", f[2] is True),
         ("solo una queda marcada", f[3] == 1),
+    ]
+    # Inter: la cuarta, servida tambien desde el puente
+    await js("document.querySelector('.fontb[data-f=inter]').click()")
+    await asyncio.sleep(0.3)
+    await js('document.fonts.load(`16px "Inter"`)')
+    await asyncio.sleep(0.4)
+    g = await js("[getComputedStyle(document.querySelector('.said'))"
+                 ".fontFamily, localStorage.getItem('pi.font'),"
+                 ' document.fonts.check(`16px "Inter"`)]')
+    print("  inter   : %r guardada=%r cargada=%s" % tuple(g))
+    checks += [
+        ("Inter se aplica y se guarda",
+         g[0].replace('"', '').startswith('Inter,') and g[1] == "inter"),
+        ("y se sirve desde el puente", g[2] is True),
     ]
     await js("setFont('sans'); $('#sheet').classList.remove('open')")
     return checks

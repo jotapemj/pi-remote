@@ -99,10 +99,28 @@ async def main():
             # Chrome mata el renderizador en segundo plano y la pagina se
             # repaga; el snapshot del primer arranque deja la marca y la
             # recarga nace con el telon oculto. El de /restart sigue vivo.
-            booted = await js("localStorage.getItem('pi.booted')")
-            print("  pi.booted=%r" % booted)
+            booted = await js("sessionStorage.getItem('pi.booted')")
+            forever = await js("localStorage.getItem('pi.booted')")
+            print("  pi.booted session=%r local=%r" % (booted, forever))
+            # antes del primer snapshot no puede salir "sin proyecto": se
+            # graba cualquier #nostate que nazca con firstSnap aun en true
+            await p.cmd("Page.addScriptToEvaluateOnNewDocument", source="""
+              window.__early = [];
+              new MutationObserver(() => {
+                try {
+                  if(document.getElementById('nostate') && firstSnap)
+                    window.__early.push('nostate');
+                  if(document.getElementById('spin') && firstSnap)
+                    window.__early.push('spin');
+                } catch(e){}
+              }).observe(document, {childList:true, subtree:true});""")
             await p.cmd("Page.navigate", url=BASE + "/")
             await asyncio.sleep(0.8)
+            early = await js("[...new Set(window.__early)]")
+            print("  antes del snapshot: %s" % early)
+            await asyncio.sleep(0.6)            # que el breathe se retire
+            # sin proyecto de verdad, tras el snapshot la tarjeta si vuelve
+            after = await js("!!document.getElementById('nostate')")
             curt = await js("""(()=>{
               const c=document.getElementById('curtain');
               const base=getComputedStyle(c).display;
@@ -112,11 +130,26 @@ async def main():
               return {base, rest};})()""")
             print("  telon en recarga: base=%s restarting=%s"
                   % (curt["base"], curt["rest"]))
+            # ventana nueva (app abierta de cero): sessionStorage vacio
+            await js("sessionStorage.clear()")
+            await p.cmd("Page.navigate", url=BASE + "/")
+            await asyncio.sleep(0.3)
+            fresh = await js("getComputedStyle(document.getElementById"
+                             "('curtain')).display")
+            print("  ventana nueva: telon=%s" % fresh)
+            await asyncio.sleep(4.5)            # que el splash termine
             checks += [
-                ("el primer snapshot marca pi.booted", booted == "1"),
+                ("el primer snapshot marca pi.booted (sesion)", booted == "1"),
+                ("y no para siempre (localStorage limpio)", forever is None),
                 ("la recarga nace sin telon (display none)",
                  curt["base"] == "none"),
                 ("el telon de /restart sigue visible", curt["rest"] == "grid"),
+                ("la recarga no pinta 'sin proyecto' antes del snapshot",
+                 "nostate" not in early),
+                ("sino el breathe de carga", "spin" in early),
+                ("y sin proyecto, tras el snapshot la tarjeta vuelve",
+                 after is True),
+                ("una ventana nueva si trae el splash", fresh == "grid"),
             ]
 
             # el color queda puesto ANTES del primer paint: Android lo lee al

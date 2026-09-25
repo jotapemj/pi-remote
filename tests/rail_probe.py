@@ -211,6 +211,33 @@ async def main():
                     ("y cierra la vista", sent2[1] is False),
                 ]
 
+                # ruta larga: el titulo no cede. Dos lineas, el titulo
+                # arriba a todo el ancho; la carpeta con elipsis y la fecha
+                # entera debajo
+                lay = await js("""(()=>{
+                  const b = searchRow({label:'Refactor del parser de sesiones',
+                    cwd:'C:/x/a_very_long_project_folder_name_for_layout_tests',
+                    mtime: Date.now()/1000, path:'C:/x/s.jsonl'});
+                  b.style.width = '360px';
+                  $('#searchList').appendChild(b);
+                  const sl = b.querySelector('.sl'), sp = b.querySelector('.sp'),
+                    sd = b.querySelector('.sd');
+                  const r = {full: sl.scrollWidth <= sl.clientWidth,
+                    below: sp.getBoundingClientRect().top
+                           > sl.getBoundingClientRect().bottom - 1,
+                    cut: sp.scrollWidth > sp.clientWidth,
+                    date: sd.scrollWidth <= sd.clientWidth + 1,
+                    pill: !!$('#searchView .storeq #searchInput')};
+                  b.remove(); return r;})()""")
+                print("  ruta larga   :", lay)
+                checks += [
+                    ("una ruta larga no se come el titulo",
+                     lay["full"] and lay["below"]),
+                    ("la carpeta se corta con elipsis y la fecha no",
+                     lay["cut"] and lay["date"]),
+                    ("la caja de buscar es la pastilla del store", lay["pill"]),
+                ]
+
                 cerrado = await js(GROUP % 0)
                 print("  plegado      :", cerrado[:3], "filas", cerrado[3])
                 checks.append(("empieza plegado",

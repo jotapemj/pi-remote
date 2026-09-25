@@ -39,6 +39,8 @@
 /* fonts served by the bridge itself: no google, no internet needed */
 @font-face{font-family:'Source Serif 4';font-style:normal;font-weight:400 600;font-display:swap;src:url('/fonts/source-serif-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
 @font-face{font-family:'Source Serif 4';font-style:normal;font-weight:400 600;font-display:swap;src:url('/fonts/source-serif-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+@font-face{font-family:'Inter';font-style:normal;font-weight:100 900;font-display:swap;src:url('/fonts/inter-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
+@font-face{font-family:'Inter';font-style:normal;font-weight:100 900;font-display:swap;src:url('/fonts/inter-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
 @font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/plex-mono-400-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
 @font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/plex-mono-400-latin.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
 @font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:500;font-display:swap;src:url('/fonts/plex-mono-500-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF}
@@ -190,8 +192,12 @@
   color-scheme:light;
   --panel:#faf9f9; --surface:#ffffff; --raise:#f2f0f0; --rule:#00000000;
   --ink:#1f1f1f; --dim:#5f5f5f; --faint:#6f6f6f;
-  --amber:#9dd2ff; --mint:#0d7355; --coral:#c0342a;
-  --on-amber:#000000;
+  /* acento = azul primario de Gemini. El 9dd2ff de antes daba 1.6:1 sobre
+     blanco: "Add project", el + del compositor o la carpeta activa casi no
+     se leian (minimo 4.5 texto, 3 iconos). 0b57d0: 6.4 sobre blanco y el
+     blanco encima tambien 6.4 */
+  --amber:#0b57d0; --mint:#0d7355; --coral:#c0342a;
+  --on-amber:#ffffff;
   --plate-a:#faf9f9; --plate-b:#faf9f9;
   --ask-a:#eaf4ff;   --ask-b:#ffffff;
   --lit:#444746;                        /* tu f2f0f0 igualaba el fondo del chip */
@@ -211,8 +217,12 @@
   color-scheme:dark;
   --panel:#0f0f0f; --surface:#1e1f20; --raise:#171717; --rule:#00000000;
   --ink:#e3e3e3; --dim:#a0a0a0; --faint:#8a8a8a;
-  --amber:#1f3b9b; --mint:#4fb894; --coral:#e2574c;
-  --on-amber:#e0e0e0;
+  /* acento = azul de Gemini en oscuro. El 1f3b9b daba 1.7:1 sobre la
+     superficie (texto y iconos de acento casi invisibles); a8c7fa da 9.6.
+     Encima, su on-primary 062e6f (7.5): el e0e0e0 daria 1.3. Coral subido
+     un punto: e2574c se quedaba en 4.48, bajo el 4.5 del texto */
+  --amber:#a8c7fa; --mint:#4fb894; --coral:#e45e53;
+  --on-amber:#062e6f;
   --plate-a:#0f0f0f; --plate-b:#0f0f0f;
   --ask-a:#17203a;   --ask-b:#1e1f20;
   --lit:#c9c9c9;                        /* tu 141414 igualaba el fondo del chip */
@@ -292,8 +302,9 @@ body{
 @keyframes f7{0%,53.2%{fill-opacity:0;stroke-width:.7}57.1%{stroke-width:0}61.8%,100%{fill-opacity:1;stroke-width:0}}
 @keyframes f8{0%,60.8%{fill-opacity:0;stroke-width:.7}64.7%{stroke-width:0}69.4%,100%{fill-opacity:1;stroke-width:0}}
 .curtain.gone{opacity:0; visibility:hidden}
-/* la app ya arranco una vez (pi.booted): en recargas el telon nace oculto.
-   Chrome mata el renderizador en segundo plano y el splash se repagaba.
+/* la app ya arranco en esta ventana (pi.booted, sessionStorage): en
+   recargas el telon nace oculto. Chrome mata el renderizador en segundo
+   plano y el splash se repagaba. Abrir la app de cero si lo trae.
    :not(.restarting) deja vivo el telon de /restart. */
 html.booted .curtain:not(.restarting){display:none}
 /* rellenado el titulo (una vez), respira hasta que se puede entrar. El
@@ -365,13 +376,20 @@ html.booted .curtain:not(.restarting){display:none}
 .wclose:hover{opacity:1}
 
 /* ---------- transcript ---------- */
+/* fundidos de borde de las listas (edgeFade): solo el borde que esconde
+   algo se funde. Arriba del todo no hay fundido arriba, al fondo no hay
+   abajo: un fundido fijo se comia la primera o la ultima fila sin motivo.
+   --fz es el tamano; --ft/--fb los pone el JS con .fade-t/.fade-b */
+.ef{--ft:0px; --fb:0px}
+.ef.fade-t{--ft:var(--fz, 14px)}
+.ef.fade-b{--fb:var(--fz, 14px)}
 main{flex:1; overflow-y:auto; padding:16px var(--gut) 8px; position:relative;
   overscroll-behavior:contain; scroll-behavior:smooth;
-  --fade:26px;
-  -webkit-mask-image:linear-gradient(to bottom, transparent 0,
-    #000 var(--fade), #000 calc(100% - var(--fade)), transparent 100%);
-  mask-image:linear-gradient(to bottom, transparent 0,
-    #000 var(--fade), #000 calc(100% - var(--fade)), transparent 100%);}
+  --fz:26px;
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 var(--ft, 0px),
+    #000 calc(100% - var(--fb, 0px)), transparent 100%);
+  mask-image:linear-gradient(to bottom, transparent 0, #000 var(--ft, 0px),
+    #000 calc(100% - var(--fb, 0px)), transparent 100%);}
 .wrap{max-width:760px;margin:0 auto}
 .turn{margin-bottom:20px;animation:rise-in .22s ease-out}
 .nofx .turn{animation:none}   /* a snapshot must not animate 40 rows */
@@ -940,6 +958,9 @@ footer > *{position:relative; z-index:1}
 }
 .pmi:hover{background:var(--raise)}
 .pmi .pmi-ic{display:flex; flex:none}
+/* inicial en mayuscula en todos los idiomas: las claves (commands, image,
+   camera) van en minuscula en unos y no en otros, y se usan en mas sitios */
+.pmi [data-t]::first-letter{text-transform:uppercase}
 .pmi .i{width:20px; height:20px; color:var(--dim)}
 .pmi:focus-visible{outline:2px solid var(--amber); outline-offset:-2px}
 .pmi[hidden]{display:none}
@@ -1145,12 +1166,15 @@ footer > *{position:relative; z-index:1}
   flex:1; min-height:0; overflow-y:auto;
   padding:0 0 calc(18px + env(safe-area-inset-bottom));
   -webkit-mask-image:linear-gradient(to bottom, #000 0,
-    #000 calc(100% - 14px), transparent 100%);
+    #000 calc(100% - var(--fb, 0px)), transparent 100%);
   mask-image:linear-gradient(to bottom, #000 0,
-    #000 calc(100% - 14px), transparent 100%);
+    #000 calc(100% - var(--fb, 0px)), transparent 100%);
 }
 #sheetBody::before{
   content:""; position:sticky; top:0; height:14px; display:block;
+}
+/* el overlay solo pinta con algo escondido arriba; en reposo es aire */
+#sheetBody.fade-t::before{
   background:linear-gradient(to bottom, var(--surface), transparent);
 }
 /* secciones: la cabecera queda fija mientras dura su seccion; al
@@ -1159,8 +1183,21 @@ footer > *{position:relative; z-index:1}
 #sheetBody .sec > .shead{
   position:sticky; top:0; z-index:2; background:var(--surface);
   margin-top:0; padding-top:2px;
+  /* 9 px de margen se leian pegados cuando lo primero de la seccion es una
+     tarjeta con fondo (Nueva skill). Padding, no margen: el fondo de la
+     cabecera sticky tambien lo tapa al scrollear */
+  padding-bottom:4px;
 }
 #sheetBody .sec + .sec > .shead{margin-top:26px}
+/* la cabecera pegada tapa el overlay de arriba de la hoja: el fundido va
+   bajo ella, y solo bajo la que esta pegada (.stuck, lo pone edgeFade).
+   Una cabecera a media lista no funde las filas que tiene debajo */
+#sheetBody .sec > .shead::after{
+  content:""; position:absolute; left:0; right:0; top:100%; height:14px;
+  background:linear-gradient(to bottom, var(--surface), transparent);
+  pointer-events:none; opacity:0;
+}
+#sheetBody .sec > .shead.stuck::after{opacity:1}
 /* separador entre los dos grupos de la raiz del menu. Antes era un .shead
    con un espacio duro: solo aire, que se leia como un fallo de maquetacion */
 #sheetBody .sdiv{height:1px; background:var(--rule); margin:18px 2px}
@@ -1256,10 +1293,10 @@ footer > *{position:relative; z-index:1}
    mismo fundido arriba y abajo que el resto de superficies */
 .mfields{
   display:grid; gap:2px; max-height:46vh; overflow-y:auto;
-  -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 14px,
-    #000 calc(100% - 14px), transparent 100%);
-  mask-image:linear-gradient(to bottom, transparent 0, #000 14px,
-    #000 calc(100% - 14px), transparent 100%);
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 var(--ft, 0px),
+    #000 calc(100% - var(--fb, 0px)), transparent 100%);
+  mask-image:linear-gradient(to bottom, transparent 0, #000 var(--ft, 0px),
+    #000 calc(100% - var(--fb, 0px)), transparent 100%);
 }
 /* con un solo campo no hay nada que desvanecer */
 .mfields:has(> .mfield:only-child){
@@ -1411,8 +1448,11 @@ footer > *{position:relative; z-index:1}
 .sheet.forkmode #sheetBody{
   flex:1; min-height:0; overflow-y:auto;
   padding-bottom:calc(18px + env(safe-area-inset-bottom));
-  -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 22px);
-  mask-image:linear-gradient(to bottom, transparent 0, #000 22px);
+  --fz:22px;
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 var(--ft, 0px),
+    #000 calc(100% - var(--fb, 0px)), transparent 100%);
+  mask-image:linear-gradient(to bottom, transparent 0, #000 var(--ft, 0px),
+    #000 calc(100% - var(--fb, 0px)), transparent 100%);
 }
 .pick{
   display:flex; align-items:center; gap:11px; width:100%; text-align:left;
@@ -1541,7 +1581,11 @@ main:has(#spin) .empty{display:none}
 /* la lista scrollea; la cabecera (anadir/buscar) y el pie (papelera) fijos */
 /* aire entre los dos botones de accion y las listas: el primer rotulo lleva
    margin-top:0 por ser :first-child y quedaba pegado a "buscar" */
-.railscroll{flex:1; min-height:0; overflow-y:auto; margin-top:20px}
+.railscroll{flex:1; min-height:0; overflow-y:auto; margin-top:20px;
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 var(--ft, 0px),
+    #000 calc(100% - var(--fb, 0px)), transparent 100%);
+  mask-image:linear-gradient(to bottom, transparent 0, #000 var(--ft, 0px),
+    #000 calc(100% - var(--fb, 0px)), transparent 100%);}
 .railfoot{
   flex:none; position:relative; display:flex; justify-content:flex-end;
   padding:12px 2px calc(10px + env(safe-area-inset-bottom));
@@ -1549,7 +1593,10 @@ main:has(#spin) .empty{display:none}
 .railfoot::before{           /* fade que separa el pie de la lista */
   content:""; position:absolute; left:0; right:0; top:-30px; height:30px;
   background:linear-gradient(transparent, var(--surface)); pointer-events:none;
+  opacity:0; transition:opacity .15s ease;
 }
+/* solo con filas escondidas debajo */
+.rail:has(.railscroll.fade-b) .railfoot::before{opacity:1}
 .trashb{
   background:none; border:none; cursor:pointer; color:var(--dim);
   padding:8px; border-radius:8px; display:flex; flex:none;
@@ -1609,13 +1656,13 @@ main:has(#spin) .empty{display:none}
   border:1px solid var(--rule); border-radius:4px; padding:3px 5px;
 }
 
-/* la papelera lee del disco: mientras tanto, un giro en vez de un hueco */
+/* la papelera lee del disco: mientras tanto, el puzzle de pi en vez de un hueco */
 .tload{
   display:flex; flex-direction:column; align-items:center; gap:12px;
   padding:44px 16px; color:var(--faint);
   font:400 13px/1.4 var(--sans); text-align:center;
 }
-.tload .sspin{width:20px; height:20px; border-width:2px}
+.tload .spin2{margin:0}
 
 .addp{
   display:flex; align-items:center; gap:9px; width:100%;
@@ -1650,9 +1697,11 @@ body.hasproj .addp:not(.ghost):hover{background:var(--surface)}
 }
 .searchview.on{transform:none; visibility:visible;
   transition:transform .3s cubic-bezier(.32,.72,0,1)}
-/* la X de borrar texto aparece con fade cuando hay texto */
-#searchX{opacity:0; transition:opacity .18s ease; pointer-events:none}
-#searchX.on{opacity:1; pointer-events:auto}
+/* la caja de busqueda es la del store (.storeq): pastilla con la X
+   dentro, que entra con fade y escala cuando hay texto */
+#searchView .storeq{flex:1; min-width:0; margin:0}
+#searchX{pointer-events:none}
+#searchX.on{opacity:1; transform:scale(1); pointer-events:auto}
 .sbar2{
   display:flex; align-items:center; gap:10px; flex:none;
   padding:calc(10px + env(safe-area-inset-top)) 14px 11px;
@@ -1660,8 +1709,14 @@ body.hasproj .addp:not(.ghost):hover{background:var(--surface)}
 }
 /* la papelera es una hoja, igual que el menu: mismo gutter, cabecera sin
    borde ni inset (no toca el borde de la pantalla) y rotulo pequeno */
-#trashView{padding:14px var(--gut) 0}
-#trashView .grab{margin:-8px 0 2px}
+#trashView, #searchView{padding:14px var(--gut) 0}
+#trashView .grab, #searchView .grab{margin:-8px 0 2px}
+/* buscar: la barra ya no toca el borde de la pantalla (es una hoja): sin
+   inset de arriba ni gutter propio; la linea bajo la caja se queda */
+#searchView .sbar2{padding:0 0 12px}
+#searchView #searchList{
+  padding:6px 0 calc(18px + env(safe-area-inset-bottom));
+}
 #trashView .sbar2{
   padding:0; border-bottom:none; margin:2px 0 12px;
 }
@@ -1669,14 +1724,10 @@ body.hasproj .addp:not(.ghost):hover{background:var(--surface)}
   font:700 11px/1 var(--sans); letter-spacing:.1em; color:var(--faint);
   text-transform:uppercase;
 }
-/* el cuerpo se funde abajo, no arriba: la mascara de arriba difuminaba la
-   primera fila aunque no hubiera scroll (el mismo fallo que tenia el menu) */
+/* arriba y abajo con edgeFade: la mascara fija de arriba difuminaba la
+   primera fila aunque no hubiera scroll; ahora solo sale al bajar */
 #trashView #trashList{
   padding:0 0 calc(18px + env(safe-area-inset-bottom));
-  -webkit-mask-image:linear-gradient(to bottom, #000 0,
-    #000 calc(100% - 14px), transparent 100%);
-  mask-image:linear-gradient(to bottom, #000 0,
-    #000 calc(100% - 14px), transparent 100%);
 }
 .sbar2 .sic{width:20px;height:20px;color:var(--faint);flex:none}
 .sbar2 input{
@@ -1693,18 +1744,30 @@ body.hasproj .addp:not(.ghost):hover{background:var(--surface)}
 #searchList, #trashList{
   flex:1; min-height:0; overflow-y:auto;
   padding:6px 14px calc(18px + env(safe-area-inset-bottom));
-  -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 22px);
-  mask-image:linear-gradient(to bottom, transparent 0, #000 22px);
+  --fz:22px;
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 var(--ft, 0px),
+    #000 calc(100% - var(--fb, 0px)), transparent 100%);
+  mask-image:linear-gradient(to bottom, transparent 0, #000 var(--ft, 0px),
+    #000 calc(100% - var(--fb, 0px)), transparent 100%);
 }
+/* dos lineas, como la papelera: el titulo arriba y entero hasta el borde;
+   debajo el proyecto (con elipsis) y la fecha, que no se corta. En una
+   sola linea la ruta (flex:none) se comia el titulo */
 .srow{
-  display:flex; align-items:baseline; gap:10px; width:100%; text-align:left;
+  display:grid; grid-template-columns:minmax(0,1fr) auto;
+  column-gap:10px; row-gap:4px; align-items:center;
+  width:100%; text-align:left;
   background:none; border:none; cursor:pointer;
-  padding:13px 2px; border-bottom:1px solid var(--rule);
+  padding:11px 2px; border-bottom:1px solid var(--rule);
   font:400 14.5px/1.3 var(--sans); color:var(--ink);
 }
-.srow span{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;
+.srow .sl{grid-column:1; overflow:hidden; text-overflow:ellipsis;
   white-space:nowrap}
-.srow small{flex:none; font:400 11px/1 var(--mono); color:var(--faint)}
+.srow small{grid-column:1; min-width:0; display:flex;
+  font:400 11px/1.2 var(--mono); color:var(--faint); white-space:nowrap}
+.srow small .sp{min-width:0; overflow:hidden; text-overflow:ellipsis}
+.srow small .sd{flex:none}
+.srow .dotsb{grid-column:2; grid-row:1 / span 2}
 /* papelera: titulo arriba, ruta debajo */
 .sbar2 .stitle{flex:1; min-width:0; color:var(--ink);
   font:600 15px/1.3 var(--sans)}
@@ -1800,7 +1863,11 @@ body.hasproj .addp:not(.ghost):hover{background:var(--surface)}
 }
 .modal.open .mcard{transform:none}
 .mcard h3{font:600 15px/1.3 var(--sans);margin:0 0 13px;padding:0 20px;color:var(--ink)}
-.mbody{overflow-y:auto;padding:0 20px;font:400 13px/1.55 var(--sans);color:var(--dim)}
+.mbody{overflow-y:auto;padding:0 20px;font:400 13px/1.55 var(--sans);color:var(--dim);
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 var(--ft, 0px),
+    #000 calc(100% - var(--fb, 0px)), transparent 100%);
+  mask-image:linear-gradient(to bottom, transparent 0, #000 var(--ft, 0px),
+    #000 calc(100% - var(--fb, 0px)), transparent 100%);}
 .mbody dt{font:600 12.5px/1.5 var(--mono);color:var(--amber);margin-top:11px}
 .mbody dt:first-child{margin-top:0}
 .mbody dd{margin:1px 0 0}
@@ -2034,6 +2101,163 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
 @media (prefers-reduced-motion:reduce){
   *{animation:none!important;transition:none!important;scroll-behavior:auto}
 }
+/* ---- store: catalogo de paquetes pi.dev ---- */
+/* sin safe-area-inset-top: la hoja ya lo lleva en .grab; el inset hinchaba
+   el hueco entre el rotulo y la caja en PWA fullscreen */
+/* pegado al top: sin aire arriba, la caja se apoya en la cabecera */
+/* compositor como el del chat: caja panel, borde, extremos semicirculo */
+/* caja + chips pegados arriba; la lista pasa por debajo. El fundido bajo
+   la cabecera solo con la lista scrolleada: arriba del todo no hay nada
+   que fundir y se comeria el primer resultado */
+.storehead{position:sticky;top:0;z-index:2;background:var(--surface)}
+.storehead::after{content:"";position:absolute;left:0;right:0;top:100%;
+  height:14px;pointer-events:none;opacity:0;transition:opacity .15s ease;
+  background:linear-gradient(to bottom, var(--surface), transparent)}
+.storehead.scrolled::after{opacity:1}
+.storeq{display:flex;align-items:center;gap:6px;margin:0 14px 10px;
+  background:var(--panel);border:1px solid var(--rule);
+  border-radius:var(--r-pill);padding:8px 8px 8px 18px}
+.sheet.fullh .sbar{margin-bottom:4px}
+.storeq input{flex:1;min-width:0;background:none;border:0;outline:0;
+  color:var(--ink);font:400 14px var(--sans);height:24px}
+.storeq input::placeholder{color:var(--faint)}
+.storex{flex:0 0 auto;background:none;border:0;color:var(--dim);
+  width:28px;height:28px;border-radius:50%;display:grid;place-items:center;
+  cursor:pointer;opacity:0;transform:scale(.7);
+  transition:opacity .18s,transform .18s}
+.storex.show{opacity:1;transform:scale(1)}
+/* el orden queda fijo a la derecha; el fade cierra la fila justo antes */
+/* sin padding abajo: la cabecera acaba en los chips y el fundido arranca
+   pegado a ellos. El aire de reposo lo pone la lista (padding-top) */
+.chiprow{display:flex;gap:8px;align-items:center;padding:9px 14px 0}
+/* cada fundido solo cuando hay chips escondidos en ese lado: al llegar
+   al final se va el derecho, en reposo no hay izquierdo */
+.storechips{flex:1;min-width:0;display:flex;gap:6px;align-items:center;
+  overflow-x:auto;scrollbar-width:none}
+.storechips.fr{
+  -webkit-mask-image:linear-gradient(90deg,#000 0,
+    #000 calc(100% - 14px),transparent 100%);
+  mask-image:linear-gradient(90deg,#000 0,
+    #000 calc(100% - 14px),transparent 100%)}
+.storechips.fl{
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 14px,#000 100%);
+  mask-image:linear-gradient(90deg,transparent 0,#000 14px,#000 100%)}
+.storechips.fl.fr{
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 14px,
+    #000 calc(100% - 14px),transparent 100%);
+  mask-image:linear-gradient(90deg,transparent 0,#000 14px,
+    #000 calc(100% - 14px),transparent 100%)}
+.storechips::-webkit-scrollbar{display:none}
+/* escopado a .storechips: el chip de pegado del compositor usa la misma
+   clase y esta regla le pisaba la negrita (paste_probe lo medio) */
+.storechips .chip{flex:0 0 auto;background:var(--surface);
+  border:1px solid var(--rule);color:var(--dim);font:500 12px var(--sans);
+  border-radius:999px;padding:6px 12px;cursor:pointer;white-space:nowrap;
+  transition:border-color .2s ease,color .2s ease,background .2s ease}
+/* seleccion como los presets de compaction: ambar + fondo tintado */
+.storechips .chip.on{color:var(--amber);border-color:var(--amber);
+  background:color-mix(in srgb, var(--amber) 10%, transparent)}
+.chipbtn{flex:0 0 auto;background:none;border:1px solid var(--rule);
+  border-radius:999px;width:30px;height:30px;display:grid;
+  place-items:center;color:var(--dim);cursor:pointer}
+/* skeleton del detalle: barras con el barrido del thinking */
+/* base en --raise: con --surface (el fondo de la tarjeta) no se veia */
+.skel{position:relative;overflow:hidden;border-radius:6px;
+  background:var(--raise)}
+.skel::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent 42%,
+    color-mix(in srgb, var(--ink) 14%) 50%, transparent 58%);
+  background-size:250% 100%;background-position:100% 0;
+  animation:tshine 2.8s cubic-bezier(.45,0,.15,1) infinite}
+/* detalle de paquete: tamano fijo — el skeleton y el contenido comparten
+   la misma caja, y el dialogo no salta al terminar de cargar. El cuerpo
+   rellena hasta los botones, que se quedan en su sitio final */
+.modal.pd .mcard{height:82vh}
+.modal.pd .mbody{flex:1;min-height:0}
+/* el skeleton ocupa todo el cuerpo: la ultima barra se estira hasta los
+   botones, que ya estan en su sitio final */
+.pdskel{display:flex;flex-direction:column;height:100%}
+.pdskel .skelfill{flex:1;min-height:24px}
+/* refiltrar: los resultados viejos se funden fuera y los nuevos entran;
+   sin spinner, que cortaria la lectura */
+.storeres{flex:1 0 auto;padding:11px 8px 14px;transition:opacity .15s ease}
+.storeres.out{opacity:0}
+/* busqueda: spinner centrado en el area real de resultados (la lista
+   rellena la hoja, sin calc a ojo) */
+.storeres.wait{display:flex;align-items:center;justify-content:center;
+  padding:0}
+.storeres.wait .spin2{--cell:7px}
+/* el store lleva la hoja a su altura de resultados siempre: sin saltos
+   de alto al cargar pagina o cambiar filtro */
+.sheet.fullh .card{height:78vh}
+/* el cuerpo rellena y la lista ocupa hasta abajo: el spinner se centra
+   en el area real, sin calc a ojo */
+#sheet.fullh #sheetBody{display:flex;flex-direction:column}
+
+.pkrow{display:flex;align-items:center;gap:10px;padding:10px 12px;
+  border-radius:9px;cursor:pointer}
+.pkrow:hover,.pkrow:active{background:var(--surface)}
+.pkrow .snm{font:600 13px var(--mono);color:var(--ink)}
+.pkrow .sdesc{font:400 12px/1.4 var(--sans);color:var(--dim);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pkrow .smeta{font:400 11px var(--mono);color:var(--faint);margin-top:1px}
+.pkrow .sin{margin-left:auto;color:var(--mint);flex:0 0 auto}
+/* loader: la marca de pi como puzzle deslizante (4x4, 10 fichas, ciclo de
+   20 movimientos que cierra sin costura). Lo mueve piLoaderTick. Sin juntas
+   ni radio: las fichas se tocan y lo que se lee es la silueta del logo */
+.spin2{--cell:6px;--gap:0px;--step:calc(var(--cell) + var(--gap));
+  position:relative;margin:14px auto;
+  width:calc(4 * var(--cell) + 3 * var(--gap));
+  height:calc(4 * var(--cell) + 3 * var(--gap))}
+/* +.5px: solapan medio pixel; a mitad de transicion, el redondeo de
+   subpixel abria una raya entre fichas pegadas */
+.spin2 i{position:absolute;top:0;left:0;
+  width:calc(var(--cell) + .5px);height:calc(var(--cell) + .5px);
+  background:var(--dim);
+  transform:translate(calc(var(--c) * var(--step)),
+                      calc(var(--r) * var(--step)));
+  transition:transform .26s cubic-bezier(.32,.72,0,1)}
+@media (prefers-reduced-motion: reduce){ .spin2 i{transition:none} }
+/* ritmo de secciones: dentro de grupo apretado (6-8), entre grupos
+   generoso (18): identidad / accion / metadatos / manifiesto / enlaces */
+.pdname{font:600 15px var(--mono);color:var(--ink);margin-bottom:6px}
+.pddesc{font:400 13px/1.5 var(--sans);color:var(--dim);margin-bottom:18px}
+/* aviso de seguridad en recuadro rojizo: peligro, no solo lectura */
+.pdsec{display:flex;gap:8px;align-items:flex-start;font:400 12px/1.5
+  var(--sans);color:var(--coral);margin-bottom:8px;
+  background:var(--coral-wash);border-radius:var(--r-tool);
+  border:1px solid color-mix(in srgb, var(--coral) 35%, transparent);
+  padding:8px 10px}
+.pdsec svg{flex:0 0 auto;width:16px;height:16px;margin-top:2px}
+.pdcode{font:400 12px/1.5 var(--mono);background:var(--surface);
+  border:1px solid var(--rule);border-radius:8px;padding:8px 10px;
+  margin-bottom:18px;overflow-x:auto;white-space:pre;color:var(--ink)}
+.pdrow{display:flex;gap:8px;font:400 12px/1.5 var(--sans);padding:3px 0}
+.pdrow .k{color:var(--faint);flex:0 0 92px}
+.pdrow .v{color:var(--ink);word-break:break-word}
+/* cabecera de seccion: mas arriba que abajo */
+.pdlbl{font:600 11px/1.4 var(--sans);color:var(--faint);
+  text-transform:uppercase;letter-spacing:.06em;margin:18px 0 6px}
+.pdlinks{display:flex;gap:14px;margin-top:18px;flex-wrap:wrap}
+.pdlinks a{color:var(--amber);font:500 12px var(--sans);
+  display:flex;gap:4px;align-items:center;text-decoration:none}
+.pdreadme{width:100%;margin-top:16px}
+.ok[disabled]{opacity:.45;pointer-events:none}
+.storemd{padding:4px 16px 26px;font:400 13px/1.6 var(--sans);
+  color:var(--ink);overflow-wrap:break-word}
+.storemd h1,.storemd h2,.storemd h3,.storemd h4{margin:14px 0 8px;
+  font:600 1.15em/1.3 var(--sans)}
+.storemd p{margin:0 0 9px}
+.storemd pre{background:var(--surface);border:1px solid var(--rule);
+  border-radius:8px;padding:10px;overflow-x:auto;
+  font:400 12px/1.5 var(--mono)}
+.storemd code{font:400 12px var(--mono);background:var(--surface);
+  border-radius:4px;padding:1px 4px}
+.storemd pre code{background:none;padding:0}
+.storemd img{max-width:100%;border-radius:8px}
+.storemd a{color:var(--amber)}
+.storemd table{border-collapse:collapse;margin:0 0 9px}
+.storemd th,.storemd td{border:1px solid var(--rule);padding:4px 8px}
 </style>
 <script id="bootbar">
 /* color de la barra del sistema, antes del primer paint: el tema ya esta
@@ -2043,8 +2267,10 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
   var v=getComputedStyle(document.documentElement)
           .getPropertyValue("--plate-a").trim();
   if(m&&v) m.content=v;
-  /* si ya arranco, el telon se oculta antes del primer paint (css arriba) */
-  if(localStorage.getItem("pi.booted"))
+  /* si ya arranco en esta ventana, el telon se oculta antes del primer
+     paint (css arriba). sessionStorage, no localStorage: con este la marca
+     era para siempre y el splash no volvia a salir nunca */
+  if(sessionStorage.getItem("pi.booted"))
     document.documentElement.classList.add("booted");
 }catch(e){}})();
 </script>
@@ -2087,9 +2313,9 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
       <button class="send" id="send" aria-label="send"><span class="ic go"></span><span class="ic halt"></span><span class="ic chk"></span><span class="ic wait"><span class="sspin"></span></span></button>
       <div class="plusmenu" id="plusMenu" hidden>
         <button class="pmi" data-act="commands"><span class="pmi-ic" data-ic="terminal2"></span><span data-t="commands"></span></button>
+        <button class="pmi" data-act="macros"><span class="pmi-ic" data-ic="codeXml"></span><span data-t="macros"></span></button>
         <button class="pmi" data-act="image"><span class="pmi-ic" data-ic="image"></span><span data-t="image"></span></button>
         <button class="pmi" data-act="camera"><span class="pmi-ic" data-ic="photoCamera"></span><span data-t="camera"></span></button>
-        <button class="pmi" data-act="macros"><span class="pmi-ic" data-ic="codeXml"></span><span data-t="macros"></span></button>
       </div>
       <input type="file" id="imgInput" accept="image/*" multiple hidden>
       <input type="file" id="camInput" accept="image/*" capture="environment" hidden>
@@ -2132,11 +2358,14 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
 <div class="grip" id="grip"></div>
 
 <div class="searchview" id="searchView">
+  <div class="grab"></div>
   <div class="sbar2">
     <button class="xb" id="searchBack" aria-label="back"></button>
-    <input id="searchInput" type="text" autocomplete="off"
-           autocapitalize="off" spellcheck="false" data-t-ph="searchHint">
-    <button class="xb" id="searchX" aria-label="clear"></button>
+    <div class="storeq">
+      <input id="searchInput" type="text" autocomplete="off"
+             autocapitalize="off" spellcheck="false" data-t-ph="searchHint">
+      <button class="storex" id="searchX" aria-label="clear"></button>
+    </div>
   </div>
   <div id="searchList"></div>
 </div>
@@ -2201,6 +2430,8 @@ const ICONS = {
   public:"M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z",
   verified:"M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z",
   package:"M20 2H4c-1.1 0-2 .9-2 2v3.01c0 .72.43 1.34 1 1.69V20c0 1.1 1.1 2 2 2h14c.9 0 2-.9 2-2V8.7c.57-.35 1-.97 1-1.69V4c0-1.1-.9-2-2-2zm-5 12H9v-2h6v2zm5-7H4V4h16v3z",
+  archive:"M20.54 5.23l-1.39-1.68C18.88 3.21 18.47 3 18 3H6c-.47 0-.88.21-1.16.55L3.46 5.23C3.17 5.57 3 6.02 3 6.5V19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6.5c0-.48-.17-.93-.46-1.27zM12 17.5L6.5 12H10v-2h4v2h3.5L12 17.5zM5.12 5l.82-1h12l.94 1H5.12z",
+  filterList:"M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z",
   remove:"M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z",
   restore:"M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z",
   session:"M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z",
@@ -3528,7 +3759,10 @@ function spinner(on){
   if(!on){
     if(!el) return;
     el.classList.add("out");
-    setTimeout(()=>{ if(el.parentNode) el.remove(); }, 260);
+    // fuera el breathe, la tarjeta vacia puede tocar: mientras estaba,
+    // emptyState se la callaba y nadie vuelve a pintar
+    setTimeout(()=>{ if(el.parentNode) el.remove();
+                     emptyState(!!state.cwd); }, 260);
     return;
   }
   if(el) return;
@@ -3541,7 +3775,10 @@ function spinner(on){
 
 function emptyState(has){
   let el = $("#nostate");
-  if(has || feed.children.length || $("#spin")){
+  // recarga sin telon: hasta el primer snapshot no se sabe si hay proyecto
+  const waiting = firstSnap
+    && document.documentElement.classList.contains("booted");
+  if(has || feed.children.length || $("#spin") || waiting){
     if(el) el.remove();
     return;
   }
@@ -3753,8 +3990,9 @@ let searchT = null, searchBusy = 0;
 function searchRow(x){
   const b = document.createElement("button");
   b.className = "srow";
-  b.innerHTML = `<span>${esc(x.label)}</span>`
-    + `<small>${esc(projName(x.cwd))}  ·  ${esc(when(x.mtime*1000))}</small>`
+  b.innerHTML = `<span class="sl">${esc(x.label)}</span>`
+    + `<small><span class="sp">${esc(projName(x.cwd))}</span>`
+    + `<span class="sd"> · ${esc(when(x.mtime*1000))}</span></small>`
     + `<span class="dotsb" role="button" aria-label="${esc(T("menu"))}">` + ico("more") + `</span>`;
   b.onclick = () => { closeSearch();
     send({type:"open_project", path:x.cwd, session:x.path}); };
@@ -3839,7 +4077,8 @@ function removeTrashCard(path){
 async function loadTrash(){
   const list = $("#trashList");
   // se lee del disco: ensenar que algo pasa en vez de un hueco vacio
-  list.innerHTML = `<div class="tload"><span class="sspin"></span></div>`;
+  list.innerHTML = `<div class="tload"><div class="spin2"></div></div>`;
+  piLoaders();
   let d;
   try { d = await (await fetch("/api/trash?token="
     + encodeURIComponent(TOKEN))).json(); }
@@ -4066,6 +4305,7 @@ function openModal(title, body, run, opts){
   $("#modalTitle").textContent = title;
   $("#modalBody").innerHTML = body;
   const no = $("#modalNo"), ok = $("#modalOk");
+  ok.disabled = false;   // un countdown o busy anterior lo dejo muerto
   no.textContent = opts.no || T("cancel");
   no.hidden = !run;                        // informativo: un solo boton
   ok.textContent = opts.ok || T("ok");
@@ -4078,6 +4318,7 @@ function openModal(title, body, run, opts){
   if(opts.input || opts.inputs){
     const wrap = document.createElement("div");
     wrap.className = "mfields";
+    requestAnimationFrame(() => edgeFade(wrap));   // ya en el DOM
     (opts.inputs || [{label: opts.input === true ? T("macroArgs")
                                                  : opts.input}])
       .forEach((spec, i) => {
@@ -4118,7 +4359,7 @@ const confirmModal = (title, body, run) => openModal(title, body, run);
    ejecuta el cancel pendiente: asi la vista previa del tema se revierte y no
    queda un tema aplicado que el dialogo marca como no elegido. */
 function closeModal(){
-  $("#modal").classList.remove("open");
+  $("#modal").classList.remove("open", "pd");
   const c = modalCancel; modalCancel = null;
   if(c) c();
 }
@@ -4286,7 +4527,8 @@ function aboutModal(){
     + `<dt>Starlette</dt><dd>BSD-3-Clause</dd>`
     + `<dt>Material Icons</dt><dd>Apache License 2.0</dd>`
     + `<dt>IBM Plex Mono</dt><dd>SIL Open Font License 1.1</dd>`
-    + `<dt>Plus Jakarta Sans</dt><dd>SIL Open Font License 1.1</dd></dl>`);
+    + `<dt>Plus Jakarta Sans</dt><dd>SIL Open Font License 1.1</dd>`
+    + `<dt>Inter</dt><dd>SIL Open Font License 1.1</dd></dl>`);
 }
 const kilo = v => v >= 1000 ? Math.round(v / 1000) + "k" : String(v || 0);
 function paintCtx(){
@@ -4455,19 +4697,24 @@ function connect(){
       const stay = main.scrollTop, wasDown = atBottom();
       feed.classList.add("nofx");
       feed.innerHTML = ""; nodes.clear(); pendingUser = null; CWD = m.cwd || "";
+      // firstSnap se apaga ANTES del paint: emptyState lo mira para no
+      // pintar "sin proyecto" en la recarga, y con el aun en true la
+      // tarjeta no salia nunca cuando de verdad no hay proyecto
+      const goEnd = firstSnap || wasDown;
+      firstSnap = false;
       m.items.forEach(render); state = m.state; paint();
       if(!state.running) groupToolRun();
       placeActions();
-      const goEnd = firstSnap || wasDown;
-      firstSnap = false;
       requestAnimationFrame(()=>{
         jumpTo(goEnd ? main.scrollHeight : stay);
         feed.classList.remove("nofx");
         goDown();
         spinner(false);              // ya hay contenido que ensenar
         boot();                      // y con el la cabecera ya tiene alto
-        try{localStorage.setItem("pi.booted","1")}catch(e){}  // recarga sin telon
-        if(restartMode) endRestartCurtain();   // el puente volvio: retira el telon
+        try{sessionStorage.setItem("pi.booted","1")}catch(e){}  // recarga sin telon
+        // el puente volvio, pero el telon sigue hasta que el historial
+        // este cargado (loading): sin eso se veia la vista a medias
+        if(restartMode && !state.loading) endRestartCurtain();
       });
     }
     else if(m.type === "item"){
@@ -5361,7 +5608,29 @@ const STR = {
   en:{menu:"menu", send:"send", stop:"stop", addProject:"Add project",
       recent:"recent", projects:"Projects", searchConv:"Search conversations",
       searchHint:"Search conversations", appearance:"Appearance", language:"Language",
-      help:"Help", about:"About pi-remote", donate:"Donate", ok:"OK",
+      help:"Help", about:"About pi-remote", donate:"Donate",
+      storePackages:"Pi.dev packages", allTypes:"All types",
+      storeInstalled:"Installed",
+      typeExt:"extension", typeSkill:"skill", typePrompt:"prompt",
+      sortDownloads:"Most downloads", sortRecent:"Recently published",
+      sortName:"A-Z", storeSearchHint:"Search packages",
+      storeNoResults:"no packages match", packageDetails:"Package details",
+      securityNote:"Pi packages can execute code and influence agent behavior. Review the source before installing third-party packages.",
+      piManifest:"Pi manifest JSON", version:"Version", published:"Published",
+      downloads:"Downloads", author:"Author", license:"License",
+      types:"Types", size:"Size", dependencies:"Dependencies",
+      repo:"repo", home:"home", readme:"Readme",
+      installTitle:"Install package",
+      install:"Install", uninstall:"Uninstall",
+      installQ:"Do you want to install {name}? This action will run the installation command. Be careful.",
+      installing:"Installing package",
+      installedMsg:"{name} installed. Restart pi-remote for changes to take effect.",
+      removeTitle:"Remove package",
+      pkgRemoveQ:"Do you want to remove {name}? This action will run the removal command.",
+      removing:"Removing package",
+      removedMsg:"{name} removed. Restart pi-remote for changes to take effect.",
+      uninstall:"Uninstall",
+      residueMsg:"Residue found: {what}", ok:"OK",
       auto:"auto", light:"light", dark:"dark",
       noProject:"no project", noProjectHint:"Tap to choose a folder",
       project:"project", commands:"commands", useFolder:"use this folder",
@@ -5488,7 +5757,30 @@ const STR = {
       recent:"recientes", projects:"Proyectos",
       searchConv:"Buscar conversación", searchHint:"Buscar conversaciones",
       appearance:"Apariencia", language:"Idioma",
-      help:"Ayuda", about:"Acerca de pi-remote", donate:"Donar", ok:"Aceptar",
+      help:"Ayuda", about:"Acerca de pi-remote", donate:"Donar",
+      storePackages:"Paquetes pi.dev", allTypes:"Todos los tipos",
+      storeInstalled:"Instalados",
+      typeExt:"extensi\u00f3n", typeSkill:"skill", typePrompt:"prompt",
+      sortDownloads:"M\u00e1s descargas", sortRecent:"Publicados recientemente",
+      sortName:"A-Z", storeSearchHint:"Buscar paquetes",
+      storeNoResults:"ning\u00fan paquete coincide",
+      packageDetails:"Detalles del paquete",
+      securityNote:"Los paquetes de pi pueden ejecutar c\u00f3digo e influir en el comportamiento del agente. Revisa la fuente antes de instalar paquetes de terceros.",
+      piManifest:"Manifiesto JSON de Pi", version:"Versi\u00f3n",
+      published:"Publicado", downloads:"Descargas", author:"Autor",
+      license:"Licencia", types:"Tipos", size:"Tama\u00f1o",
+      dependencies:"Dependencias", repo:"repo", home:"web",
+      readme:"L\u00e9eme", installTitle:"Instalar paquete",
+      install:"Instalar", uninstall:"Desinstalar",
+      installQ:"\u00bfQuieres instalar {name}? Esta acci\u00f3n ejecutar\u00e1 el comando de instalaci\u00f3n. Ten cuidado.",
+      installing:"Instalando paquete",
+      installedMsg:"{name} instalado. Reinicia pi-remote para que los cambios surtan efecto.",
+      removeTitle:"Quitar paquete",
+      pkgRemoveQ:"\u00bfQuieres quitar {name}? Esta acci\u00f3n ejecutar\u00e1 el comando de eliminaci\u00f3n.",
+      removing:"Quitando paquete",
+      removedMsg:"{name} quitado. Reinicia pi-remote para que los cambios surtan efecto.",
+      uninstall:"Desinstalar", residueMsg:"Residuos encontrados: {what}",
+      ok:"Aceptar",
       auto:"auto", light:"claro", dark:"oscuro",
       noProject:"sin proyecto", noProjectHint:"Toca para elegir carpeta",
       project:"proyecto", commands:"comandos", useFolder:"usar esta carpeta",
@@ -5617,7 +5909,30 @@ const STR = {
       searchConv:"Unterhaltungen suchen", searchHint:"Unterhaltungen suchen",
       appearance:"Erscheinungsbild",
       language:"Sprache", help:"Hilfe", about:"\u00dcber pi-remote",
-      donate:"Spenden", ok:"OK", auto:"auto", light:"hell", dark:"dunkel",
+      donate:"Spenden",
+      storePackages:"pi.dev-Pakete", allTypes:"Alle Typen",
+      storeInstalled:"Installiert",
+      typeExt:"Erweiterung", typeSkill:"Skill", typePrompt:"Prompt",
+      sortDownloads:"Meiste Downloads", sortRecent:"K\u00fcrzlich ver\u00f6ffentlicht",
+      sortName:"A-Z", storeSearchHint:"Pakete suchen",
+      storeNoResults:"keine passenden Pakete",
+      packageDetails:"Paketdetails",
+      securityNote:"Pi-Pakete k\u00f6nnen Code ausf\u00fchren und das Agentenverhalten beeinflussen. Pr\u00fcfe die Quelle, bevor du Drittanbieterpakete installierst.",
+      piManifest:"Pi-Manifest JSON", version:"Version",
+      published:"Ver\u00f6ffentlicht", downloads:"Downloads", author:"Autor",
+      license:"Lizenz", types:"Typen", size:"Gr\u00f6\u00dfe",
+      dependencies:"Abh\u00e4ngigkeiten", repo:"repo", home:"web",
+      readme:"Readme", installTitle:"Paket installieren",
+      install:"Installieren", uninstall:"Deinstallieren",
+      installQ:"M\u00f6chtest du {name} installieren? Diese Aktion f\u00fchrt den Installationsbefehl aus. Sei vorsichtig.",
+      installing:"Paket wird installiert",
+      installedMsg:"{name} installiert. Starte pi-remote neu, damit die \u00c4nderungen wirksam werden.",
+      removeTitle:"Paket entfernen",
+      pkgRemoveQ:"M\u00f6chtest du {name} entfernen? Diese Aktion f\u00fchrt den Entfernungsbefehl aus.",
+      removing:"Paket wird entfernt",
+      removedMsg:"{name} entfernt. Starte pi-remote neu, damit die \u00c4nderungen wirksam werden.",
+      uninstall:"Deinstallieren", residueMsg:"R\u00fcckst\u00e4nde gefunden: {what}",
+      ok:"OK", auto:"auto", light:"hell", dark:"dunkel",
       noProject:"kein Projekt", noProjectHint:"Tippen, um einen Ordner zu w\u00e4hlen",
       project:"Projekt", commands:"Befehle", useFolder:"diesen Ordner verwenden",
       up:"hoch", noSub:"hier gibt es keine Unterordner",
@@ -5748,7 +6063,31 @@ const STR = {
       searchConv:"Rechercher une conversation",
       searchHint:"Rechercher des conversations", appearance:"Apparence",
       language:"Langue", help:"Aide", about:"\u00c0 propos de pi-remote",
-      donate:"Faire un don", ok:"OK", auto:"auto", light:"clair", dark:"sombre",
+      donate:"Faire un don",
+      storePackages:"Paquets pi.dev", allTypes:"Tous les types",
+      storeInstalled:"Installés",
+      typeExt:"extension", typeSkill:"skill", typePrompt:"prompt",
+      sortDownloads:"T\u00e9l\u00e9chargements",
+      sortRecent:"Publi\u00e9s r\u00e9cemment", sortName:"A-Z",
+      storeSearchHint:"Rechercher des paquets",
+      storeNoResults:"aucun paquet ne correspond",
+      packageDetails:"D\u00e9tails du paquet",
+      securityNote:"Les paquets pi peuvent ex\u00e9cuter du code et influencer le comportement de l'agent. V\u00e9rifie la source avant d'installer des paquets tiers.",
+      piManifest:"Manifeste JSON Pi", version:"Version",
+      published:"Publi\u00e9", downloads:"T\u00e9l\u00e9chargements", author:"Auteur",
+      license:"Licence", types:"Types", size:"Taille",
+      dependencies:"D\u00e9pendances", repo:"repo", home:"web",
+      readme:"Lisez-moi", installTitle:"Installer le paquet",
+      install:"Installer", uninstall:"Désinstaller",
+      installQ:"Voulez-vous installer {name} ? Cette action ex\u00e9cutera la commande d'installation. Faites attention.",
+      installing:"Installation du paquet",
+      installedMsg:"{name} install\u00e9. Red\u00e9marrez pi-remote pour que les modifications prennent effet.",
+      removeTitle:"Retirer le paquet",
+      pkgRemoveQ:"Voulez-vous retirer {name} ? Cette action ex\u00e9cutera la commande de suppression.",
+      removing:"Suppression du paquet",
+      removedMsg:"{name} retir\u00e9. Red\u00e9marrez pi-remote pour que les modifications prennent effet.",
+      uninstall:"D\u00e9sinstaller", residueMsg:"R\u00e9sidus trouv\u00e9s : {what}",
+      ok:"OK", auto:"auto", light:"clair", dark:"sombre",
       noProject:"aucun projet", noProjectHint:"Touchez pour choisir un dossier",
       project:"Projet", commands:"Commandes", useFolder:"utiliser ce dossier",
       up:"monter", noSub:"aucun sous-dossier ici",
@@ -5876,7 +6215,31 @@ const STR = {
       searchConv:"Pesquisar conversa", searchHint:"Pesquisar conversas",
       appearance:"apar\u00eancia",
       language:"idioma", help:"ajuda", about:"sobre o pi-remote",
-      donate:"doar", ok:"OK", auto:"auto", light:"clara", dark:"escura",
+      donate:"doar",
+      storePackages:"Pacotes pi.dev", allTypes:"Todos os tipos",
+      storeInstalled:"Instalados",
+      typeExt:"extens\u00e3o", typeSkill:"skill", typePrompt:"prompt",
+      sortDownloads:"Mais descarregados",
+      sortRecent:"Publicados recentemente", sortName:"A-Z",
+      storeSearchHint:"Pesquisar pacotes",
+      storeNoResults:"nenhum pacote corresponde",
+      packageDetails:"Detalhes do pacote",
+      securityNote:"Os pacotes pi podem executar c\u00f3digo e influenciar o comportamento do agente. Revise a fonte antes de instalar pacotes de terceiros.",
+      piManifest:"Manifesto JSON do Pi", version:"Vers\u00e3o",
+      published:"Publicado", downloads:"Descargas", author:"Autor",
+      license:"Licen\u00e7a", types:"Tipos", size:"Tamanho",
+      dependencies:"Depend\u00eancias", repo:"repo", home:"web",
+      readme:"Leia-me", installTitle:"Instalar pacote",
+      install:"Instalar", uninstall:"Desinstalar",
+      installQ:"Quer instalar {name}? Esta a\u00e7\u00e3o executar\u00e1 o comando de instala\u00e7\u00e3o. Tenha cuidado.",
+      installing:"Instalando pacote",
+      installedMsg:"{name} instalado. Reinicie o pi-remote para que as altera\u00e7\u00f5es tenham efeito.",
+      removeTitle:"Remover pacote",
+      pkgRemoveQ:"Quer remover {name}? Esta a\u00e7\u00e3o executar\u00e1 o comando de remo\u00e7\u00e3o.",
+      removing:"Removendo pacote",
+      removedMsg:"{name} removido. Reinicie o pi-remote para que as altera\u00e7\u00f5es tenham efeito.",
+      uninstall:"Desinstalar", residueMsg:"Res\u00edduos encontrados: {what}",
+      ok:"OK", auto:"auto", light:"clara", dark:"escura",
       noProject:"sem projeto", noProjectHint:"toque para escolher uma pasta",
       project:"projeto", commands:"comandos", useFolder:"usar esta pasta",
       up:"subir", noSub:"n\u00e3o h\u00e1 subpastas aqui",
@@ -6003,7 +6366,27 @@ const STR = {
       addProject:"添加项目", recent:"最近使用", projects:"项目",
       searchConv:"搜索对话", searchHint:"搜索对话", appearance:"外观",
       language:"语言", help:"帮助", about:"关于 pi-remote",
-      donate:"捐赠", ok:"确定", auto:"自动", light:"浅色", dark:"深色",
+      donate:"捐赠",
+      storePackages:"pi.dev 包", allTypes:"全部类型",
+      storeInstalled:"已安装",
+      typeExt:"扩展", typeSkill:"技能", typePrompt:"提示",
+      sortDownloads:"下载最多", sortRecent:"最近发布", sortName:"A-Z",
+      storeSearchHint:"搜索包", storeNoResults:"没有匹配的包",
+      packageDetails:"包详情",
+      securityNote:"pi 包可以执行代码并影响代理行为。安装第三方包前请审查源码。",
+      piManifest:"Pi 清单 JSON", version:"版本", published:"发布时间",
+      downloads:"下载量", author:"作者", license:"许可证", types:"类型",
+      size:"大小", dependencies:"依赖", repo:"仓库", home:"主页",
+      readme:"README", installTitle:"安装包",
+      install:"安装", uninstall:"卸载",
+      installQ:"要安装 {name} 吗？此操作将执行安装命令。请谨慎。",
+      installing:"正在安装包",
+      installedMsg:"{name} 已安装。重启 pi-remote 使更改生效。",
+      removeTitle:"移除包", pkgRemoveQ:"要移除 {name} 吗？此操作将执行移除命令。",
+      removing:"正在移除包",
+      removedMsg:"{name} 已移除。重启 pi-remote 使更改生效。",
+      uninstall:"卸载", residueMsg:"发现残留：{what}",
+      ok:"确定", auto:"自动", light:"浅色", dark:"深色",
       noProject:"无项目", noProjectHint:"点按选择文件夹",
       project:"项目", commands:"命令", useFolder:"使用此文件夹",
       up:"上一级", noSub:"此处没有子文件夹",
@@ -6846,11 +7229,13 @@ SYS.addEventListener("change", () => {
 /* Las que se sirven desde el propio puente. Una de pago no puede vivir
    en el repo, pero si el usuario la tiene instalada se usa. */
 const FONTS = [
-  {id:"sans",  name:"Plus Jakarta Sans",
+  {id:"sans",  name:"Plus Jakarta Sans", short:"Jakarta",
    css:'"Plus Jakarta Sans",system-ui,-apple-system,Segoe UI,sans-serif'},
-  {id:"serif", name:"Source Serif 4",
+  {id:"inter", name:"Inter", short:"Inter",
+   css:'"Inter",system-ui,-apple-system,Segoe UI,sans-serif'},
+  {id:"serif", name:"Source Serif 4", short:"Serif",
    css:'"Source Serif 4",Georgia,"Times New Roman",serif'},
-  {id:"mono",  name:"IBM Plex Mono",
+  {id:"mono",  name:"IBM Plex Mono", short:"Plex Mono",
    css:'"IBM Plex Mono",ui-monospace,Consolas,monospace'},
 ];
 function fontPref(){
@@ -6878,7 +7263,9 @@ function fontCard(body){
     b.className = "fontb" + (f.id === fontPref() ? " on" : "");
     b.dataset.f = f.id;
     b.style.fontFamily = f.css;
-    b.innerHTML = `<b>Aa</b><span>${esc(f.name)}</span>`;
+    // en el boton, el corto: con cuatro, el completo no cabe a 412 px
+    b.title = f.name;
+    b.innerHTML = `<b>Aa</b><span>${esc(f.short)}</span>`;
     b.onclick = () => {
       setFont(f.id);
       row.querySelectorAll(".fontb").forEach(x =>
@@ -7448,8 +7835,10 @@ function paintProjThink(){
   else send({type:"get_available_thinking_levels"});   // onRpc repinta
 }
 function paintSheet(page){
+  if(sheetPage === "pkgreadme" && page !== "pkgreadme") readmeLeave();
   sheetPage = page;
   $("#sheet").classList.remove("forkmode");
+  $("#sheet").classList.toggle("fullh", page === "store");
   const body = $("#sheetBody"), back = $("#sheetBack");
   body.innerHTML = "";
   back.hidden = page === "root";
@@ -7706,6 +8095,7 @@ function paintSheet(page){
     act("providers", "package", () => goPage("providers"));
     // los modelos en si (editar, borrar, anadir): la eleccion vive en global
     act("models", "chip", () => goPage("models"));
+    act("storePackages", "archive", () => goPage("store"));
     return;
   }
   if(page === "providers"){
@@ -8318,6 +8708,29 @@ function paintSheet(page){
     return;
   }
 
+  if(page === "store"){
+    $("#sheetTitle").textContent = T("storePackages");
+    paintStore();
+    return;
+  }
+  if(page === "pkgreadme"){
+    $("#sheetTitle").textContent = T("readme");
+    const d = storeDetailData;
+    if(!d || !d.readme) return;
+    const div = document.createElement("div");
+    div.className = "storemd";
+    // HTML de terceros: fuera scripts y manejadores inline (un README
+    // malicioso no puede tocar la pagina)
+    div.innerHTML = d.readme
+      .replace(/<\s*(script|iframe|object|embed)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, "")
+      .replace(/<\s*(script|iframe|object|embed)[^>]*>/gi, "")
+      .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+      .replace(/(href|src)\s*=\s*("|')\s*javascript:[^"'>\s]*\2/gi, "$1=$2");
+    readmeImgs(div);
+    body.appendChild(div);
+    return;
+  }
+
   $("#sheetTitle").textContent = T("menu");
   act("appearance", "palette", () => goPage("appearance"));
   act("language", "lang", () => goPage("language"));
@@ -8339,6 +8752,438 @@ function paintSheet(page){
     run: () => { $("#sheet").classList.remove("open");
       PAYPAL ? open(PAYPAL, "_blank", "noopener")
              : modal(T("donate"), "<p>Coming soon.</p>"); }}));
+}
+
+/* ---------- fundidos de borde de las listas ----------
+   .fade-t con algo escondido arriba, .fade-b con algo abajo. Scroll,
+   tamano y contenido (filas que llegan) lo recalculan, una vez por frame */
+function edgeFade(el){
+  if(!el || el.__ef) return;
+  el.__ef = true;
+  el.classList.add("ef");
+  let raf = 0;
+  const up = () => {
+    raf = 0;
+    const top = el.scrollTop > 1;
+    const bot = el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+    el.classList.toggle("fade-t", top);
+    el.classList.toggle("fade-b", bot);
+    // cabeceras sticky de seccion: la pegada arriba con filas por debajo
+    const heads = el.querySelectorAll(":scope .sec > .shead");
+    if(heads.length){
+      const y = el.getBoundingClientRect().top;
+      heads.forEach(h => {
+        const r = h.getBoundingClientRect();
+        const sec = h.parentElement.getBoundingClientRect();
+        h.classList.toggle("stuck", top && r.top <= y + 0.5
+          && sec.bottom > r.bottom + 1 && sec.top < y - 0.5);
+      });
+    }
+  };
+  const q = () => { if(!raf) raf = requestAnimationFrame(up); };
+  el.addEventListener("scroll", q, {passive:true});
+  new ResizeObserver(q).observe(el);
+  new MutationObserver(q).observe(el,
+    {childList:true, subtree:true, characterData:true});
+  q();
+}
+["main", "#sheetBody", "#searchList", "#trashList", ".railscroll",
+ "#modalBody"].forEach(sel => edgeFade(document.querySelector(sel)));
+
+/* ---------- loader de pi: puzzle deslizante ---------- */
+// una ficha por paso, siempre a hueco contiguo, nunca la misma dos veces
+// seguidas; a los 20 pasos vuelve al patron inicial (pi-logo-animacion)
+const PIL_START = [0,1,2,4,6,8,9,11,12,15];
+const PIL_SEQ = [[6,7],[1,5],[0,1],[7,3],[11,10],[5,6],[4,0],[15,14],
+  [12,13],[8,4],[13,12],[14,15],[6,7],[9,13],[2,6],[3,2],[7,11],[10,9],
+  [12,8],[13,12]];
+const pilPos = PIL_START.slice();   // estado compartido: todos van a la par
+let pilStep = 0, pilTimer = null;
+function pilPlace(el, i){
+  el.style.setProperty("--r", Math.floor(pilPos[i] / 4));
+  el.style.setProperty("--c", pilPos[i] % 4);
+}
+// rellena los .spin2 sin fichas y arranca el reloj si hace falta
+function piLoaders(){
+  document.querySelectorAll(".spin2:not(.pil)").forEach(sp => {
+    sp.classList.add("pil");
+    sp.setAttribute("role", "progressbar");
+    pilPos.forEach((_, i) => {
+      const t = document.createElement("i");
+      pilPlace(t, i);
+      sp.appendChild(t);
+    });
+  });
+  if(!pilTimer && !matchMedia("(prefers-reduced-motion: reduce)").matches)
+    pilTimer = setTimeout(piLoaderTick, PIL_MS);
+}
+const PIL_MS = 380;                   // un paso
+const PIL_HOLD = 260 + 1500;          // al cerrar el ciclo: asiento + logo quieto
+function piLoaderTick(){
+  const all = document.querySelectorAll(".spin2.pil:not([hidden])");
+  // sin loaders en el DOM, el reloj se para solo
+  if(!all.length){ pilTimer = null; return; }
+  const [src, dst] = PIL_SEQ[pilStep++ % PIL_SEQ.length];
+  const i = pilPos.indexOf(src);
+  pilPos[i] = dst;
+  all.forEach(sp => { const t = sp.children[i]; if(t) pilPlace(t, i); });
+  // vuelta al patron inicial = el logo de pi: se deja ver 1,5 s
+  pilTimer = setTimeout(piLoaderTick,
+    pilStep % PIL_SEQ.length === 0 ? PIL_HOLD : PIL_MS);
+}
+
+/* ---------- store: paquetes pi.dev ---------- */
+let storeQ = "", storeType = "", storeSort = "downloads";
+let storeRows = [], storeTotal = 0, storePage = 0, storeMore = false;
+let storeBusy = false, storeBusyName = null, storeDetailData = null;
+let storeDetailFor = null;   // paquete cuyo detalle esta en camino
+let storePending = false;    // debounce o fetch en vuelo: se ve el spinner
+let storeDebounce = null;
+let storeSeq = 0;            // numero de la ultima peticion: las viejas se tiran
+
+// loader centrado en el hueco bajo los chips. Scroll arriba: con la lista
+// bajada, el hueco (y el loader) quedaban fuera de la vista
+function storeWait(list){
+  $("#sheetBody").scrollTop = 0;
+  const h = $("#storeHead");
+  if(h) h.classList.remove("scrolled");
+  list.innerHTML = '<div class="spin2"></div>';
+  list.classList.add("wait");
+  piLoaders();
+}
+function storeRefresh(){
+  clearTimeout(storeDebounce);
+  // el numero sube al PEDIR, no al enviar: una pagina siguiente que llegue
+  // durante el debounce ya es vieja y no puede pisar al loader
+  const seq = ++storeSeq;
+  storeBusy = false;
+  storePending = true;
+  storePage = 0; storeMore = true;
+  const list = $("#storeRes");
+  if(list && storeRows.length){
+    // busqueda, chip u orden: fundir los resultados viejos y, al terminar
+    // el fade, el loader entra fundiendo hasta que lleguen los nuevos
+    list.classList.add("out");
+    setTimeout(() => {
+      if(!storePending) return;   // ya llego la respuesta
+      storeWait(list);
+      list.classList.remove("out");
+    }, 160);
+  } else {
+    storeRows = [];
+    paintStoreRows();        // primera carga: loader desde el primer frame
+  }
+  // el probe headless sufre throttling de timers: puede acortar la espera
+  const wait = (window.__storeDebounceMs != null)
+    ? window.__storeDebounceMs : 1000;
+  storeDebounce = setTimeout(() => {
+    send({type:"store_search", q:storeQ,
+          ptype:storeType === "installed" ? "" : storeType,
+          inst:storeType === "installed",
+          sort:storeSort, page:1, seq});
+  }, wait);
+}
+function storeLoadNext(){
+  // con una recarga en camino no hay "siguiente": storePage ya es 0 y
+  // pediria la pagina 1 saltandose el debounce (y pisaria al loader)
+  if(storeBusy || storePending || !storeMore) return;
+  storeBusy = true;
+  paintStoreRows();
+  send({type:"store_search", q:storeQ,
+        ptype:storeType === "installed" ? "" : storeType,
+        inst:storeType === "installed",
+        sort:storeSort, page:storePage + 1, seq:storeSeq});
+}
+function storeScroll(){
+  if(sheetPage !== "store") return;
+  const b = $("#sheetBody");
+  const h = $("#storeHead");
+  if(h) h.classList.toggle("scrolled", b.scrollTop > 0);
+  if(b.scrollTop + b.clientHeight > b.scrollHeight - 120) storeLoadNext();
+}
+function paintStore(){
+  const body = $("#sheetBody");
+  // caja de busqueda con X animada (solo con texto)
+  const q = document.createElement("div");
+  q.className = "storeq";
+  q.innerHTML = `<input type="text" placeholder="${esc(T("storeSearchHint"))}" autocomplete="off">`
+    + `<button class="storex" aria-label="${esc(T("cancel"))}">${ico("close")}</button>`;
+  const inp = q.querySelector("input"), x = q.querySelector(".storex");
+  x.hidden = true; x.classList.remove("show");
+  inp.addEventListener("input", () => {
+    storeQ = inp.value.trim();
+    x.classList.toggle("show", !!storeQ);
+    storeRefresh();
+  });
+  x.onclick = () => { inp.value = "";
+    inp.dispatchEvent(new Event("input")); inp.focus(); };
+  const head = document.createElement("div");
+  head.className = "storehead";
+  head.id = "storeHead";
+  head.appendChild(q);
+  body.appendChild(head);
+  // chips de tipo (fila scrolleable) + boton de orden fijo a la derecha
+  const row = document.createElement("div");
+  row.className = "chiprow";
+  const chips = document.createElement("div");
+  chips.className = "storechips";
+  const chipEls = [];
+  [["", T("allTypes")], ["extension", T("typeExt")],
+   ["skill", T("typeSkill")], ["prompt", T("typePrompt")],
+   ["installed", T("storeInstalled")]]
+    .forEach(([v, lbl]) => {
+      const c = document.createElement("button");
+      c.className = "chip" + (storeType === v ? " on" : "");
+      c.textContent = lbl;
+      c.onclick = () => {
+        if(storeType === v) return;
+        storeType = v;
+        // toggle in situ: repintar renacería los chips ya en estado final
+        // y el tinte de ámbar nunca llegaría a animar
+        chipEls.forEach(x => x.classList.toggle("on", x === c));
+        storeRefresh();
+      };
+      chipEls.push(c);
+      chips.appendChild(c);
+    });
+  const chipFade = () => {
+    chips.classList.toggle("fl", chips.scrollLeft > 2);
+    chips.classList.toggle("fr",
+      chips.scrollLeft + chips.clientWidth < chips.scrollWidth - 2);
+  };
+  chips.addEventListener("scroll", chipFade, {passive:true});
+  requestAnimationFrame(chipFade);   // estado inicial tras el layout
+  const fb = document.createElement("button");
+  fb.className = "chipbtn";
+  fb.setAttribute("aria-label", T("sortName"));
+  fb.innerHTML = ico("filterList");
+  fb.onclick = () => ctxPopup(fb, [
+    {icon: storeSort === "downloads" ? "check" : null,
+     label: T("sortDownloads"),
+     run: () => { storeSort = "downloads"; paintSheet("store");
+       storeRefresh(); }},
+    {icon: storeSort === "created" ? "check" : null,
+     label: T("sortRecent"),
+     run: () => { storeSort = "created"; paintSheet("store");
+       storeRefresh(); }},
+    {icon: storeSort === "name" ? "check" : null,
+     label: T("sortName"),
+     run: () => { storeSort = "name"; paintSheet("store");
+       storeRefresh(); }}
+  ]);
+  row.appendChild(chips);
+  row.appendChild(fb);
+  head.appendChild(row);
+  head.classList.toggle("scrolled", body.scrollTop > 0);   // repintado a media lista
+  const list = document.createElement("div");
+  list.className = "storeres";
+  list.id = "storeRes";
+  body.appendChild(list);
+  body.removeEventListener("scroll", storeScroll);
+  body.addEventListener("scroll", storeScroll);
+  paintStoreRows();
+  if(!storeRows.length) storeRefresh();   // primera visita: cargar
+}
+function paintStoreRows(){
+  const list = $("#storeRes");
+  if(!list) return;
+  // sin filas y en camino: el loader centrado, no uno suelto arriba
+  if(!storeRows.length && storePending) return storeWait(list);
+  list.classList.remove("wait");
+  list.innerHTML = "";
+  if(!storeRows.length && !storeBusy && !storePending){
+    const e = document.createElement("div");
+    e.className = "smeta";
+    e.style.padding = "14px 12px";
+    e.textContent = T("storeNoResults");
+    list.appendChild(e);
+  }
+  storeRows.forEach(p => {
+    const r = document.createElement("div");
+    r.className = "pkrow";      // no .srow: esa es la fila de buscar chats
+    r.innerHTML = `<div style="flex:1;min-width:0">`
+      + `<div class="snm">${esc(p.name)}</div>`
+      + (p.desc ? `<div class="sdesc">${esc(p.desc)}</div>` : "")
+      + `<div class="smeta">${esc(p.author)} \u00b7 ${esc(p.downloads)}</div></div>`
+      + (p.installed ? `<span class="sin">${ico("check")}</span>` : "");
+    r.onclick = () => {
+      if(storeDetailData && storeDetailData.name === p.name){
+        showStoreDetail(storeDetailData);   // ya conocido: sin fetch
+        return;
+      }
+      storeDetailFor = p.name;
+      // abre al instante: nombre y partes estaticas se conocen; el resto
+      // va en skeleton hasta que llega la pagina de pi.dev
+      openModal(T("packageDetails"),
+        storeDetailSkeleton(p.name, p.installed),
+        () => (p.installed ? storeRemoveConfirm(p.name)
+                           : storeInstallConfirm(p.name)),
+        {ok: p.installed ? T("uninstall") : T("install")});
+      $("#modal").classList.add("pd");   // tamano fijo hasta el contenido
+      send({type:"store_detail", name:p.name});
+    };
+    list.appendChild(r);
+  });
+  const sp = document.createElement("div");
+  sp.className = "spin2";
+  sp.hidden = !storeBusy;           // solo la pagina siguiente, al pie
+  list.appendChild(sp);
+  if(!sp.hidden) piLoaders();
+}
+function detailHtml(d){
+  const rows = [
+    ["version", d.version], ["published", d.published],
+    ["downloads", d.downloads], ["author", d.author],
+    ["license", d.license], ["types", d.types],
+    ["size", d.size], ["dependencies", d.dependencies]
+  ].filter(x => x[1] && x[1] !== "0");
+  let html = `<div class="pdname">${esc(d.name)}</div>`
+    + (d.desc ? `<div class="pddesc">${esc(d.desc)}</div>` : "")
+    + `<div class="pdsec">${ico("warn")}<span>${esc(T("securityNote"))}</span></div>`
+    + `<div class="pdcode">pi install npm:${esc(d.name)}</div>`;
+  if(rows.length)
+    html += rows.map(([k, v]) =>
+      `<div class="pdrow"><span class="k">${esc(T(k))}</span>`
+      + `<span class="v">${esc(v)}</span></div>`).join("");
+  if(d.manifest)
+    html += `<div class="pdlbl">${esc(T("piManifest"))}</div>`
+      + `<div class="pdcode">${esc(d.manifest)}</div>`;
+  if(d.links){
+    const L = [["npm", "npm"], ["repo", T("repo")], ["home", T("home")]];
+    html += `<div class="pdlinks">` + L.filter(([k]) => d.links[k])
+      .map(([k, lbl]) =>
+        `<a href="${esc(d.links[k])}" target="_blank" rel="noopener noreferrer">`
+        + `${ico("external")}${lbl}</a>`).join("") + `</div>`;
+  }
+  return html;
+}
+// skeleton fiel al layout: nombre y partes estaticas se conocen ya; el
+// resto va en barras con el barrido del thinking, a la altura de lo real
+// fiel al layout real de detailHtml: el nombre es lo unico real; cada
+// barra ocupa la forma de su equivalente (descripcion, nota, caja de
+// comando, filas key/valor, manifiesto, enlaces)
+function storeDetailSkeleton(name, installed){
+  const bar = (w, h) =>
+    `<div class="skel" style="height:${h}px;width:${w}"></div>`;
+  let html = `<div class="pdskel"><div class="pdname">${esc(name)}</div>`
+    + bar("82%", 14) + `<div style="height:6px"></div>` + bar("55%", 14)
+    + `<div style="height:18px"></div>`
+    + bar("96%", 13) + `<div style="height:8px"></div>` + bar("72%", 13)
+    + `<div style="height:18px"></div>`
+    + bar("100%", 34)
+    + `<div style="height:18px"></div>`;
+  for(let i = 0; i < 8; i++)
+    html += `<div style="display:flex;gap:8px;padding:3px 0">`
+      + `<span class="skel" style="flex:0 0 90px;height:13px"></span>`
+      + `<span class="skel" style="flex:${i % 2 ? "0 0 45%" : "1"};height:13px"></span></div>`;
+  html += `<div class="skel" style="height:11px;width:90px;margin:18px 0 6px"></div>`
+    + bar("100%", 64)
+    + `<div style="display:flex;gap:14px;margin-top:18px">`
+    + [70, 54, 48].map(w =>
+        `<span class="skel" style="width:${w}px;height:13px"></span>`).join("")
+    + `</div>`
+    + `<div style="height:12px"></div>`
+    + `<div class="skel skelfill"></div>`
+    + `</div>`;
+  return html;
+}
+/* imagenes del README por el puente (/api/img): la CSP no deja salir al
+   movil a terceros. Lo relativo o raro se quita: pediria al puente rutas
+   suyas. Al salir del README, readmeLeave borra la cache del puente */
+function readmeImgs(div){
+  div.querySelectorAll("img").forEach(im => {
+    const src = im.getAttribute("src") || "";
+    im.removeAttribute("srcset");
+    if(!/^https?:\/\//i.test(src)){ im.remove(); return; }
+    im.loading = "lazy";
+    im.decoding = "async";
+    // si no llega (no es imagen, demasiado grande), fuera sin icono roto
+    im.onerror = () => im.remove();
+    im.src = "/api/img?token=" + encodeURIComponent(TOKEN)
+      + "&u=" + encodeURIComponent(src);
+  });
+  // <picture>/<source> tambien apuntan fuera
+  div.querySelectorAll("source").forEach(x => x.remove());
+}
+function readmeLeave(){
+  // fuera del DOM antes de avisar: nada vuelve a pedir tras el borrado
+  const md = document.querySelector("#sheetBody .storemd");
+  if(md) md.remove();
+  send({type:"store_img_clear"});
+}
+// la hoja cerrada estando en el README (velo, gesto, atras) tambien limpia
+// Solo el paso abierta -> cerrada: paintSheet toca otras clases de la hoja
+// (fullh, forkmode) y eso no es cerrar
+let sheetWasOpen = $("#sheet").classList.contains("open");
+new MutationObserver(() => {
+  const open = $("#sheet").classList.contains("open");
+  if(sheetWasOpen && !open && sheetPage === "pkgreadme"){
+    readmeLeave();
+    sheetPage = null;        // cerrada: el siguiente paint no repite
+  }
+  sheetWasOpen = open;
+}).observe($("#sheet"), {attributes:true, attributeFilter:["class"]});
+function appendReadmeBtn(d){
+  const b = document.createElement("button");
+  b.className = "pick pdreadme";
+  b.innerHTML = `${ico("read")}<span class="txt">${esc(T("readme"))}</span>`
+    + ico("chevron", "ch");
+  b.onclick = () => { closeModal(); goPage("pkgreadme"); };
+  $("#modalBody").appendChild(b);
+}
+function showStoreDetail(d){
+  storeDetailData = d;
+  openModal(T("packageDetails"), detailHtml(d), () => {
+    d.installed ? storeRemoveConfirm(d.name) : storeInstallConfirm(d.name);
+  }, {ok: d.installed ? T("uninstall") : T("install")});
+  $("#modal").classList.add("pd");
+  if(d.readme) appendReadmeBtn(d);
+}
+function storeCountdown(btn, label){
+  let n = 3;                          // 3 s antes de poder pulsar
+  btn.disabled = true;
+  btn.textContent = `${label} (${n})`;
+  // el probe headless throttlea timers: puede acortar el paso
+  const step = (window.__storeCountdownMs != null)
+    ? window.__storeCountdownMs : 1000;
+  const iv = setInterval(() => {
+    n--;
+    if(n <= 0){ clearInterval(iv); btn.disabled = false;
+      btn.textContent = label; }
+    else btn.textContent = `${label} (${n})`;
+  }, step);
+}
+function storeInstallConfirm(name){
+  confirmModal(T("installTitle"),
+    `<p>${esc(T("installQ").replace("{name}", name))}</p>`,
+    () => storeBusyStart(name, "install"), {ok: T("install")});
+  storeCountdown($("#modalOk"), T("install"));
+}
+function storeRemoveConfirm(name){
+  confirmModal(T("removeTitle"),
+    `<p>${esc(T("pkgRemoveQ").replace("{name}", name))}</p>`,
+    () => storeBusyStart(name, "remove"), {ok: T("uninstall")});
+  storeCountdown($("#modalOk"), T("uninstall"));
+}
+function storeBusyStart(name, action){
+  storeBusyName = name;
+  const ok = $("#modalOk"), no = $("#modalNo");
+  // run() lo cerro; se vuelve a abrir. Sin .pd: el dialog se queda
+  // compacto durante la operacion, no crece al tamano del detalle
+  $("#modal").classList.remove("pd");
+  $("#modal").classList.add("open");
+  $("#modalTitle").textContent = T(action === "install"
+    ? "installTitle" : "removeTitle");
+  $("#modalBody").innerHTML = `<div class="spin2"></div>`
+    + `<p>${esc(T(action === "install" ? "installing" : "removing"))}</p>`;
+  piLoaders();
+  no.textContent = T("cancel"); no.hidden = false;
+  ok.disabled = true;
+  ok.textContent = T(action === "install" ? "installing" : "removing");
+  no.onclick = () => { send({type:"store_cancel"});
+    storeBusyName = null; closeModal(); };
+  send({type: action === "install" ? "store_install" : "store_remove",
+        name});
 }
 
 /* adelante apila la pagina actual; atras desempila. Asi el retroceso
@@ -8477,6 +9322,9 @@ dragToDismiss($("#sheet .card"), ".grab, .sbar",
 dragToDismiss($("#statsheet .card"), ".grab, .sbar",
   () => $("#statsheet").classList.remove("open"), $("#statsheet"));
 dragToDismiss(palette, ".grab, .phead", closePalette, null);
+// buscar y papelera: hojas tambien, se cierran arrastrando la pill
+dragToDismiss($("#searchView"), ".grab", closeSearch, null);
+dragToDismiss($("#trashView"), ".grab", closeTrash, null);
 
 (() => {                                   // la barra: deslizar para cerrar
   const rail = $("#rail"), scrim = $("#scrim");
@@ -9076,6 +9924,77 @@ function onRpc(m){
     if(sheetPage === "macroedit"){ sheetStack = []; turnTo("macros", -1); }
     return;
   }
+  if(m.command === "store_search"){
+    // el puente busca en hilos: una respuesta lenta (instalados) puede
+    // llegar despues de la del filtro nuevo y pisarla
+    if(d && d.seq != null && d.seq !== storeSeq) return;
+    storeBusy = false;
+    storePending = false;
+    if(d && d.error) return note(d.error);
+    if(sheetPage !== "store") return;
+    storeTotal = d.total || 0;
+    storeMore = !!d.hasMore;
+    storePage = d.page;
+    storeRows = (d.page === 1 ? [] : storeRows)
+      .concat(d.packages || []);
+    const wl = $("#storeRes");
+    if(wl) wl.classList.remove("wait");   // fuera el spinner centrado
+    paintStoreRows();
+    if(d.page === 1){
+      // los nuevos entran con fundido: el .out sigue puesto mientras se
+      // pinta, y se retira un frame despues para que la transicion salga
+      requestAnimationFrame(() => {
+        const l = $("#storeRes");
+        if(l) l.classList.remove("out");
+      });
+    }
+    return;
+  }
+  if(m.command === "store_detail"){
+    if(d && d.error) return note(d.error);
+    storeDetailData = d;
+    // si el modal esta mostrando este paquete, cambia el skeleton in situ;
+    // si no (cerrado o otro paquete encima), solo queda cacheado
+    if(storeDetailFor === d.name
+       && $("#modal").classList.contains("open")){
+      $("#modalBody").innerHTML = detailHtml(d);
+      if(d.readme) appendReadmeBtn(d);
+    }
+    return;
+  }
+  if(m.command === "store_install" || m.command === "store_remove"){
+    if(storeBusyName === null) return;   // cancelado o respuesta vieja
+    const name = storeBusyName;
+    if(m.name && m.name !== name) return;  // vieja de otro paquete: no pisa
+    storeBusyName = null;
+    const ok = $("#modalOk"), no = $("#modalNo");
+    const open = $("#modal").classList.contains("open");
+    const done = m.command === "store_install"
+      ? "installedMsg" : "removedMsg";
+    if(d && d.error){
+      if(open){
+        $("#modalBody").innerHTML = `<p>${esc(d.error)}</p>`;
+        // el onclick sigue siendo la accion del confirm: sin resetear,
+        // pulsar OK re-ejecutaria el comando
+        ok.onclick = () => closeModal();
+        ok.textContent = T("ok"); ok.disabled = false; no.hidden = true;
+      } else note(d.error);
+      return;
+    }
+    let extra = "";
+    if((d.residue || []).length)
+      extra = `<p>${esc(T("residueMsg")
+        .replace("{what}", d.residue.join("; ")))}</p>`;
+    const msg = T(done).replace("{name}", name);
+    if(open){
+      $("#modalBody").innerHTML = `<p>${esc(msg)}</p>${extra}`;
+      // como en el error: el OK de exito solo cierra, no re-ejecuta
+      ok.onclick = () => closeModal();
+      ok.textContent = T("ok"); ok.disabled = false; no.hidden = true;
+    } else note(d.residue && d.residue.length
+      ? msg + "\n" + d.residue.join("; ") : msg);
+    return;
+  }
   if(m.command === "agent_prefs_get"){
     if(d && d.error){ agentPrefs = null; agentPrefsErr = d.error; }
     else { agentPrefsErr = null; agentPrefs = d || {}; }
@@ -9269,6 +10188,9 @@ function forkConfirm(x){
 }
 
 applyLang();
+// recarga sin telon: hasta el snapshot, el breathe de carga; sin el, se
+// veia "sin proyecto" un instante y luego lo que se estaba haciendo
+if(document.documentElement.classList.contains("booted")) spinner(true);
 connect();
 </script>
 </body>

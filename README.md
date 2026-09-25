@@ -102,6 +102,8 @@ the fonts, all served locally so the page never calls out to anyone.
 | `PI_WEB_CWD` | none | project to open at startup |
 | `PI_WEB_STATE` | `state.json` | where recent projects are kept |
 | `PI_WEB_LOG` | `bridge.log` | log file when there is no console |
+| `PI_STORE_BASE` | `https://pi.dev` | package catalog the bridge browses |
+| `PI_PKG_CMD` | `pi` | JSON command list used instead of `pi install/remove` (tests) |
 
 ### Generating a token
 
@@ -434,6 +436,15 @@ of optional switches, each remembered per browser.
   `models.json`. The API type is picked from the ones pi implements rather
   than typed, since a typo only surfaces on the next restart. Keys travel as
   a flag, never as a value.
+- **Pi.dev packages** (under pi agent settings): the public package catalog.
+  Search by name, filter by type (extension, skill, prompt) or show only
+  what is installed, and sort by downloads, date or name. A package opens
+  its details — version, licence, size, the pi manifest, links — and its
+  README. Install and remove go through `pi install` / `pi remove`, which
+  own the files; the confirm button waits three seconds, since a package
+  runs code on this machine, and changes apply on the next restart. The
+  catalog has no JSON API, so the bridge reads the pages and caches them
+  for ten minutes.
 - **Context** (next to Model): pi's compaction settings — auto compact, the
   reserve for the response, and how much recent context is kept verbatim.
   Both numbers are sliders bounded by the active model, because pi derives
@@ -488,6 +499,13 @@ of optional switches, each remembered per browser.
   host, so set `PI_WEB_ORIGINS`.
 - The page ships a strict CSP, `nosniff` and `no-referrer`, and the token is
   compared in constant time.
+- The package catalog is the one feature that reaches the internet, and it
+  does so from the bridge, never from the phone: the CSP keeps images to the
+  page's own origin. README images are fetched by the bridge into memory
+  (never disk), served with `no-store`, and dropped when the README closes or
+  after ten minutes. Only images named by the open README are served, only
+  image types pass, and addresses on the local network are refused, on
+  redirects too.
 - pi ships no permission prompts of its own. Install a guardrails extension.
 - The manifest, the service worker and the icons are the shell, not data, so
   they are served without a token; everything that acts still needs one.
@@ -518,7 +536,7 @@ python tests/run.py            # everything, about four minutes
 python tests/run.py rail       # just the ones matching "rail"
 ```
 
-Sixty probes: the page is driven in a real headless Chrome through the
+Sixty-four probes: the page is driven in a real headless Chrome through the
 DevTools protocol, which is how the animation, contrast, layout and security
 checks are measured rather than assumed. Chrome or Edge is found
 automatically; point `CHROME` at it otherwise.
@@ -528,4 +546,5 @@ automatically; point `CHROME` at it otherwise.
 MIT. See [LICENSE](LICENSE).
 
 Third-party components: FastAPI (MIT), Uvicorn and Starlette (BSD-3-Clause),
-Material Icons (Apache-2.0), IBM Plex Mono and Plus Jakarta Sans (OFL-1.1).
+Material Icons (Apache-2.0), IBM Plex Mono, Plus Jakarta Sans and Inter
+(OFL-1.1).

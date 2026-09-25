@@ -386,10 +386,10 @@ async def ui():
             await js("openTrash()")
             load = await js("""(()=>{
               const l = $('#trashList');
-              return {spin: !!l.querySelector('.sspin'),
+              return {spin: !!l.querySelector('.spin2.pil'),
                 grab: !!document.querySelector('#trashView .grab')};})()""")
             await asyncio.sleep(0.8)
-            done = await js("!!$('#trashList').querySelector('.sspin')")
+            done = await js("!!$('#trashList').querySelector('.spin2')")
             fail = await js("""(async()=>{
               const f = window.fetch;
               window.fetch = () => Promise.reject(new Error('sin red'));
@@ -413,7 +413,7 @@ async def ui():
                 ("y no la ruta cruda", "Users" not in row["p"]),
                 ("la cabecera no reserva el notch dentro de la hoja",
                  float(row["pad"].replace("px", "")) < 12),
-                ("mientras carga gira un spinner", load["spin"]),
+                ("mientras carga, el puzzle de pi (no el aro)", load["spin"]),
                 ("y lleva la pill de arrastre", load["grab"]),
                 ("al llegar los datos el spinner se va", done is False),
                 ("si el fetch falla se dice, no se finge vacia",
