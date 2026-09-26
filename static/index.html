@@ -5146,6 +5146,10 @@ function confirmToggle(){
   $("#send").classList.toggle("confirm", box.value.trim().startsWith("/"));
 }
 box.addEventListener("input", ()=>{ paintPalette(); slashToggle(); applyPh(); });
+document.addEventListener("selectionchange", () => {
+  if(document.activeElement === box && box.textContent.startsWith("/"))
+    paintPalette();
+});
 // con el prompt mas largo que el campo, el arrastre vertical scrollea el
 // interior en vez de mover el cursor; sin desborde, ni eso ni el chat
 // linea de scrol fina: se dibuja donde termina la linea de texto mas
@@ -5605,11 +5609,35 @@ box.addEventListener("blur", ()=>{
   if(palette.classList.contains("open")) setTimeout(()=>closePalette(), 150);
 });
 
+/* el comando es lo que hay entre la "/" inicial y el cursor, no la caja
+   entera: con texto ya escrito (el nombre de la sesion, y se olvido el
+   /name), poner "/" delante abre la lista y lo de detras se conserva como
+   argumento. Antes el texto de detras contaba como argumento y la paleta
+   no salia */
+function caretOffset(){
+  const s = window.getSelection();
+  if(!s || !s.rangeCount || !box.contains(s.anchorNode)) return box.value.length;
+  const pre = document.createRange();
+  pre.selectNodeContents(box);
+  pre.setEnd(s.getRangeAt(0).startContainer, s.getRangeAt(0).startOffset);
+  return pre.toString().replace(/\u200b/g, "").length;   // como query
+}
 function query(){
-  const v = box.value;
-  if(!v.startsWith("/") || v.includes("\n")) return null;
-  const m = v.slice(1).match(/^(\S*)(\s?)/);
-  return m[2] ? null : m[1];       // once you type a space, it is an argument
+  const v = box.textContent.replace(/\u200b/g, "");
+  if(!v.startsWith("/")) return null;
+  const tok = v.slice(1, Math.max(1, caretOffset()));
+  // un espacio o salto antes del cursor: ya se escribe el argumento
+  return /\s/.test(tok) ? null : tok;
+}
+// lo escrito detras del comando (argumento o borrador), sin el comando
+function afterCmd(){
+  const v = box.textContent.replace(/\u200b/g, "");
+  return v.slice(Math.max(1, caretOffset())).replace(/^\s+/, "");
+}
+function caretToEnd(){
+  const r = document.createRange();
+  r.selectNodeContents(box); r.collapse(false);
+  const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
 }
 function paintPalette(){
   const q = query();
@@ -5650,11 +5678,13 @@ function kbDown(){
   if(COARSE.matches && document.activeElement === box) box.blur();
 }
 function choose(c){
+  const rest = afterCmd();                     // lo que ya estaba escrito
   if(c.arg){                                   // needs text: prefill and wait
-    box.value = "/" + c.n + " ";
-    box.focus(); closePalette(); slashToggle(); return;
+    box.value = "/" + c.n + " " + rest;
+    box.focus(); caretToEnd(); closePalette(); slashToggle(); return;
   }
-  box.value = "";
+  // sin argumento: se ejecuta y el borrador de detras sigue en la caja
+  box.value = rest;
   closePalette(); slashToggle(); kbDown(); c.run();
 }
 function runLine(text){

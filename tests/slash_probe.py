@@ -198,6 +198,48 @@ async def main():
             gone = await js("$('#send').classList.contains('confirm')")
             checks.append(("quitar el '/' revierte el boton", gone is False))
 
+            # "/" delante de un texto ya escrito: se olvido el comando. La
+            # paleta sale (el comando es lo que hay entre la "/" y el
+            # cursor) y lo de detras se conserva como argumento
+            await js("""(() => { box.setAttribute('contenteditable','true');
+              box.value = 'mi sesion nueva'; box.focus();
+              const r = document.createRange(); r.setStart(box.firstChild, 0);
+              r.collapse(true); const s = getSelection();
+              s.removeAllRanges(); s.addRange(r); })()""")
+            await p.cmd("Input.insertText", text="/")
+            await asyncio.sleep(0.3)
+            pre = await js("""(() => ({open: palette.classList.contains('open'),
+              n: document.querySelectorAll('#plist .cmd').length,
+              txt: box.value}))()""")
+            await p.cmd("Input.insertText", text="na")
+            await asyncio.sleep(0.3)
+            filt = await js("[...document.querySelectorAll('#plist .cmd b')]"
+                            ".map(b => b.textContent.split(' ')[0])")
+            await js("choose(CMDS.find(c => c.n === 'name'))")
+            after = await js("box.value")
+            # sin argumento: se ejecuta y el borrador sigue en la caja
+            await js("""(() => { box.value = 'borrador'; box.focus();
+              const r = document.createRange(); r.setStart(box.firstChild, 0);
+              r.collapse(true); const s = getSelection();
+              s.removeAllRanges(); s.addRange(r); })()""")
+            await p.cmd("Input.insertText", text="/")
+            await asyncio.sleep(0.3)
+            await js("choose(CMDS.find(c => c.n === 'cwd'))")
+            kept = await js("box.value")
+            print("  / delante: %s filtro na=%s tras /name=%r tras /cwd=%r"
+                  % (pre, filt, after, kept))
+            checks += [
+                ("'/' delante de texto escrito abre la paleta entera",
+                 pre["open"] and pre["n"] > 20
+                 and pre["txt"] == "/mi sesion nueva"),
+                ("lo tecleado tras la '/' filtra", filt == ["/name"]),
+                ("elegir /name conserva el texto como argumento",
+                 after == "/name mi sesion nueva"),
+                ("un comando sin argumento deja el borrador en la caja",
+                 kept == "borrador"),
+            ]
+            await js("box.value = ''; closePalette()")
+
             # la paleta lista los comandos en orden alfabetico
             order = await js("""(() => { box.value = '/'; paintPalette();
               const n = [...document.querySelectorAll('#plist .cmd b')]

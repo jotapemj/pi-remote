@@ -356,8 +356,11 @@ commands surface as a real dialog you can answer from the phone.
 
 Type `/`, or tap the **+** inside the composer and pick **Commands**.
 Twenty-three commands, in alphabetical order and filtered as you type, with
-keyboard navigation on a desktop browser. On a phone, a command that opens a
-dialog or a sheet hides the keyboard first, so it is never covered. The same **+** menu attaches an image (paste one, or pick it
+keyboard navigation on a desktop browser. A `/` typed in front of text
+already written opens the list too, and that text becomes the command's
+argument: write a session name, then put `/name` before it. On a phone, a
+command that opens a dialog or a sheet hides the keyboard first, so it is
+never covered. The same **+** menu attaches an image (paste one, or pick it
 from the device) for a model that can see; it rides along with your next
 message.
 
