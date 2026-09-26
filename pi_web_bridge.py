@@ -75,6 +75,15 @@ RESTART_TASK = "pi-remote-restart"
 # harness (fixtures locales, sin red). PI_PKG_CMD (lista JSON) sustituye
 # a `pi install|remove` para no tocar la instalacion real desde los tests.
 STORE_BASE = os.environ.get("PI_STORE_BASE", "https://pi.dev").rstrip("/")
+# aviso de version nueva: la ultima release publica, al arrancar y cada hora.
+# Solo avisa (modelo Immich): actualizar es cosa del servidor. Es una llamada
+# a GitHub, un tercero: PI_UPDATE_CHECK=off la apaga
+UPDATE_URL = os.environ.get(
+    "PI_UPDATE_URL",
+    "https://api.github.com/repos/jotapemj/pi-remote/releases/latest")
+UPDATE_CHECK = os.environ.get("PI_UPDATE_CHECK", "on").strip().lower() \
+    not in ("off", "no", "0", "false")
+UPDATE_EVERY = 3600
 _raw = os.environ.get("PI_PKG_CMD", "").strip()
 try:
     PKG_CMD = json.loads(_raw) if _raw else None
@@ -1728,6 +1737,32 @@ STORE_TTL = 600                       # 10 min por consulta
 _store_cache = {}                     # clave -> (ts, payload)
 _store_proc = None                    # una sola instalacion a la vez
 
+
+def ver_tuple(v):
+    """'v0.95.0' -> (0, 95, 0). Lo que no sea numero cuenta como 0."""
+    out = []
+    for part in str(v or "").strip().lstrip("vV").split(".")[:3]:
+        m = re.match(r"\d+", part)
+        out.append(int(m.group(0)) if m else 0)
+    return tuple(out + [0] * (3 - len(out)))
+
+
+def check_update():
+    """La ultima release, si es mas nueva que la que corre. None si no lo es;
+    lanza si no se pudo consultar (el llamador conserva lo que sabia)."""
+    req = urllib.request.Request(UPDATE_URL, headers={
+        "User-Agent": "pi-remote/" + VERSION,
+        "Accept": "application/vnd.github+json"})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        d = json.loads(r.read().decode("utf-8", "replace"))
+    tag = d.get("tag_name") or ""
+    if not tag or ver_tuple(tag) <= ver_tuple(VERSION):
+        return None
+    return {"version": tag.lstrip("vV"), "name": d.get("name") or tag,
+            "url": d.get("html_url") or "",
+            "notes": (d.get("body") or "").replace("\r\n", "\n"),
+            "date": d.get("published_at") or ""}
+
 # ---- imagenes del README: proxy en memoria, sin residuos ----
 # La CSP deja img-src en 'self': el movil no habla con terceros. El puente
 # las baja a RAM (nunca a disco), las sirve con no-store y las borra al
@@ -2236,6 +2271,7 @@ class Bridge:
             "projSettings": {}, "projTrusted": False,
             # como servicio nadie lee la consola: el aviso va a la pantalla
             "readOnly": READ_ONLY, "tokenMade": TOKEN_MADE, "version": VERSION,
+            "update": None,           # release mas nueva que la que corre
         }
         self.autoname_done = False           # un solo intento por sesion
         self.lang = "en"                     # ultimo idioma del cliente
@@ -2416,6 +2452,19 @@ class Bridge:
         for item in self.log:
             if item.get("kind") == "tool" and item.get("status") == "running":
                 self.patch(item, status="stale")
+
+    def update_loop(self):
+        """Al arrancar y cada hora. Sin red, se calla y conserva lo sabido:
+        un fallo de GitHub no debe borrar un aviso ya dado."""
+        while True:
+            try:
+                up = check_update()
+                if up != self.state.get("update"):
+                    self.state["update"] = up
+                    self.push_state()
+            except Exception as e:                   # noqa: BLE001
+                print("update check:", e, file=sys.stderr)
+            time.sleep(UPDATE_EVERY)
 
     def emit(self, payload):
         """Thread-safe broadcast."""
@@ -3712,6 +3761,8 @@ async def lifespan(app: FastAPI):
     except Exception:
         pass
     print(f"pi-remote {VERSION}  (project: {bridge.cwd or 'none yet'})")
+    if UPDATE_CHECK:
+        threading.Thread(target=bridge.update_loop, daemon=True).start()
     if STORE_BASE != "https://pi.dev":
         print("store base: %s" % STORE_BASE)
     if READ_ONLY:

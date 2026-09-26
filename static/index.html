@@ -348,6 +348,35 @@ html.booted .curtain:not(.restarting){display:none}
   transition:opacity .3s ease, height .28s cubic-bezier(.32,.72,0,1);
 }
 .plate .sub.on{opacity:1;height:18px}
+/* version nueva sin leer: punto ambar en el engranaje, hasta abrir las
+   notas de esa version (no se queda molestando para siempre) */
+#menuBtn{position:relative}
+#menuBtn.upd::after{
+  content:""; position:absolute; top:7px; right:7px; width:8px; height:8px;
+  border-radius:50%; background:var(--amber);
+  box-shadow:0 0 0 2px var(--plate-a);
+}
+.updcard .i{color:var(--amber)}
+.updnotes{font:400 13px/1.55 var(--sans); color:var(--ink)}
+/* md() pinta los titulos como h4 */
+.updnotes h4{font:600 13px/1.4 var(--sans); margin:14px 0 6px; color:var(--ink)}
+.updnotes h4:first-child{margin-top:0}
+.updnotes ul{margin:0; padding-left:18px}
+.updnotes li{margin:3px 0}
+.updsub{font:500 12px/1.4 var(--sans); color:var(--faint); margin:0 0 12px}
+/* "See release notes" es prosa: sans, no la mono de las rutas */
+.pick.updcard .txt small{font-family:var(--sans)}
+.updhow{margin-top:16px; padding-top:14px; border-top:1px solid var(--rule)}
+.updhow b{display:block; font:600 13px/1.4 var(--sans); color:var(--ink);
+  margin-bottom:6px}
+.updhow p{margin:0 0 6px; color:var(--dim)}
+.updhow pre{margin:0 0 8px; padding:9px 11px; border-radius:8px;
+  background:var(--raise); color:var(--ink); font:400 12px/1.6 var(--mono);
+  white-space:pre-wrap; word-break:break-word}
+.updlink{display:inline-flex; align-items:center; gap:6px; margin-top:4px;
+  color:var(--amber); font:500 13px/1 var(--sans); text-decoration:none}
+.updlink svg{width:16px; height:16px}
+
 .iconbtn{
   background:none;border:1px solid var(--rule);color:var(--dim);
   font:500 11px/1 var(--mono); padding:7px 9px;border-radius:5px;
@@ -3643,6 +3672,7 @@ function wireAsk(el, it){
 
 /* ---------- state ---------- */
 function paint(){
+  paintUpdDot();
   const has = !!state.cwd;
   if(has) CWD = state.cwd;
   // mientras trabaja el boton para, y para eso no hace falta texto
@@ -5753,6 +5783,11 @@ const STR = {
   en:{menu:"menu", send:"send", stop:"stop", addProject:"Add project",
       recent:"recent", projects:"Projects", searchConv:"Search conversations",
       searchHint:"Search conversations", appearance:"Appearance", language:"Language",
+      newVersion:"New version available", seeNotes:"See release notes",
+      howUpdate:"How to update",
+      updHint:"On the machine running pi remote, in its folder:",
+      updRestart:"Then restart it with /restart.",
+      viewGithub:"View on GitHub",
       help:"Help", about:"About pi-remote", donate:"Donate",
       storePackages:"Pi.dev packages", allTypes:"All types",
       storeInstalled:"Installed",
@@ -5902,6 +5937,11 @@ const STR = {
       recent:"recientes", projects:"Proyectos",
       searchConv:"Buscar conversación", searchHint:"Buscar conversaciones",
       appearance:"Apariencia", language:"Idioma",
+      newVersion:"Nueva versi\u00f3n disponible", seeNotes:"Ver notas de la versi\u00f3n",
+      howUpdate:"C\u00f3mo actualizar",
+      updHint:"En la m\u00e1quina donde corre pi remote, en su carpeta:",
+      updRestart:"Despu\u00e9s, rein\u00edcialo con /restart.",
+      viewGithub:"Ver en GitHub",
       help:"Ayuda", about:"Acerca de pi-remote", donate:"Donar",
       storePackages:"Paquetes pi.dev", allTypes:"Todos los tipos",
       storeInstalled:"Instalados",
@@ -6053,6 +6093,11 @@ const STR = {
       recent:"zuletzt verwendet", projects:"Projekte",
       searchConv:"Unterhaltungen suchen", searchHint:"Unterhaltungen suchen",
       appearance:"Erscheinungsbild",
+      newVersion:"Neue Version verf\u00fcgbar", seeNotes:"Versionshinweise ansehen",
+      howUpdate:"So aktualisierst du",
+      updHint:"Auf dem Rechner mit pi remote, in dessen Ordner:",
+      updRestart:"Dann mit /restart neu starten.",
+      viewGithub:"Auf GitHub ansehen",
       language:"Sprache", help:"Hilfe", about:"\u00dcber pi-remote",
       donate:"Spenden",
       storePackages:"pi.dev-Pakete", allTypes:"Alle Typen",
@@ -6207,6 +6252,11 @@ const STR = {
       addProject:"ajouter un projet", recent:"r\u00e9cents", projects:"Projets",
       searchConv:"Rechercher une conversation",
       searchHint:"Rechercher des conversations", appearance:"Apparence",
+      newVersion:"Nouvelle version disponible", seeNotes:"Voir les notes de version",
+      howUpdate:"Comment mettre \u00e0 jour",
+      updHint:"Sur la machine qui ex\u00e9cute pi remote, dans son dossier\u00a0:",
+      updRestart:"Puis red\u00e9marre-le avec /restart.",
+      viewGithub:"Voir sur GitHub",
       language:"Langue", help:"Aide", about:"\u00c0 propos de pi-remote",
       donate:"Faire un don",
       storePackages:"Paquets pi.dev", allTypes:"Tous les types",
@@ -6359,6 +6409,11 @@ const STR = {
       addProject:"adicionar projeto", recent:"recentes", projects:"Projetos",
       searchConv:"Pesquisar conversa", searchHint:"Pesquisar conversas",
       appearance:"apar\u00eancia",
+      newVersion:"Nova vers\u00e3o dispon\u00edvel", seeNotes:"Ver notas da vers\u00e3o",
+      howUpdate:"Como atualizar",
+      updHint:"Na m\u00e1quina onde corre o pi remote, na pasta dele:",
+      updRestart:"Depois, reinicia-o com /restart.",
+      viewGithub:"Ver no GitHub",
       language:"idioma", help:"ajuda", about:"sobre o pi-remote",
       donate:"doar",
       storePackages:"Pacotes pi.dev", allTypes:"Todos os tipos",
@@ -6510,6 +6565,11 @@ const STR = {
   zh:{menu:"菜单", send:"发送", stop:"停止",
       addProject:"添加项目", recent:"最近使用", projects:"项目",
       searchConv:"搜索对话", searchHint:"搜索对话", appearance:"外观",
+      newVersion:"有新版本可用", seeNotes:"查看发行说明",
+      howUpdate:"如何更新",
+      updHint:"在运行 pi remote 的机器上，进入其目录：",
+      updRestart:"然后用 /restart 重启。",
+      viewGithub:"在 GitHub 上查看",
       language:"语言", help:"帮助", about:"关于 pi-remote",
       donate:"捐赠",
       storePackages:"pi.dev 包", allTypes:"全部类型",
@@ -8888,6 +8948,12 @@ function paintSheet(page){
   const div = document.createElement("div");
   div.className = "sdiv";
   body.appendChild(div);
+  // version nueva, tras la linea y sobre Help: la tarjeta se queda mientras
+  // la haya (releer las notas); al leerlas solo se apaga el punto
+  if(state.update)
+    body.appendChild(pickBtn({icon:"info", cls:"pick updcard",
+      label:T("newVersion"), hint:T("seeNotes"), chevron:true,
+      run:() => updateNotes()}));
   body.appendChild(pickBtn({icon:"help", label:T("help"),
     run: () => helpModal()}));
   body.appendChild(pickBtn({icon:"info", label:T("about"),
@@ -9677,6 +9743,52 @@ const when = ms => new Date(ms).toLocaleString(lang(),
 const mqSpan = (cls, text) =>
   `<${cls} class="mq"><span>${esc(text)}</span></${cls}>`;
 
+/* notas de la release nueva (markdown de GitHub, por el mismo md() del
+   chat) y, separados por una linea, los pasos para actualizar. Solo avisa:
+   actualizar es cosa de la maquina del puente (modelo Immich) */
+function updSeen(){
+  try { return localStorage.getItem("pi.seenUpdate"); } catch(e){ return null; }
+}
+function paintUpdDot(){
+  const u = state.update;
+  $("#menuBtn").classList.toggle("upd", !!(u && updSeen() !== u.version));
+}
+/* las notas vienen escritas a ~76 columnas: GitHub une las lineas de un
+   mismo parrafo (y las de una vinyeta); md() las respetaba una a una y el
+   texto salia roto. Se unen antes de pintar, sin tocar bloques de codigo,
+   ni lineas que abren vinyeta, titulo, tabla o cita */
+function unwrapMd(src){
+  const out = [];
+  let fence = false;
+  for(const line of String(src).split("\n")){
+    const t = line.trim();
+    if(/^```/.test(t)){ fence = !fence; out.push(line); continue; }
+    const prev = out.length ? out[out.length - 1] : "";
+    const opens = /^([-*+]\s|\d+[.)]\s|#|>|\||```)/.test(t);
+    if(!fence && t && !opens && prev.trim() && !/^```/.test(prev.trim())
+       && !/^(#|\|)/.test(prev.trim()))
+      out[out.length - 1] = prev.replace(/\s+$/, "") + " " + t;
+    else out.push(line);
+  }
+  return out.join("\n");
+}
+function updateNotes(){
+  const u = state.update;
+  if(!u) return;
+  try { localStorage.setItem("pi.seenUpdate", u.version); } catch(e){}
+  paintUpdDot();
+  const html = `<div class="updsub">${esc(u.name || "")}</div>`
+    + `<div class="updnotes">${md(unwrapMd(u.notes || ""))}</div>`
+    + `<div class="updhow"><b>${esc(T("howUpdate"))}</b>`
+    + `<p>${esc(T("updHint"))}</p>`
+    + `<pre>git pull\npip install -r requirements.txt</pre>`
+    + `<p>${esc(T("updRestart"))}</p>`
+    + (u.url ? `<a class="updlink" href="${esc(u.url)}" target="_blank"`
+       + ` rel="noopener noreferrer">${ico("external")}`
+       + `${esc(T("viewGithub"))}</a>` : "")
+    + `</div>`;
+  modal("pi remote v" + u.version, html);
+}
 function pickBtn(o){
   const b = document.createElement("button");
   b.className = (o.cls || "pick") + (o.off ? " off" : "");

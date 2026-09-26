@@ -77,9 +77,12 @@ the code is the arrangement that has held up.
 
 ## Install
 
+Clone the repository; it is what makes updating a single `git pull`:
+
 ```bash
+git clone https://github.com/jotapemj/pi-remote.git
+cd pi-remote
 pip install -r requirements.txt
-cd C:\path\to\your\project
 python pi_web_bridge.py
 ```
 
@@ -104,6 +107,7 @@ the fonts, all served locally so the page never calls out to anyone.
 | `PI_WEB_LOG` | `bridge.log` | log file when there is no console |
 | `PI_STORE_BASE` | `https://pi.dev` | package catalog the bridge browses |
 | `PI_PKG_CMD` | `pi` | JSON command list used instead of `pi install/remove` (tests) |
+| `PI_UPDATE_CHECK` | `on` | `off` stops the hourly check for a newer release |
 
 ### Generating a token
 
@@ -128,6 +132,24 @@ Native, if you prefer:
 
 To make it permanent, set it wherever you make the bridge start on its own:
 the startup shortcut, the systemd unit, the launchd plist (see below).
+
+### Updating
+
+The bridge checks GitHub for a newer release when it starts and then every
+hour. When there is one, the settings button gets an amber dot and the menu
+shows **New version available**, which opens the release notes and the steps
+below. The dot goes away once the notes are read; the card stays until the
+bridge is updated. It only tells you: updating happens on the machine running
+the bridge.
+
+```bash
+cd pi-remote
+git pull
+pip install -r requirements.txt
+```
+
+Then restart it with `/restart` from the app. Both steps also work from the
+phone: `/bash git pull` runs the pull through the bridge itself.
 
 ## Install it as an app
 
@@ -512,9 +534,10 @@ of optional switches, each remembered per browser.
   host, so set `PI_WEB_ORIGINS`.
 - The page ships a strict CSP, `nosniff` and `no-referrer`, and the token is
   compared in constant time.
-- The package catalog is the one feature that reaches the internet, and it
-  does so from the bridge, never from the phone: the CSP keeps images to the
-  page's own origin. README images are fetched by the bridge into memory
+- Two features reach the internet, both from the bridge and never from the
+  phone: the update check (GitHub, once an hour; `PI_UPDATE_CHECK=off` stops
+  it) and the package catalog. The CSP keeps images to the page's own
+  origin. README images are fetched by the bridge into memory
   (never disk), served with `no-store`, and dropped when the README closes or
   after ten minutes. Only images named by the open README are served, only
   image types pass, and addresses on the local network are refused, on

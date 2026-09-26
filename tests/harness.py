@@ -75,7 +75,11 @@ def bridge_env(state=None, extra=None):
     env.update(PI_CMD=fake_pi_cmd(), PI_WEB_PORT=str(PORT),
                PI_WEB_HOST="127.0.0.1", PI_WEB_TOKEN=TOKEN,
                PI_WEB_LOG=str(LOG_PATH),
-               PI_WEB_STATE=str(state or STATE_PATH))
+               PI_WEB_STATE=str(state or STATE_PATH),
+               # sin red: la comprobacion de version sale a GitHub, y 60
+               # puentes por pasada agotarian su limite por IP (tambien el
+               # del puente real). update_probe la enciende contra un fake
+               PI_UPDATE_CHECK="off")
     if extra:
         env.update(extra)
     return env
