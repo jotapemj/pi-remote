@@ -2,6 +2,7 @@
 """Fake pi --mode rpc. Emits a realistic event stream so the bridges can be
 tested without a model. Not part of the project, just a harness."""
 import json
+import os
 import sys
 import threading
 import time
@@ -437,6 +438,13 @@ for line in sys.stdin:
                       and m["id"] == cmd.get("modelId")), None)
         if found:
             STATE["model"] = found
+            # pi recalcula el razonamiento al cambiar de modelo (override de
+            # ese modelo o el global); la respuesta no trae el nivel.
+            # FAKE_SET_MODEL_THINKING = {"prov/id": nivel} lo imita
+            lv = json.loads(os.environ.get("FAKE_SET_MODEL_THINKING") or "{}")
+            key = "%s/%s" % (found["provider"], found["id"])
+            if key in lv:
+                STATE["thinkingLevel"] = lv[key]
             out({"type": "response", "command": "set_model",
                  "success": True, "data": found})
         else:

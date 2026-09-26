@@ -198,6 +198,15 @@ async def main():
             gone = await js("$('#send').classList.contains('confirm')")
             checks.append(("quitar el '/' revierte el boton", gone is False))
 
+            # la paleta lista los comandos en orden alfabetico
+            order = await js("""(() => { box.value = '/'; paintPalette();
+              const n = [...document.querySelectorAll('#plist .cmd b')]
+                .map(b => b.textContent.split(' ')[0].slice(1));
+              box.value = ''; closePalette(); return n; })()""")
+            print("  paleta: %s" % " ".join(order))
+            checks.append(("comandos en orden alfabetico",
+                           len(order) > 5 and order == sorted(order)))
+
 
 
             checks.append(("sin errores de consola", not p.problems))

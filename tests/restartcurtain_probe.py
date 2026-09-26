@@ -74,6 +74,51 @@ async def main():
                 ("cargado, el telon se retira",
                  end["gone"] and not end["rest"] and not end["mode"]),
             ]
+
+            # ---- todo de vuelta: historial Y titulo Y modelo ----
+            # con el historial listo pero el titulo aun en skeleton, sigue
+            # (como en un reinicio real: el snapshot llega sin nombre y el
+            # nombre llega despues, con el get_state)
+            noname = await js("""JSON.stringify({type:'snapshot', items:[],
+              cwd: CWD, state: Object.assign({}, state,
+                {loading:false, sessionName:null})})""")
+            await js("beginRestartOverlay(); showRestartCurtain();"
+                     " sessLoading = true")
+            await js("ws.onmessage({data: %s})" % json.dumps(noname))
+            await asyncio.sleep(0.5)
+            wait_title = await js("$('#curtain').classList.contains('restarting')")
+            await js("""ws.onmessage({data: JSON.stringify({type:'state',
+              state: Object.assign({}, state, {sessionName:'vuelta'})})})""")
+            await asyncio.sleep(0.5)
+            after_title = await js("$('#curtain').classList.contains('gone')")
+            checks += [
+                ("con el titulo sin resolver, el telon espera", wait_title),
+                ("resuelto el titulo, se retira", after_title),
+            ]
+
+            # ---- bloqueo desde que se confirma /restart ----
+            # la tarea real no se lanza: el puente del harness no la tiene
+            # configurada y contesta, lo que interesa aqui es el cliente
+            await js("restartLock(true)")
+            lk = await js("""(()=>{
+              const el = document.elementFromPoint(innerWidth/2, innerHeight/2);
+              const ev = new KeyboardEvent('keydown', {key:'a', cancelable:true});
+              document.dispatchEvent(ev);
+              return {top: el && el.id, key: ev.defaultPrevented,
+                      z: +getComputedStyle($('#rlock')).zIndex};})()""")
+            # el puente dice que no va a reiniciar: fuera el bloqueo
+            await js("""onMsgNote = (k) => ws.onmessage({data: JSON.stringify(
+              {type:'item', item:{id: 99990, kind:'note', level:'warn',
+               key:k, text:k}})}); onMsgNote('read_only')""")
+            await asyncio.sleep(0.2)
+            gone = await js("!$('#rlock')")
+            print("  bloqueo: %s  liberado tras rechazo=%s" % (lk, gone))
+            checks += [
+                ("al confirmar, una capa se come los toques",
+                 lk["top"] == "rlock" and lk["z"] == 59),
+                ("y las teclas", lk["key"] is True),
+                ("si el puente no va a reiniciar, se libera", gone),
+            ]
     return checks
 
 

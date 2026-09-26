@@ -355,8 +355,9 @@ commands surface as a real dialog you can answer from the phone.
 ## Commands
 
 Type `/`, or tap the **+** inside the composer and pick **Commands**.
-Twenty-three commands, filtered as you type, with keyboard navigation on a
-desktop browser. The same **+** menu attaches an image (paste one, or pick it
+Twenty-three commands, in alphabetical order and filtered as you type, with
+keyboard navigation on a desktop browser. On a phone, a command that opens a
+dialog or a sheet hides the keyboard first, so it is never covered. The same **+** menu attaches an image (paste one, or pick it
 from the device) for a model that can see; it rides along with your next
 message.
 
@@ -376,7 +377,9 @@ runs under the Task Scheduler service, outside the process tree. If a turn is
 running, it waits for it to settle so the last reply lands
 intact; then, after a two-second fade, it kills the bridge, relaunches it and
 verifies the port answers. The session comes back from disk and the phone
-reconnects on its own. On Windows, `pi_restart.py --ensure` is the idempotent
+reconnects on its own. From the moment it is confirmed the page ignores taps,
+scrolling and keys, and it stays behind the curtain until the history, the
+model and the session title are all back. On Windows, `pi_restart.py --ensure` is the idempotent
 twin: point a startup shortcut at it instead of the bridge directly, and a
 crash left over from last night costs nothing at log on.
 

@@ -460,7 +460,7 @@ async def ui():
                 ("el campo dice su nombre, sin cifras que interpretar",
                  me.get("val", "").strip() == "Reasoning map"),
                 # coherencia: es un campo, se lee como los demas campos del
-                # formulario (misma familia y tamano que el input de 16px);
+                # formulario (misma familia y tamano que el input, 14px);
                 # las filas de navegacion (.pick) son otra clase, de 13px
                 ("y se lee como los demas campos del formulario",
                  me.get("sameFont") is True and me.get("sameSize") is True),

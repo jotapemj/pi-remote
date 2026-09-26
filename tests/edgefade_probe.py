@@ -167,6 +167,45 @@ async def main():
             ]
             await js("$('#sheet').classList.remove('open')")
 
+            # campo largo multilinea (cuerpo de macro/skill): mismo fundido,
+            # y el borde lo pinta el contenedor para que la mascara no se lo
+            # coma arriba y abajo
+            await js("""menuSheet(); macroDraft = {scope:'global', oldName:null,
+              name:'x', description:'d', hint:'', body: Array.from({length:40},
+              (_, i) => 'linea ' + i).join(String.fromCharCode(10))};
+              goPage('macroedit')""")
+            await asyncio.sleep(0.8)
+            ta = await js("""(async () => {
+              const t = document.querySelector('#sheetBody .mfield.ta textarea');
+              const wait = () => new Promise(r => requestAnimationFrame(
+                () => requestAnimationFrame(r)));
+              await wait();
+              const a = [t.classList.contains('fade-t'), t.classList.contains('fade-b')];
+              t.scrollTop = 200; t.dispatchEvent(new Event('scroll')); await wait();
+              const b = [t.classList.contains('fade-t'), t.classList.contains('fade-b')];
+              const mk = getComputedStyle(t).maskImage;
+              t.value = 'corto'; t.dispatchEvent(new Event('input')); await wait();
+              const c = [t.classList.contains('fade-t'), t.classList.contains('fade-b')];
+              return {a, b, c, mk,
+                own: getComputedStyle(t).borderTopColor,
+                box: getComputedStyle(t.parentElement, '::before').borderTopStyle};})()""")
+            print("  textarea reposo=%s bajado=%s corto=%s borde propio=%s caja=%s"
+                  % (ta["a"], ta["b"], ta["c"], ta["own"], ta["box"]))
+            checks += [
+                ("textarea largo: en reposo solo funde abajo",
+                 ta["a"] == [False, True]),
+                ("bajado, funde arriba y abajo", ta["b"] == [True, True]),
+                # el rotulo flotante baja 7 px dentro de la caja: el texto
+                # tiene que estar ya invisible ahi, o su fondo hace de parche
+                ("el texto desaparece antes de acabar el rotulo (8 px)",
+                 "rgba(0, 0, 0, 0) 8px" in ta["mk"]),
+                ("al teclear se recalcula (texto corto, sin fundido)",
+                 ta["c"] == [False, False]),
+                ("el borde lo pinta la caja, no el textarea enmascarado",
+                 ta["own"] == "rgba(0, 0, 0, 0)" and ta["box"] == "solid"),
+            ]
+            await js("$('#sheet').classList.remove('open')")
+
             # buscar conversaciones es una hoja: lleva su pill, como la papelera
             gb = await js("""[!!document.querySelector('#searchView > .grab'),
               !!document.querySelector('#trashView > .grab')]""")

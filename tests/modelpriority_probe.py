@@ -64,7 +64,7 @@ def backend():
     return checks
 
 
-async def _open_and_read(projpath):
+async def _open_and_read(projpath, want_think=False):
     """Abre el proyecto y devuelve el modelId FINAL del estado. Se drena un
     rato: el set_model del default llega despues del primer get_state, asi que
     el primer modelId no es el definitivo."""
@@ -72,7 +72,7 @@ async def _open_and_read(projpath):
     async with websockets.connect(WS_URL) as ws:
         await ws.recv()                       # snapshot inicial
         await ws.send(json.dumps({"type": "open_project", "path": projpath}))
-        mid = None
+        mid = think = None
         for _ in range(80):
             try:
                 m = json.loads(await asyncio.wait_for(ws.recv(), 1.5))
@@ -81,7 +81,8 @@ async def _open_and_read(projpath):
             st = m.get("state") or {}
             if st.get("modelId"):
                 mid = st["modelId"]
-    return mid
+                think = st.get("thinking")
+    return (mid, think) if want_think else mid
 
 
 async def e2e():
@@ -131,6 +132,24 @@ async def e2e():
                     checks.append(("proyecto sin modelo: "
                                    "el default global se aplica",
                                    mid == "swift-27b"))
+
+            # escenario C: al cambiar de modelo pi recalcula el razonamiento
+            # (qwen nace en medium, swift pasa a xhigh). La lectura del
+            # puente tiene que seguirle, no quedarse con el del modelo viejo
+            sf.write_text(json.dumps({"model": {"provider": "swift",
+                                                "id": "swift-27b"}}),
+                          encoding="utf-8")
+            with FakeProject("prio-c") as pc:
+                with Bridge(state=sf, fresh=False,
+                            extra={"PI_AGENT_DIR": str(agent),
+                                   "FAKE_SET_MODEL_THINKING": json.dumps(
+                                       {"swift/swift-27b": "xhigh"})}):
+                    mid, think = await _open_and_read(pc.path, True)
+                    print("  C (nivel tras cambiar de modelo): %r %r"
+                          % (mid, think))
+                    checks.append(("tras imponer el modelo, la lectura "
+                                   "muestra el nivel real de pi",
+                                   mid == "swift-27b" and think == "xhigh"))
     finally:
         sf.unlink(missing_ok=True)
     return checks

@@ -150,6 +150,58 @@ async def ui():
                     ("sin cambios no hay check", ed["ok"] is True),
                 ]
 
+                # escala de los campos: 14 px como las filas de ajustes (el
+                # zoom al enfocar no existe, el viewport lleva maximum-scale=1)
+                # y rotulo discreto: gris en reposo, acento solo con el foco,
+                # sin mayusculas. Headless no tiene foco de sistema: sin la
+                # emulacion, :focus no aplicaria y se mediria el reposo
+                await p.cmd("Emulation.setFocusEmulationEnabled", enabled=True)
+                sc = await js("""(async () => {
+                  const i = document.querySelector('#sheetBody .mfield input:not([readonly])');
+                  const l = i.nextElementSibling;
+                  const cs = e => getComputedStyle(e);
+                  const probe = document.createElement('span');
+                  probe.style.color = 'var(--amber)';
+                  document.body.appendChild(probe);
+                  const amber = cs(probe).color;
+                  const dim = (probe.style.color = 'var(--dim)', cs(probe).color);
+                  probe.remove();
+                  const rest = cs(l).color;
+                  i.focus();
+                  await new Promise(r => setTimeout(r, 300));
+                  const foc = cs(l).color;
+                  i.blur();
+                  const sel = document.querySelector('.mfield.sel button');
+                  return {fs: cs(i).fontSize, selFs: cs(sel).fontSize,
+                    tt: cs(l).textTransform, rest, foc, amber, dim,
+                    // ::first-letter no sale en getComputedStyle: se mide
+                    // el ancho pintado contra la palabra en mayuscula y en
+                    // minuscula, con la misma fuente
+                    cap: (() => {
+                      const s0 = sel.firstElementChild, t = s0.textContent;
+                      const w = x => { const k = document.createElement('span');
+                        k.style.cssText = 'position:absolute;visibility:hidden;'
+                          + 'white-space:nowrap;font:' + cs(s0).font;
+                        k.textContent = x; document.body.appendChild(k);
+                        const v = k.getBoundingClientRect().width; k.remove();
+                        return v; };
+                      const got = s0.getBoundingClientRect().width;
+                      const up = w(t[0].toUpperCase() + t.slice(1));
+                      const low = w(t[0].toLowerCase() + t.slice(1));
+                      return Math.abs(got - up) < 0.5 && Math.abs(up - low) > 0.5
+                        ? 'uppercase' : 'none'; })()};
+                })()""")
+                print("  escala: %r" % sc)
+                checks += [
+                    ("campos a 14 px, eleccion igual",
+                     sc["fs"] == "14px" and sc["selFs"] == "14px"),
+                    ("rotulo gris en reposo, acento con el foco",
+                     sc["rest"] == sc["dim"] and sc["foc"] == sc["amber"]),
+                    ("rotulo sin mayusculas", sc["tt"] == "none"),
+                    ("el campo de eleccion empieza en mayuscula",
+                     sc["cap"] == "uppercase"),
+                ]
+
                 # el campo abre una pagina de sheet, no un modal centrado
                 # los niveles llegan por onRpc (sincrono): si el clic llegara
                 # antes que la respuesta, la pagina saldria en estado de carga

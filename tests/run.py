@@ -43,7 +43,8 @@ ORDER = ["static_check", "theme_check", "label_check", "notes_check",
          "image_probe",
          "toolimg_probe", "stats_probe", "multi_probe", "pwa_probe",
          "gesture_probe", "kb_anchor_probe",
-         "store_probe", "restartcurtain_probe", "edgefade_probe"]
+         "store_probe", "restartcurtain_probe", "edgefade_probe",
+         "overstretch_probe", "composerscroll_probe"]
 
 BASE_PORT = 8811      # el puente vivo del usuario va en 8770
 

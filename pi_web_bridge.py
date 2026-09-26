@@ -2815,7 +2815,8 @@ class Bridge:
                       cmd=cmd, err=str(ev.get("error")))
             # la carga no va a llegar: snapshot con loading False, o el
             # telon de /restart esperaria hasta su tope
-            if cmd in ("switch_session", "get_messages")                     and self.state.get("loading"):
+            if (cmd in ("switch_session", "get_messages")
+                    and self.state.get("loading")):
                 self.state["loading"] = False
                 self.emit(self.snapshot())
             return
@@ -2927,6 +2928,13 @@ class Bridge:
             if data.get("provider") and data.get("id"):
                 save_default_model(data["provider"], data["id"])
             self.push_state()
+            # pi recalcula el razonamiento al cambiar de modelo (el override
+            # de ese modelo o el global), y la respuesta no lo trae. Sin
+            # releer, la lectura se quedaba con el nivel del modelo anterior:
+            # sesion nueva -> pi vuelve a su modelo (Qwen, override medium),
+            # el puente impone swift, pi pasa a xhigh y se seguia leyendo
+            # medium. Sin bucle: en el get_state el modelo ya coincide
+            self.send_pi({"type": "get_state"})
 
         elif cmd == "set_thinking_level":
             # pi no avisa del nuevo nivel: sin esto la cabecera se queda en el
