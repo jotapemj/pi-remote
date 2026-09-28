@@ -52,6 +52,67 @@ def seed(td):
     return proj
 
 
+def pi_rules():
+    """Lo que carga pi de verdad (package-manager y loader), comparado con
+    get_commands de un pi real: estos casos se escapaban del listado."""
+    import pi_web_bridge as B
+    checks = []
+    root = TMP / "rules"
+    shutil.rmtree(root, ignore_errors=True)
+    nm = root / "npm" / "node_modules"
+    # scoped sin version, manifiesto a un fichero
+    sc = nm / "@sc" / "scoped"
+    (sc / "src").mkdir(parents=True)
+    (sc / "package.json").write_text(json.dumps(
+        {"pi": {"extensions": ["./src/index.ts"]}}), encoding="utf-8")
+    (sc / "src" / "index.ts").write_text("export {}", encoding="utf-8")
+    # manifiesto que apunta a una CARPETA (pi-loop-police)
+    dp = nm / "dirpkg"
+    (dp / "extensions" / "sub").mkdir(parents=True)
+    (dp / "package.json").write_text(json.dumps(
+        {"pi": {"extensions": ["./extensions"]}}), encoding="utf-8")
+    (dp / "extensions" / "index.ts").write_text("export {}", encoding="utf-8")
+    # extensiones de usuario: suelta, subcarpeta con index y una carpeta de
+    # configuracion (la de pi-permission-system) que no es extension
+    ue = root / "extensions"
+    (ue / "myext").mkdir(parents=True)
+    (ue / "myext" / "index.ts").write_text("export {}", encoding="utf-8")
+    (ue / "cfgonly").mkdir()
+    (ue / "cfgonly" / "config.json").write_text("{}", encoding="utf-8")
+    (ue / "node_modules" / "x").mkdir(parents=True)
+    (ue / "node_modules" / "x" / "index.ts").write_text("", encoding="utf-8")
+    (ue / "solo.ts").write_text("export {}", encoding="utf-8")
+    (root / "settings.json").write_text(json.dumps({"packages": [
+        "npm:@sc/scoped", "npm:dirpkg", "../gone/relays",
+        "git:github.com/a/b"]}), encoding="utf-8")
+    old = B.AGENT_DIR
+    B.AGENT_DIR = root
+    try:
+        ex = {e["name"]: e for e in B.extensions_list("global", "/x")}
+        print("  reglas de pi:", {k: (v.get("pkg"), v.get("rel"),
+                                      v.get("missing")) for k, v in ex.items()})
+        checks += [
+            ("scoped sin version: sale (antes el nombre quedaba vacio)",
+             ex.get("scoped", {}).get("pkg") == "@sc/scoped"
+             and ex["scoped"].get("rel") == "src/index.ts"),
+            ("manifiesto a una carpeta: se recorre como pi",
+             ex.get("dirpkg", {}).get("rel") == "extensions/index.ts"),
+            ("subcarpeta de usuario con index.ts, con el nombre de la carpeta",
+             "myext" in ex and "solo" in ex),
+            ("una carpeta sin index ni node_modules no son extensiones",
+             "cfgonly" not in ex and "x" not in ex),
+            ("configurado sin carpeta: sale marcado como no instalado",
+             ex.get("relays", {}).get("missing") is True),
+            ("los git se saltan (sin ruta determinista)",
+             not any("github" in k for k in ex)),
+            ("el Store y Resources leen el mismo nombre npm",
+             B.installed_names() == {"@sc/scoped", "dirpkg"}),
+        ]
+    finally:
+        B.AGENT_DIR = old
+    return checks
+
+
 def backend():
     import pi_web_bridge as B
     checks = []
@@ -149,10 +210,11 @@ def backend():
         byname = {e["name"]: e for e in ex}
         checks += [
             ("extensiones lista guard.ts y la del paquete",
-             set(byname) == {"guard", "index"}),
-            ("la del paquete lleva su origen",
-             byname["index"].get("source") == "package"
-             and byname["index"].get("pkg") == "fakepkg"),
+             set(byname) == {"guard", "fakepkg"}),
+            ("la del paquete lleva su origen (index.ts se llama como el paquete)",
+             byname["fakepkg"].get("source") == "package"
+             and byname["fakepkg"].get("pkg") == "fakepkg"
+             and byname["fakepkg"].get("rel") == "index.ts"),
         ]
         pex = B.extensions_list("project", str(proj))
         checks.append(("el proyecto sin packages: vacio", pex == []))
@@ -221,7 +283,7 @@ async def ui():
                  rows["seq"] == ["H", "S", "S", "S", "X", "E", "E"]),
                 ("la del paquete sale sin toggle", rows["pkg"] == 1),
                 ("las dos extensions salen en su seccion",
-                 sorted(rows["ext"]) == ["guard", "index"]),
+                 sorted(rows["ext"]) == ["fakepkg", "guard"]),
             ]
 
             # sin ancla: la respuesta de skills_list puede llegar antes de que
@@ -362,7 +424,7 @@ async def ui():
 
 
 async def main():
-    return backend() + await ui()
+    return pi_rules() + backend() + await ui()
 
 
 raise SystemExit(report(asyncio.run(main())))

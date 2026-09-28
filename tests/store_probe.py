@@ -542,8 +542,9 @@ async def ui():
                 checks += [
                     ("skeleton fiel al layout: solo el nombre real",
                      sk["name"] == "alpha" and sk["n"] >= 15),
-                    ("skeleton con barras animadas (tshine)",
-                     sk["anim"] == "tshine"),
+                    # skw: una onda alineada en todas (pkgdetail_probe)
+                    ("skeleton con barras animadas (skw)",
+                     sk["anim"] == "skw"),
                 ]
 
                 # ---- debounce: teclear no dispara al instante ----

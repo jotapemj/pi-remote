@@ -1572,13 +1572,23 @@ def _ignored_names(root):
             if ln.strip() and not ln.startswith(("#", "!"))}
 
 
-def _package_roots(scope, cwd):
+def npm_name(spec):
+    """'@a/b@1.2' -> '@a/b', 'x@2' -> 'x'. En un scoped la version va tras
+    el SEGUNDO @: un rsplit a secas dejaba '' con '@a/b' sin version."""
+    spec = (spec or "").strip()
+    scope = "@" if spec.startswith("@") else ""
+    name = spec[len(scope):].split("@", 1)[0]
+    return scope + name if name else ""
+
+
+def _package_roots(scope, cwd, missing=False):
     """(nombre, raiz) de cada paquete configurado e instalado.
 
     Espejo del package-manager de pi: los npm viven en node_modules
     (usuario en AGENT_DIR/npm, proyecto en <cwd>/.pi/npm) y las rutas
     locales se resuelven contra el directorio base. Los git no tienen
-    ruta determinista: se saltan."""
+    ruta determinista: se saltan. Con `missing`, devuelve en cambio los
+    configurados cuya carpeta no existe (pi no carga nada de ellos)."""
     if scope == "project":
         settings_p = Path(cwd) / ".pi" / "settings.json"
         base = Path(cwd) / ".pi"
@@ -1594,19 +1604,18 @@ def _package_roots(scope, cwd):
     for pkg in d.get("packages") or []:
         src = pkg if isinstance(pkg, str) else (pkg.get("source") or "")
         if src.startswith("npm:"):
-            spec = src[4:].strip()
-            # nombre sin version: @scope/name@1.2 -> @scope/name
-            name = spec.rsplit("@", 1)[0] if spec.startswith("@") \
-                else spec.split("@", 1)[0]
+            name = npm_name(src[4:])
+            if not name:
+                continue
             root = base / "npm" / "node_modules" / name
-        elif src:
+        elif src and not src.startswith(("git:", "http:", "https:")):
             p = Path(src)
             root = p if p.is_absolute() else base / p
+            name = root.name
         else:
             continue
-        if root.is_dir():
-            out.append((name if src.startswith("npm:") else root.name,
-                        root))
+        if root.is_dir() != missing:
+            out.append((name, root))
     return out
 
 
@@ -1651,27 +1660,73 @@ def _skill_md_files(d):
             if s.is_dir() and (s / "SKILL.md").is_file()]
 
 
+def _ext_entries(d):
+    """Entradas de una carpeta-extension (resolveExtensionEntries de pi):
+    las del manifiesto `pi.extensions` de su package.json, si no index.ts,
+    si no index.js. None si no es una extension."""
+    entries = _pkg_manifest_entries(d, "extensions")
+    if entries:
+        found = [p for p in entries if p.exists()]
+        if found:
+            return found
+    for idx in ("index.ts", "index.js"):
+        if (d / idx).is_file():
+            return [d / idx]
+    return None
+
+
+def _auto_extensions(d):
+    """Extensiones de una carpeta como las descubre pi
+    (collectAutoExtensionEntries): si la carpeta misma es una extension,
+    esa; si no, sus .ts/.js sueltos y las subcarpetas que lo sean. Sin
+    ocultos ni node_modules, un solo nivel."""
+    if not d.is_dir():
+        return []
+    own = _ext_entries(d)
+    if own:
+        return own
+    out = []
+    try:
+        items = sorted(d.iterdir(), key=lambda p: p.name.lower())
+    except OSError:
+        return []
+    for e in items:
+        if e.name.startswith(".") or e.name == "node_modules":
+            continue
+        if e.is_file() and e.suffix in (".ts", ".js"):
+            out.append(e)
+        elif e.is_dir():
+            out.extend(_ext_entries(e) or [])
+    return out
+
+
 def _pkg_extensions(root):
-    """Ficheros de extension del paquete: manifest primero, luego
-    extensions/ (ficheros .ts/.js y subcarpetas con index)."""
+    """Ficheros de extension del paquete: manifiesto primero (fichero, o
+    carpeta que se recorre como pi: pi-loop-police declara "./extensions"),
+    luego la carpeta convencional extensions/."""
     entries = _pkg_manifest_entries(root, "extensions")
     if entries is not None:
-        return [p for p in entries if p.is_file()]
-    d = root / "extensions"
-    out = []
-    if d.is_dir():
-        for e in sorted(d.iterdir(), key=lambda p: p.name.lower()):
-            if e.name.startswith("."):
-                continue
-            if e.is_file() and e.suffix in (".ts", ".js"):
-                out.append(e)
-            elif e.is_dir():
-                for idx in ("index.ts", "index.js"):
-                    f = e / idx
-                    if f.is_file():
-                        out.append(f)
-                        break
-    return out
+        out = []
+        for p in entries:
+            if p.is_file():
+                out.append(p)
+            elif p.is_dir():
+                out.extend(_auto_extensions(p))
+        return out
+    return _auto_extensions(root / "extensions")
+
+
+GENERIC_EXT = {"index", "extension", "main"}
+
+
+def _ext_label(f, pkg=None):
+    """Nombre legible: 'index.ts' no dice nada; se usa la carpeta o, en un
+    paquete, el nombre del paquete sin el scope."""
+    if f.stem.lower() not in GENERIC_EXT:
+        return f.stem
+    if pkg:
+        return pkg.rsplit("/", 1)[-1]
+    return f.parent.name
 
 
 def skills_list(scope, cwd):
@@ -1778,17 +1833,23 @@ def skill_delete(scope, cwd, dirname):
 
 def extensions_list(scope, cwd):
     root = _res_root(scope, cwd, "extensions")
-    out = []
-    if root.is_dir():
-        for f in sorted(root.iterdir(), key=lambda p: p.name.lower()):
-            if f.is_file() and f.suffix in (".ts", ".js") \
-                    and not f.name.startswith("."):
-                out.append({"name": f.stem, "path": str(f)})
+    # como pi: ficheros sueltos y subcarpetas con index o manifiesto
+    out = [{"name": _ext_label(f), "path": str(f)}
+           for f in _auto_extensions(root)]
     # extensiones de paquetes (npm/locale): solo ver
     for pkg, proot in _package_roots(scope, cwd):
         for f in _pkg_extensions(proot):
-            out.append({"name": f.stem, "path": str(f),
-                        "source": "package", "pkg": pkg})
+            try:
+                rel = f.relative_to(proot).as_posix()
+            except ValueError:
+                rel = f.name
+            out.append({"name": _ext_label(f, pkg), "path": str(f),
+                        "rel": rel, "source": "package", "pkg": pkg})
+    # configurado pero sin carpeta: pi no carga nada de el. Se ensena roto
+    # en vez de desaparecer sin mas
+    for pkg, proot in _package_roots(scope, cwd, missing=True):
+        out.append({"name": pkg.rsplit("/", 1)[-1], "path": str(proot),
+                    "source": "package", "pkg": pkg, "missing": True})
     return out
 
 
@@ -1936,10 +1997,9 @@ def installed_names():
         spec = src[4:].strip()
         # scoped (@a/b o @a/b@1.0.0): la version va tras el SEGUNDO @.
         # rsplit a secas dejaba '' con @a/b sin version
-        scope = "@" if spec.startswith("@") else ""
-        name = spec[len(scope):].split("@", 1)[0]
+        name = npm_name(spec)
         if name:
-            names.add(scope + name)
+            names.add(name)
     return names
 
 def _store_parse_cards(html):

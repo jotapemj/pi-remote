@@ -352,7 +352,7 @@ html.booted .curtain:not(.restarting){display:none}
    notas de esa version (no se queda molestando para siempre) */
 #menuBtn{position:relative}
 #menuBtn.upd::after{
-  content:""; position:absolute; top:7px; right:7px; width:8px; height:8px;
+  content:""; position:absolute; bottom:7px; right:7px; width:8px; height:8px;
   border-radius:50%; background:var(--amber);
   box-shadow:0 0 0 2px var(--plate-a);
 }
@@ -805,6 +805,8 @@ html.hide-think .think-turn{display:none}
 }
 .ask .verdict .i{width:16px;height:16px}
 .ask .verdict.expired{color:var(--faint)}
+/* paquete configurado sin carpeta: pi no carga nada de el */
+.skrow.extrow .stxt small.bad{color:var(--coral)}
 
 /* ---------- readout: the signature ---------- */
 .readout[hidden]{display:none}     /* display:flex below beats [hidden] */
@@ -2246,11 +2248,26 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
 /* base en --raise: con --surface (el fondo de la tarjeta) no se veia */
 .skel{position:relative;overflow:hidden;border-radius:6px;
   background:var(--raise)}
+/* color-mix con DOS colores: con uno solo ("var(--ink) 14%") Chrome da el
+   degradado por invalido y el barrido no pintaba nada */
+/* una sola onda inclinada para todo el skeleton: cada barra enseña su
+   trozo de UN fondo comun (caja --bw x --bh con la banda a 110deg, «/»),
+   desplazado por su posicion (--sx, --sy). Asi la diagonal sigue continua
+   de barra en barra. skelSync calcula caja y recorrido (--p0 a --p1) para
+   que la banda entre y salga entera por los dos lados */
 .skel::after{content:"";position:absolute;inset:0;
-  background:linear-gradient(90deg,transparent 42%,
-    color-mix(in srgb, var(--ink) 14%) 50%, transparent 58%);
-  background-size:250% 100%;background-position:100% 0;
-  animation:tshine 2.8s cubic-bezier(.45,0,.15,1) infinite}
+  background:linear-gradient(110deg,transparent calc(50% - 55px),
+    color-mix(in srgb, var(--ink) 14%, transparent) 50%,
+    transparent calc(50% + 55px));
+  background-repeat:no-repeat;
+  background-size:var(--bw, 600px) var(--bh, 100%);
+  animation:skw 2.2s cubic-bezier(.45,0,.15,1) infinite}
+@keyframes skw{
+  from{background-position:calc(var(--p0, -600px) - var(--sx, 0px))
+                           calc(0px - var(--sy, 0px))}
+  to{background-position:calc(var(--p1, 300px) - var(--sx, 0px))
+                         calc(0px - var(--sy, 0px))}}
+@media (prefers-reduced-motion: reduce){ .skel::after{animation:none} }
 /* detalle de paquete: tamano fijo — el skeleton y el contenido comparten
    la misma caja, y el dialogo no salta al terminar de cargar. El cuerpo
    rellena hasta los botones, que se quedan en su sitio final */
@@ -2322,7 +2339,8 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
   text-transform:uppercase;letter-spacing:.06em;margin:18px 0 6px}
 .pdlinks{display:flex;gap:14px;margin-top:18px;flex-wrap:wrap}
 .pdlinks a{color:var(--amber);font:500 12px var(--sans);
-  display:flex;gap:4px;align-items:center;text-decoration:none}
+  display:flex;gap:6px;align-items:center;text-decoration:none}
+.pdlinks a .i{width:15px;height:15px;flex:none}
 .pdreadme{width:100%;margin-top:16px}
 .ok[disabled]{opacity:.45;pointer-events:none}
 .storemd{padding:4px 16px 26px;font:400 13px/1.6 var(--sans);
@@ -2524,6 +2542,12 @@ const ICONS = {
   check:"M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z",
   lang:"M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z",
   close:"M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z",
+  // logos de los enlaces de paquetes: Simple Icons 13.21 (CC0-1.0)
+  brandNpm:"M1.763 0C.786 0 0 .786 0 1.763v20.474C0 23.214.786 24 1.763 24h20.474c.977 0 1.763-.786 1.763-1.763V1.763C24 .786 23.214 0 22.237 0zM5.13 5.323l13.837.019-.009 13.836h-3.464l.01-10.382h-3.456L12.04 19.17H5.113z",
+  brandGithub:"M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12",
+  brandGitlab:"m23.6004 9.5927-.0337-.0862L20.3.9814a.851.851 0 0 0-.3362-.405.8748.8748 0 0 0-.9997.0539.8748.8748 0 0 0-.29.4399l-2.2055 6.748H7.5375l-2.2057-6.748a.8573.8573 0 0 0-.29-.4412.8748.8748 0 0 0-.9997-.0537.8585.8585 0 0 0-.3362.4049L.4332 9.5015l-.0325.0862a6.0657 6.0657 0 0 0 2.0119 7.0105l.0113.0087.03.0213 4.976 3.7264 2.462 1.8633 1.4995 1.1321a1.0085 1.0085 0 0 0 1.2197 0l1.4995-1.1321 2.4619-1.8633 5.006-3.7489.0125-.01a6.0682 6.0682 0 0 0 2.0094-7.003z",
+  brandCodeberg:"M11.955.49A12 12 0 0 0 0 12.49a12 12 0 0 0 1.832 6.373L11.838 5.928a.187.14 0 0 1 .324 0l10.006 12.935A12 12 0 0 0 24 12.49a12 12 0 0 0-12-12 12 12 0 0 0-.045 0zm.375 6.467l4.416 16.553a12 12 0 0 0 5.137-4.213z",
+  brandBitbucket:"M.778 1.213a.768.768 0 00-.768.892l3.263 19.81c.084.5.515.868 1.022.873H19.95a.772.772 0 00.77-.646l3.27-20.03a.768.768 0 00-.768-.891zM14.52 15.53H9.522L8.17 8.466h7.561z",
   historyOff:"M15.1,19.37l1,1.74c-0.96,0.44-2.01,0.73-3.1,0.84v-2.02C13.74,19.84,14.44,19.65,15.1,19.37z M4.07,13H2.05 c0.11,1.1,0.4,2.14,0.84,3.1l1.74-1C4.35,14.44,4.16,13.74,4.07,13z M15.1,4.63l1-1.74C15.14,2.45,14.1,2.16,13,2.05v2.02 C13.74,4.16,14.44,4.35,15.1,4.63z M19.93,11h2.02c-0.11-1.1-0.4-2.14-0.84-3.1l-1.74,1C19.65,9.56,19.84,10.26,19.93,11z M8.9,19.37l-1,1.74c0.96,0.44,2.01,0.73,3.1,0.84v-2.02C10.26,19.84,9.56,19.65,8.9,19.37z M11,4.07V2.05 c-1.1,0.11-2.14,0.4-3.1,0.84l1,1.74C9.56,4.35,10.26,4.16,11,4.07z M18.36,7.17l1.74-1.01c-0.63-0.87-1.4-1.64-2.27-2.27 l-1.01,1.74C17.41,6.08,17.92,6.59,18.36,7.17z M4.63,8.9l-1.74-1C2.45,8.86,2.16,9.9,2.05,11h2.02C4.16,10.26,4.35,9.56,4.63,8.9z M19.93,13c-0.09,0.74-0.28,1.44-0.56,2.1l1.74,1c0.44-0.96,0.73-2.01,0.84-3.1H19.93z M16.83,18.36l1.01,1.74 c0.87-0.63,1.64-1.4,2.27-2.27l-1.74-1.01C17.92,17.41,17.41,17.92,16.83,18.36z M7.17,5.64L6.17,3.89 C5.29,4.53,4.53,5.29,3.9,6.17l1.74,1.01C6.08,6.59,6.59,6.08,7.17,5.64z M5.64,16.83L3.9,17.83c0.63,0.87,1.4,1.64,2.27,2.27 l1.01-1.74C6.59,17.92,6.08,17.41,5.64,16.83z M13,7h-2v5.41l4.29,4.29l1.41-1.41L13,11.59V7z",
   palette:"M12,2C6.49,2,2,6.49,2,12s4.49,10,10,10c1.38,0,2.5-1.12,2.5-2.5c0-0.61-0.23-1.2-0.64-1.67c-0.08-0.1-0.13-0.21-0.13-0.33 c0-0.28,0.22-0.5,0.5-0.5H16c3.31,0,6-2.69,6-6C22,6.04,17.51,2,12,2z M17.5,13c-0.83,0-1.5-0.67-1.5-1.5c0-0.83,0.67-1.5,1.5-1.5 s1.5,0.67,1.5,1.5C19,12.33,18.33,13,17.5,13z M14.5,9C13.67,9,13,8.33,13,7.5C13,6.67,13.67,6,14.5,6S16,6.67,16,7.5 C16,8.33,15.33,9,14.5,9z M5,11.5C5,10.67,5.67,10,6.5,10S8,10.67,8,11.5C8,12.33,7.33,13,6.5,13S5,12.33,5,11.5z M11,7.5 C11,8.33,10.33,9,9.5,9S8,8.33,8,7.5C8,6.67,8.67,6,9.5,6S11,6.67,11,7.5z",
   back:"M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z",
@@ -4686,6 +4710,7 @@ function aboutModal(){
     + `<dt>Uvicorn</dt><dd>BSD-3-Clause</dd>`
     + `<dt>Starlette</dt><dd>BSD-3-Clause</dd>`
     + `<dt>Material Icons</dt><dd>Apache License 2.0</dd>`
+    + `<dt>Simple Icons</dt><dd>CC0 1.0</dd>`
     + `<dt>IBM Plex Mono</dt><dd>SIL Open Font License 1.1</dd>`
     + `<dt>Plus Jakarta Sans</dt><dd>SIL Open Font License 1.1</dd>`
     + `<dt>Inter</dt><dd>SIL Open Font License 1.1</dd>`
@@ -5954,7 +5979,7 @@ const STR = {
       compactB:"The conversation gets summarised. It cannot be undone.",
       clearqQ:"Drop the queued messages?",
       restartQ:"Restart pi remote now?",
-      typeAnswer:"type an answer", answered:"answered", askExpired:"closed without an answer", tools:"tool",
+      typeAnswer:"type an answer", answered:"answered", askExpired:"closed without an answer", pkgMissing:"configured but not installed: pi loads nothing from it", tools:"tool",
       fold:"collapse",
       thinking:"Thinking\u2026", thoughtFor:"Thought for {n} {u}",
       secOne:"second", secMany:"seconds", minOne:"minute", minMany:"minutes",
@@ -6111,7 +6136,7 @@ const STR = {
       compactB:"La conversaci\u00f3n se resume. No se puede deshacer.",
       clearqQ:"\u00bfDescartar los mensajes en cola?",
       restartQ:"\u00bfReiniciar pi remote ahora?",
-      typeAnswer:"escribir respuesta", answered:"respondido", askExpired:"cerrada sin respuesta",
+      typeAnswer:"escribir respuesta", answered:"respondido", askExpired:"cerrada sin respuesta", pkgMissing:"configurado pero no instalado: pi no carga nada de \u00e9l",
       tools:"herramienta", fold:"plegar", output:"salida", noOutput:"sin salida",
       command:"comando", pasted:"Texto pegado {n} líneas", prefilling:"prefilling",
       thinking:"Pensando\u2026", thoughtFor:"Pens\u00f3 durante {n} {u}",
@@ -6268,7 +6293,7 @@ const STR = {
       compactB:"Das Gespr\u00e4ch wird zusammengefasst. Das l\u00e4sst sich nicht r\u00fcckg\u00e4ngig machen.",
       clearqQ:"Nachrichten in der Warteschlange verwerfen?",
       restartQ:"pi remote jetzt neu starten?",
-      typeAnswer:"Antwort eingeben", answered:"beantwortet", askExpired:"ohne Antwort geschlossen",
+      typeAnswer:"Antwort eingeben", answered:"beantwortet", askExpired:"ohne Antwort geschlossen", pkgMissing:"konfiguriert, aber nicht installiert: pi l\u00e4dt nichts daraus",
       tools:"Werkzeug", fold:"einklappen", output:"Ausgabe",
       noOutput:"keine Ausgabe", command:"Befehl",
       pasted:"Einf\u00fcgung: {n} Zeilen", prefilling:"prefilling",
@@ -6426,7 +6451,7 @@ const STR = {
       compactB:"La conversation sera r\u00e9sum\u00e9e. Irr\u00e9versible.",
       clearqQ:"Vider les messages en file d'attente ?",
       restartQ:"Red\u00e9marrer pi remote maintenant ?",
-      typeAnswer:"Saisir une r\u00e9ponse", answered:"r\u00e9pondu", askExpired:"ferm\u00e9e sans r\u00e9ponse",
+      typeAnswer:"Saisir une r\u00e9ponse", answered:"r\u00e9pondu", askExpired:"ferm\u00e9e sans r\u00e9ponse", pkgMissing:"configur\u00e9 mais non install\u00e9 : pi n\u2019en charge rien",
       tools:"Outil", fold:"replier", output:"sortie",
       noOutput:"aucune sortie", command:"commande",
       pasted:"Texte coll\u00e9, {n} lignes", prefilling:"prefilling",
@@ -6583,7 +6608,7 @@ const STR = {
       compactB:"A conversa ser\u00e1 resumida. N\u00e3o se desfaz.",
       clearqQ:"Descartar as mensagens na fila?",
       restartQ:"Reiniciar o pi remote agora?",
-      typeAnswer:"digite a resposta", answered:"respondido", askExpired:"fechada sem resposta",
+      typeAnswer:"digite a resposta", answered:"respondido", askExpired:"fechada sem resposta", pkgMissing:"configurado mas n\u00e3o instalado: o pi n\u00e3o carrega nada dele",
       tools:"Ferramenta", fold:"recolher", output:"sa\u00edda",
       noOutput:"sem sa\u00edda", command:"comando",
       pasted:"Texto colado, {n} linhas", prefilling:"prefilling",
@@ -6735,7 +6760,7 @@ const STR = {
       compactB:"对话将被摘要化。不可撤销。",
       clearqQ:"丢弃排队中的消息？",
       restartQ:"现在重启 pi remote？",
-      typeAnswer:"输入回答", answered:"已回答", askExpired:"未回答，已关闭",
+      typeAnswer:"输入回答", answered:"已回答", askExpired:"未回答，已关闭", pkgMissing:"已配置但未安装：pi 不会加载其中任何内容",
       tools:"工具", fold:"收起", output:"输出",
       noOutput:"无输出", command:"命令",
       pasted:"粘贴文本，{n} 行", prefilling:"prefilling",
@@ -7838,10 +7863,17 @@ function paintExtRows(scope){
   list.forEach(x => {
     const r = document.createElement("div");
     r.className = "skrow extrow"; r.style.cursor = "default";
-    // las de paquete muestran el nombre del paquete, no la ruta entera
-    const sub = x.source === "package" ? x.pkg : x.path;
-    r.innerHTML = `<span class="stxt"><span>${esc(x.name)}</span>`
-      + `<small>${esc(sub)}</small></span>`;
+    // como las skills: el paquete en insignia y, debajo, el fichero dentro
+    // del paquete (la ruta entera solo para las sueltas). Un paquete
+    // configurado sin carpeta se ensena roto: pi no carga nada de el
+    const isPkg = x.source === "package";
+    const sub = x.missing ? T("pkgMissing")
+              : isPkg ? (x.rel || x.pkg) : tilde(x.path);
+    r.innerHTML = `<span class="stxt"><span>${esc(x.name)}`
+      // la insignia solo si dice algo: "@a/pi-x" junto a "pi-x" repite
+      + (isPkg && x.pkg && x.pkg.split("/").pop() !== x.name
+         ? `<i class="pkgb">${esc(x.pkg)}</i>` : "")
+      + `</span><small${x.missing ? ` class="bad"` : ""}>${esc(sub)}</small></span>`;
     c.appendChild(r);
   });
 }
@@ -9283,10 +9315,16 @@ function paintStore(){
   // caja de busqueda con X animada (solo con texto)
   const q = document.createElement("div");
   q.className = "storeq";
-  q.innerHTML = `<input type="text" placeholder="${esc(T("storeSearchHint"))}" autocomplete="off">`
+  q.innerHTML = `<input type="text" placeholder="${esc(T("storeSearchHint"))}"`
+    + ` autocomplete="off" enterkeyhint="search">`
     + `<button class="storex" aria-label="${esc(T("cancel"))}">${ico("close")}</button>`;
   const inp = q.querySelector("input"), x = q.querySelector(".storex");
   x.hidden = true; x.classList.remove("show");
+  // la busqueda ya corre al escribir: Enter solo aparta el teclado, que
+  // tapaba media lista de resultados
+  inp.addEventListener("keydown", e => {
+    if(e.key === "Enter" && !e.isComposing){ e.preventDefault(); inp.blur(); }
+  });
   inp.addEventListener("input", () => {
     storeQ = inp.value.trim();
     x.classList.toggle("show", !!storeQ);
@@ -9397,6 +9435,7 @@ function paintStoreRows(){
                            : storeInstallConfirm(p.name)),
         {ok: p.installed ? T("uninstall") : T("install")});
       $("#modal").classList.add("pd");   // tamano fijo hasta el contenido
+      skelSync($("#modalBody"));
       send({type:"store_detail", name:p.name});
     };
     list.appendChild(r);
@@ -9406,6 +9445,19 @@ function paintStoreRows(){
   sp.hidden = !storeBusy;           // solo la pagina siguiente, al pie
   list.appendChild(sp);
   if(!sp.hidden) piLoaders();
+}
+/* el logo del sitio al que lleva cada enlace, por su dominio: un repo no
+   siempre esta en GitHub, y la web del paquete a veces es su propio repo.
+   Lo desconocido lleva el globo */
+const LINK_HOSTS = [["npmjs.com", "brandNpm"], ["github.com", "brandGithub"],
+  ["gitlab.com", "brandGitlab"], ["codeberg.org", "brandCodeberg"],
+  ["bitbucket.org", "brandBitbucket"]];
+function linkIcon(kind, url){
+  let host = "";
+  try { host = new URL(url).hostname.toLowerCase(); } catch(e){}
+  const hit = LINK_HOSTS.find(([h]) => host === h || host.endsWith("." + h));
+  if(hit) return hit[1];
+  return kind === "npm" ? "brandNpm" : "public";
 }
 function detailHtml(d){
   const rows = [
@@ -9430,7 +9482,7 @@ function detailHtml(d){
     html += `<div class="pdlinks">` + L.filter(([k]) => d.links[k])
       .map(([k, lbl]) =>
         `<a href="${esc(d.links[k])}" target="_blank" rel="noopener noreferrer">`
-        + `${ico("external")}${lbl}</a>`).join("") + `</div>`;
+        + `${ico(linkIcon(k, d.links[k]))}${lbl}</a>`).join("") + `</div>`;
   }
   return html;
 }
@@ -9439,6 +9491,30 @@ function detailHtml(d){
 // fiel al layout real de detailHtml: el nombre es lo unico real; cada
 // barra ocupa la forma de su equivalente (descripcion, nota, caja de
 // comando, filas key/valor, manifiesto, enlaces)
+/* la onda inclinada comun (.skel::after): caja del fondo, recorrido y la
+   posicion de cada barra. En coordenadas sin escala: el dialogo entra con
+   un transform y el rect viene escalado.
+   Caja: alto del skeleton y ancho para la banda inclinada entera. La banda
+   pasa por el centro de la caja y se desvia H/2 * tan20 arriba y abajo;
+   el recorrido la lleva de fuera a la izquierda a fuera a la derecha */
+const SKEL_TAN = Math.tan(20 * Math.PI / 180), SKEL_PAD = 80;
+function skelSync(root){
+  const box = root && root.querySelector(".pdskel");
+  if(!box || !box.offsetWidth) return;
+  const R = box.getBoundingClientRect(), k = R.width / box.offsetWidth || 1;
+  const W = box.offsetWidth, H = box.offsetHeight;
+  const lean = H / 2 * SKEL_TAN, bw = 2 * (lean + SKEL_PAD) + 120;
+  const px = v => v.toFixed(1) + "px";
+  box.style.setProperty("--bw", px(bw));
+  box.style.setProperty("--bh", px(H));
+  box.style.setProperty("--p0", px(-bw / 2 - lean - SKEL_PAD));
+  box.style.setProperty("--p1", px(W - bw / 2 + lean + SKEL_PAD));
+  box.querySelectorAll(".skel").forEach(b => {
+    const r = b.getBoundingClientRect();
+    b.style.setProperty("--sx", px((r.left - R.left) / k));
+    b.style.setProperty("--sy", px((r.top - R.top) / k));
+  });
+}
 function storeDetailSkeleton(name, installed){
   const bar = (w, h) =>
     `<div class="skel" style="height:${h}px;width:${w}"></div>`;

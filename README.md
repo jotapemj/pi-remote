@@ -605,7 +605,7 @@ python tests/run.py            # everything, about four minutes
 python tests/run.py rail       # just the ones matching "rail"
 ```
 
-Seventy-two probes: the page is driven in a real headless Chrome through the
+Seventy-three probes: the page is driven in a real headless Chrome through the
 DevTools protocol, which is how the animation, contrast, layout and security
 checks are measured rather than assumed. Chrome or Edge is found
 automatically; point `CHROME` at it otherwise.
@@ -615,5 +615,5 @@ automatically; point `CHROME` at it otherwise.
 MIT. See [LICENSE](LICENSE).
 
 Third-party components: FastAPI (MIT), Uvicorn and Starlette (BSD-3-Clause),
-Material Icons (Apache-2.0), IBM Plex Mono, Plus Jakarta Sans, Inter and
-Source Serif 4 (OFL-1.1).
+Material Icons (Apache-2.0), Simple Icons brand logos (CC0-1.0), IBM Plex
+Mono, Plus Jakarta Sans, Inter and Source Serif 4 (OFL-1.1).
