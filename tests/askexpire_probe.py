@@ -134,6 +134,30 @@ async def main():
                           '.ask .verdict:not(.expired)') || document.body).color};
             })()""")
             print("  ", ui)
+            # titulo de varias lineas (pi-permission-system mete el detalle
+            # en el titulo): la primera es el titulo, el resto detalle, sin
+            # la linea que repite el comando del bloque de abajo
+            ml = await p.js("""(() => {
+              render({id: 901, kind: 'ask', rid: 'm', method: 'select',
+                title: 'Permission Required\\ntool: bash\\n' +
+                  'command: ls ~/.claude\\nexternal path: c:\\\\users\\\\x',
+                options: ['Yes', 'No'], tool: 'bash', detail: 'ls ~/.claude'});
+              render({id: 902, kind: 'ask', rid: 'o', method: 'confirm',
+                title: 'Allow?'});
+              const a = nodes.get(901), b = nodes.get(902);
+              return {h3: a.querySelector('h3').textContent,
+                      meta: (a.querySelector('.askmeta') || {}).textContent,
+                      one: b.querySelector('h3').textContent,
+                      noMeta: !b.querySelector('.askmeta')}; })()""")
+            print("  ", ml)
+            checks += [
+                ("titulo multilinea: la primera linea es el titulo",
+                 ml["h3"] == "Permission Required"),
+                ("el resto va como detalle, renglon a renglon",
+                 ml["meta"] == "tool: bash\nexternal path: c:\\users\\x"),
+                ("un titulo de una linea queda igual",
+                 ml["one"] == "Allow?" and ml["noMeta"]),
+            ]
             checks += [
                 ("caducada: sin botones", ui["done"] and ui["opts"] == "none"),
                 ("con su rotulo traducido",

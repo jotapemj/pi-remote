@@ -3643,7 +3643,9 @@ function html(it){
     else
       opts = `<button class="opt" data-c="__text__">${esc(T("typeAnswer"))}`
            + `</button>` + cancel;
-    const said = explain(it.tool, it.detail).slice(0, 4)
+    // dos `ls` seguidos daban la misma frase dos veces: una basta
+    const said = explain(it.tool, it.detail)
+      .filter((e, i, a) => a.findIndex(x => x.t === e.t) === i).slice(0, 4)
       .map(e => `<p>${esc(e.t)
         .replace(/\u0001(.*?)\u0001/g, "<code>$1</code>")}</p>`).join("");
     const what = it.detail
@@ -3652,9 +3654,20 @@ function html(it){
         + (said ? `<div class="says">${said}</div>` : "")
         + `<pre>${esc(it.detail)}</pre></div>`
       : "";
+    // `select` no trae mensaje aparte: las extensiones meten el detalle en
+    // el titulo, tras saltos de linea (pi-permission-system: tool, surface,
+    // command, rutas...). Todo en tamano de titulo tapaba media pantalla:
+    // la primera linea es el titulo y el resto va como detalle, renglon a
+    // renglon. La linea que repite el comando del bloque de abajo, fuera
+    const tl = String(it.title || "").split(/\r?\n/)
+      .map(s => s.trimEnd()).filter(s => s.trim());
+    const cmd = (it.detail || "").trim();
+    const meta = tl.slice(1)
+      .filter(s => !(cmd && s.includes(cmd))).join("\n");
     return `<div class="ask${done}" data-rid="${esc(it.rid)}">
       <div class="cap">${esc(T("asking"))}</div>
-      <h3>${esc(it.title)}</h3>
+      <h3>${esc(tl[0] || it.title || "")}</h3>
+      ${meta ? `<div class="body askmeta">${esc(meta)}</div>` : ""}
       ${it.body?`<div class="body">${esc(it.body)}</div>`:""}
       ${what}
       <div class="opts">${opts}</div>
