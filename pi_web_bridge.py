@@ -2341,6 +2341,7 @@ class Bridge:
         self.lang = "en"                     # ultimo idioma del cliente
         self.last_user_text = ""             # ultimo prompt: ancla de idioma
         self.pending = OrderedDict()         # dialog id -> item id
+        self.turn_asks = set()               # dialogos nacidos en un turno
         self.compacting = None               # la nota "compactando" en curso
         self.prefill_t0 = None               # cuando arranco el prefill actual
         self.gen_first = None                # instante del primer token de texto
@@ -2395,6 +2396,7 @@ class Bridge:
         self.log.clear()
         self.cur = None
         self.pending.clear()
+        self.turn_asks.clear()
         self.emit({"type": "cleared"})
         if dropped:
             self.note("warn", "dropped_ask",
@@ -2768,6 +2770,11 @@ class Bridge:
         elif t == "agent_settled":
             self.state.update(running=False, tool=None)
             self.settle_tools()      # el turno acabo: nada sigue en marcha
+            # un dialogo bloquea su turno: si el turno asento, los que
+            # nacieron en el ya no los espera nadie (pi los cerro por
+            # timeout o por senal de aborto, sin decirlo)
+            for rid in [r for r in self.pending if r in self.turn_asks]:
+                self.expire_ask(rid)
             if self.summary_pending:
                 # el turno abortado asento. El resumen va DIRECTO al modelo
                 # (thinking off), no via pi: la sesion no se ensucia y el
@@ -3075,7 +3082,8 @@ class Bridge:
             return
         notes = [i for i in self.log if i.get("kind") == "note"][-4:]
         waiting = [i for i in self.log
-                   if i.get("kind") == "ask" and not i.get("answered")]
+                   if i.get("kind") == "ask" and not i.get("answered")
+                   and not i.get("expired")]
         self.log.clear()
         self.cur = None
         calls = {}
@@ -3184,11 +3192,38 @@ class Bridge:
         self.pending[rid] = item["id"]
         self.state["waiting"] = True
         self.push_state()
+        # pi resuelve solo el dialogo al vencer su `timeout` (o al abortarse
+        # su senal) y NO avisa al host: sin esto la tarjeta seguia abierta
+        # para siempre y la lectura oculta, esperando a nadie
+        if self.state.get("running"):
+            self.turn_asks.add(rid)
+        try:
+            secs = float(ev.get("timeout") or 0) / 1000
+        except (TypeError, ValueError):
+            secs = 0
+        if secs > 0:
+            t = threading.Timer(secs, self.expire_ask, args=(rid,))
+            t.daemon = True
+            t.start()
+
+    def expire_ask(self, rid):
+        """pi ya no espera este dialogo: la tarjeta se cierra sin respuesta."""
+        self.turn_asks.discard(rid)
+        item_id = self.pending.pop(rid, None)
+        if item_id is None:
+            return                       # ya contestado
+        for item in self.log:
+            if item.get("id") == item_id:
+                self.patch(item, expired=True)
+                break
+        self.state["waiting"] = bool(self.pending)
+        self.push_state()
 
     def answer(self, rid, payload, label):
         if rid not in self.pending:
             return
         item_id = self.pending.pop(rid)
+        self.turn_asks.discard(rid)
         for item in self.log:
             if item.get("id") == item_id:
                 self.patch(item, answered=label)

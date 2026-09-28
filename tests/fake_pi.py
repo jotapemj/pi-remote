@@ -295,6 +295,23 @@ def turn(text, nimg=0):
         threading.Thread(target=refill, daemon=True).start()
         finish()
         return
+    if "askexpire" in text or "askabort" in text:
+        # pi cierra el dialogo SOLO y no avisa al host: con `timeout` lo
+        # resuelve al vencer; con senal de aborto, al abortarse. Aqui se
+        # imitan ambos: nadie contesta y el turno sigue y asienta
+        exp = "askexpire" in text
+        req = {"type": "extension_ui_request", "id": "uuid-x",
+               "method": "confirm", "title": "Proceed?", "message": "x"}
+        if exp:
+            req["timeout"] = 700
+        out(req)
+        time.sleep(1.2 if exp else 0.8)
+        if exp:
+            finish()                    # el timeout resolvio y el turno sigue
+        else:
+            out({"type": "agent_end", "messages": [], "willRetry": False})
+            out({"type": "agent_settled"})
+        return
     if "danger" in text:
         # la herramienta se queda en marcha mientras se pide permiso:
         # es de ahi de donde el puente saca que comando va a ejecutarse

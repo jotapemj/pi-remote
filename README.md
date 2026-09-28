@@ -342,6 +342,11 @@ Four things that are easy to get wrong, and that this bridge handles:
   leaves the screen to the approval card, so a blocked turn never looks like a
   busy one.
 - **`notify` and `setStatus` need no answer** and are shown as plain notes.
+- **A dialog pi closes on its own is closed here too.** An extension can give
+  a dialog a timeout, or tie it to a signal that aborts it; pi then resolves it
+  by itself and never tells the client. The card is marked *closed without an
+  answer* when its timeout runs out, or when the turn it belongs to ends,
+  instead of waiting forever for an answer nobody is expecting.
 
 The four dialog kinds (`select`, `confirm`, `input`, `editor`) are all
 answered from the browser.
@@ -354,8 +359,31 @@ over RPC only the ones that ask through the standard dialog methods (`select`,
 with `ctx.ui.custom()` gets nothing: that call returns `undefined` at once, and
 the bridge can neither see nor answer it.
 
-**Recommended: `pi-guardrails`.** Its command gate uses `select`, so dangerous
-commands surface as a real dialog you can answer from the phone.
+This is a limit of pi's RPC mode, not of this bridge: every dialog pi sends
+over RPC is answered here, and no RPC client can show one that pi never sends.
+Many extensions draw a terminal dialog with `custom()` and fall back to
+`select` when it returns nothing, and those work fine. The ones that break
+are those with no fallback, which read the `undefined` as *deny*.
+
+What the code of the most used permission extensions does over RPC (checked
+by reading their published packages; versions change, so check yours):
+
+| Extension | Over RPC |
+|---|---|
+| `@gotgenes/pi-permission-system` | Works: it has an explicit RPC path |
+| `@aliou/pi-guardrails` | Command gate works; **path access does not** (see below) |
+| `pi-verdict`, `@pify/yolo`, `pi-dcg` | Work: `select` and `confirm` only |
+| `@yaosu/pi-path-guard`, `@senad-d/guardme`, `pi-ask-permission` | Work: `custom()` only in the terminal |
+| `@zhushanwen/pi-permission`, `@firstpick/pi-extension-safety-guard` | Work: fall back to `select` |
+| `pi-sandbox` | **Does not**: every prompt aborts silently |
+| `@ladbabynpm/picc-permission-modes` | **Does not**: every prompt blocks silently |
+
+Some of these decide with a model; check where it runs before you let a
+remote one read your commands.
+
+**Recommended: `pi-guardrails` or `pi-permission-system`.** Both gate
+dangerous commands with a real dialog you can answer from the phone.
+`pi-guardrails` needs one setting changed:
 
 > ⚠️ **You have to change one of its settings, or file access breaks.**
 > `pi-guardrails`' file-access guard (`pathAccess`, mode `ask`), the prompt for
@@ -577,7 +605,7 @@ python tests/run.py            # everything, about four minutes
 python tests/run.py rail       # just the ones matching "rail"
 ```
 
-Seventy-one probes: the page is driven in a real headless Chrome through the
+Seventy-two probes: the page is driven in a real headless Chrome through the
 DevTools protocol, which is how the animation, contrast, layout and security
 checks are measured rather than assumed. Chrome or Edge is found
 automatically; point `CHROME` at it otherwise.
