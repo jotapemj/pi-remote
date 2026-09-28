@@ -7,6 +7,11 @@ Windows**, with nothing in between. One Python process wraps `pi --mode rpc`
 and serves a web app over your tailnet. No daemon, no Unix socket, no relay,
 no third party: your browser talks to your own machine.
 
+> [!NOTE]
+> **In active development.** Updates are frequent. Install from a git clone
+> so that updating is a single `git pull`; the app tells you when a new
+> release is out. See [Updating](#updating).
+
 <p align="center">
   <img src="docs/hero.png" width="860"
        alt="A full turn on desktop and phone: the projects rail, the transcript, a code block, a tool row, and an amber permission card">
