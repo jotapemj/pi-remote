@@ -415,7 +415,7 @@ html.booted .curtain:not(.restarting){display:none}
 .ef{--ft:0px; --fb:0px}
 .ef.fade-t{--ft:var(--fz, 14px)}
 .ef.fade-b{--fb:var(--fz, 14px)}
-main{flex:1; overflow-y:auto; padding:16px var(--gut) 8px; position:relative;
+main{flex:1; overflow-y:auto; overflow-x:hidden; padding:16px var(--gut) 8px; position:relative;
   overscroll-behavior:contain; scroll-behavior:smooth;
   --fz:26px;
   -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 var(--ft, 0px),
@@ -425,6 +425,16 @@ main{flex:1; overflow-y:auto; padding:16px var(--gut) 8px; position:relative;
 .wrap{max-width:760px;margin:0 auto}
 .turn{margin-bottom:20px;animation:rise-in .22s ease-out}
 .nofx .turn{animation:none}   /* a snapshot must not animate 40 rows */
+/* separador de tiempo: onda que se aprieta hacia la fecha, cortada en el
+   texto (nada detras). Cada mitad es la misma onda, espejada */
+.tsep{display:flex; align-items:center; gap:10px; margin:6px 0 22px;
+  color:var(--faint); animation:rise-in .22s ease-out}
+.nofx .tsep{animation:none}
+.tsep svg{flex:1; min-width:0; height:8px; overflow:visible}
+.tsep svg.r{transform:scaleX(-1)}
+.tsep path{fill:none; stroke:currentColor; stroke-width:1.1}
+.tsep span{flex:none; font:500 11.5px/1 var(--mono);
+  font-variant-numeric:tabular-nums; color:var(--dim); white-space:nowrap}
 
 /* you are a bubble on the right; pi answers across the whole width */
 .msg{display:flex; justify-content:flex-end}
@@ -613,6 +623,14 @@ main{flex:1; overflow-y:auto; padding:16px var(--gut) 8px; position:relative;
 .think .tbody p{margin:0 0 .5em}
 .think .tbody p:last-child{margin-bottom:0}
 .think .tbody code{font-style:normal; font-family:var(--mono)}
+/* el modelo tambien escribe codigo pensando: mismo bloque con scroll propio
+   que en la respuesta, y las lineas largas sin espacios se parten */
+.think .tinn{overflow-wrap:anywhere}
+.think .tbody pre{
+  background:var(--box); border:1px solid var(--rule); font-style:normal;
+  border-radius:var(--r-tool); padding:10px 11px; overflow-x:auto;
+  margin:.5em 0; overflow-wrap:normal;
+}
 .think .copyb{display:none}            /* el razonamiento no se copia */
 /* Functions: card de ajuste con interruptor Material */
 .fcard{
@@ -720,6 +738,9 @@ html.hide-think .think-turn{display:none}
   display:flex; align-items:center; gap:8px;
 }
 .note .i{width:16px;height:16px;flex:none}
+/* texto flex: sin min-width 0 una ruta sin espacios no encoge y el chat
+   entero se podia arrastrar en horizontal */
+.note > span{min-width:0; overflow-wrap:anywhere}
 .note.warn{border-color:var(--amber);color:var(--amber)}
 .note.error{border-color:var(--coral);color:var(--coral)}
 .note{transition:opacity .2s ease}
@@ -3260,14 +3281,87 @@ function keepDown(was){
   requestAnimationFrame(goDown);
 }
 
+/* ---------- separador de tiempo ----------
+   Al volver a la conversacion tras un paron, una linea con la fecha antes de
+   tu mensaje. Paron = 3 h desde el ultimo mensaje (tuyo o del agente), o
+   cambio de dia con al menos 30 min: una charla seguida a medianoche no se
+   corta. Se mide contra el ultimo item de conversacion (las notas no son
+   hablar); `t` en ms viene del puente (vivo) o de pi (historial). */
+const SEP_GAP = 3 * 3600e3, SEP_DAY_GAP = 30 * 60e3;
+const CONV_KINDS = {user:1, assistant:1, thinking:1, tool:1};
+let convT = 0;                        // hora del ultimo item de conversacion
+const sameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
+function sepNeeded(prev, t){
+  if(!prev || !t || t <= prev) return false;
+  const gap = t - prev;
+  return gap >= SEP_GAP || (!sameDay(prev, t) && gap >= SEP_DAY_GAP);
+}
+/* "Hoy 14:32", "Ayer 22:10", "lun 22 sep 09:15", "22 sep 2025": hoy y ayer
+   los da Intl en cada idioma, sin cadenas propias */
+function sepLabel(t){
+  const d = new Date(t), now = new Date(), L = lang();
+  const hm = d.toLocaleTimeString(L, {hour:"2-digit", minute:"2-digit", hour12:false});
+  const cap = x => x.charAt(0).toLocaleUpperCase(L) + x.slice(1);
+  const rel = n => cap(new Intl.RelativeTimeFormat(L, {numeric:"auto"}).format(n, "day"));
+  if(sameDay(t, now)) return rel(0) + " " + hm;
+  if(sameDay(t, now.getTime() - 864e5)) return rel(-1) + " " + hm;
+  if(d.getFullYear() === now.getFullYear())
+    return d.toLocaleDateString(L, {weekday:"short", day:"numeric", month:"short"})
+      .replace(/,/g, "") + " " + hm;          // "vie, 25 sept" -> "vie 25 sept"
+  return d.toLocaleDateString(L, {day:"numeric", month:"short", year:"numeric"})
+    .replace(/,/g, "");
+}
+/* onda con chirp suave: periodo de 10 px en el borde exterior que se aprieta
+   solo un poco (7 px) hacia la fecha. En pixeles reales, no en viewBox
+   estirado: el mismo aspecto en movil y escritorio, por eso se redibuja al
+   cambiar el ancho. La fase se cuenta desde el corte (u = distancia al
+   texto), asi toda onda llega al texto en el eje; la mitad derecha es la
+   misma, espejada por CSS */
+const SEP_P0 = 10, SEP_P1 = 7, SEP_AMP = 1.5;
+function sepPath(W){
+  const f0 = 1 / SEP_P0, f1 = 1 / SEP_P1, N = Math.max(2, Math.ceil(W));
+  let d = "";
+  for(let i = 0; i <= N; i++){
+    const x = W * i / N, u = W - x;
+    const ph = 2 * Math.PI * (f1 * u + (f0 - f1) * u * u / (2 * W));
+    d += (i ? "L" : "M") + x.toFixed(2) + " " + (4 - SEP_AMP * Math.sin(ph)).toFixed(2);
+  }
+  return d;
+}
+const sepRO = "ResizeObserver" in window ? new ResizeObserver(es => {
+  for(const e of es){
+    const W = Math.round(e.contentRect.width);
+    if(!W || +e.target.dataset.w === W) continue;
+    e.target.dataset.w = W;
+    e.target.setAttribute("viewBox", `0 0 ${W} 8`);
+    e.target.firstChild.setAttribute("d", sepPath(W));
+  }
+}) : null;
+function timeSep(t){
+  const sep = document.createElement("div");
+  sep.className = "tsep";
+  const wave = cls => `<svg class="${cls}" aria-hidden="true"><path/></svg>`;
+  sep.innerHTML = wave("l") + `<span>${esc(sepLabel(t))}</span>` + wave("r");
+  sep.querySelectorAll("svg").forEach(v => sepRO && sepRO.observe(v));
+  return sep;
+}
+
 function render(item){
   const was = atBottom();
   let el = nodes.get(item.id);
   if(!el){
     // el thinking es transparente: no cierra el tramo de herramientas
     if(item.kind !== "tool" && item.kind !== "thinking") groupToolRun();
+    const t = +item.t || 0;
+    if(item.kind === "user" && sepNeeded(convT, t)){
+      const sep = timeSep(t);
+      feed.appendChild(sep);
+      item.__sep = sep;               // si el envio se deshace, se va con el
+    }
+    if(CONV_KINDS[item.kind] && t > convT) convT = t;
     el = document.createElement("div"); el.className="turn";
     nodes.set(item.id, el); feed.appendChild(el);
+    el.__sep = item.__sep || null;
   }
   el.__item = item;
   el.innerHTML = html(item);
@@ -4802,6 +4896,7 @@ function connect(){
       const stay = main.scrollTop, wasDown = atBottom();
       feed.classList.add("nofx");
       feed.innerHTML = ""; nodes.clear(); pendingUser = null; CWD = m.cwd || "";
+      convT = 0;
       // firstSnap se apaga ANTES del paint: emptyState lo mira para no
       // pintar "sin proyecto" en la recarga, y con el aun en true la
       // tarjeta no salia nunca cuando de verdad no hay proyecto
@@ -4891,7 +4986,7 @@ function connect(){
     }
     else if(m.type === "state") applyState(m);
     else if(m.type === "cleared"){
-      feed.innerHTML=""; nodes.clear();
+      feed.innerHTML=""; nodes.clear(); convT = 0;
       barShown = false;
       coldNext = true; produced = false;   // sesion nueva: caché fria -> prefill
       if(state.cwd) delete sessCache[state.cwd];   // pudo nacer una sesion
@@ -4904,7 +4999,7 @@ function connect(){
     }
     else if(m.type === "drop"){        // envio deshecho: fuera la burbuja
       const el = nodes.get(m.id);
-      if(el){ el.remove(); nodes.delete(m.id); }
+      if(el){ if(el.__sep) el.__sep.remove(); el.remove(); nodes.delete(m.id); }
       if(m.restore && !box.value.trim()){    // devuelve el texto al compositor
         box.value = m.text || "";
         box.dispatchEvent(new Event("input"));
@@ -4940,6 +5035,14 @@ function applyState(m){
   state = m.state;
   if(!wasRunning && state.running){    // arranca turno: se espera prefill
     produced = false; turnStart = Date.now();
+  }
+  // fin de turno: la conversacion cambio (una sesion nueva ni existia en
+  // disco hasta la primera respuesta: pi no escribe antes), y el arbol y
+  // los recientes se piden de nuevo. Sin borrar la cache: la lista vieja
+  // sigue pintada hasta que llega la nueva (sin parpadeo de "cargando")
+  if(wasRunning && !state.running){
+    if(state.cwd && sessCache[state.cwd]) loadSubs(state.cwd);
+    chatsKey = null;
   }
   paint();
   if(wasRunning && !state.running){     // fin de turno

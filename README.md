@@ -292,7 +292,8 @@ last session (as long as that `.jsonl` still exists; otherwise a fresh one).
 The rail lists your projects in the order they were added; tapping one unfolds
 its sessions, and *new session* starts a fresh one. A **recents** section on
 top collects the last few sessions used across all projects. **Search** filters
-every known session by name. Right-click a project or a session (or tap its
+every known session by name. Lists are ordered by the last message, so
+opening an old session does not move it to the top. Right-click a project or a session (or tap its
 three dots) for its actions (new session, remove).
 
 Removing a session does not delete it: pi has no delete over RPC, so the
@@ -305,6 +306,10 @@ Removing a session does not delete it: pi has no delete over RPC, so the
 
 Opening a project rebuilds the transcript from pi's own `get_messages`, so the
 history is the real session on disk, not something kept in memory.
+
+When you come back to a conversation after a break (three hours since the last
+message, or a new day after at least thirty minutes), a wavy line with the date
+separates your new message from what came before, live and in the history.
 
 ## Permission dialogs
 
@@ -572,7 +577,7 @@ python tests/run.py            # everything, about four minutes
 python tests/run.py rail       # just the ones matching "rail"
 ```
 
-Sixty-four probes: the page is driven in a real headless Chrome through the
+Seventy-one probes: the page is driven in a real headless Chrome through the
 DevTools protocol, which is how the animation, contrast, layout and security
 checks are measured rather than assumed. Chrome or Edge is found
 automatically; point `CHROME` at it otherwise.

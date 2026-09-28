@@ -430,14 +430,76 @@ def purge_session(path):
     return ""
 
 
+_ACTIVITY = {}   # path -> ((mtime, size), segundos): una lectura por cambio
+ACT_CHUNK = 262_144
+ACT_CAP = 8_000_000
+
+
+def _ts_seconds(ts):
+    from datetime import datetime
+    try:
+        return datetime.fromisoformat(str(ts).replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+def last_activity(path):
+    """Hora del ultimo MENSAJE de la sesion, no el mtime del fichero.
+
+    Abrir una sesion no es hablar en ella, pero pi anota ahi el
+    `model_change` / `thinking_level_change` con que el puente impone el
+    modelo y el razonamiento por defecto: el mtime sube y la sesion saltaba
+    arriba de la lista solo por abrirla. Se lee la cola hacia atras hasta el
+    ultimo `message` (tope de 8 MB: una salida con imagen pesa megas); sin
+    mensajes (o fuera del tope) cae al mtime.
+    """
+    p = Path(path)
+    try:
+        st = p.stat()
+    except OSError:
+        return 0
+    key = (st.st_mtime, st.st_size)
+    hit = _ACTIVITY.get(str(p))
+    if hit and hit[0] == key:
+        return hit[1]
+    found = None
+    try:
+        with open(p, "rb") as fh:
+            end = st.st_size
+            buf = b""
+            while end > 0 and st.st_size - end < ACT_CAP and found is None:
+                start = max(0, end - ACT_CHUNK)
+                fh.seek(start)
+                buf = fh.read(end - start) + buf
+                end = start
+                lines = buf.split(b"\n")
+                buf = lines[0] if start > 0 else b""   # linea a medias: luego
+                for raw in reversed(lines[1:] if start > 0 else lines):
+                    if b'"message"' not in raw[:60]:   # el tipo va primero
+                        continue
+                    try:
+                        e = json.loads(raw)
+                    except ValueError:
+                        continue
+                    if e.get("type") == "message":
+                        found = _ts_seconds(e.get("timestamp"))
+                    if found is not None:
+                        break
+    except OSError:
+        pass
+    secs = int(found if found is not None else st.st_mtime)
+    _ACTIVITY[str(p)] = (key, secs)
+    return secs
+
+
 def list_sessions(cwd, limit=20):
     d = session_dir(cwd)
     if not d.is_dir():
         return []
-    files = sorted(d.glob("*.jsonl"), key=lambda p: p.stat().st_mtime,
-                   reverse=True)
-    return [{"path": str(f), "label": session_label(f),
-             "mtime": int(f.stat().st_mtime)} for f in files[:limit]]
+    files = sorted(((last_activity(f), f) for f in d.glob("*.jsonl")),
+                   key=lambda t: t[0], reverse=True)
+    return [{"path": str(f), "label": session_label(f), "mtime": act}
+            for act, f in files[:limit]]
 
 
 TAIL_WIN = 1_000_000   # el rename suele ir al final; una ventana de sobra
@@ -527,10 +589,12 @@ def search_sessions(cwds, q, cap=30):
         if d.is_dir():
             for f in d.glob("*.jsonl"):
                 files.append((cwd, f))
-    files.sort(key=lambda t: t[1].stat().st_mtime, reverse=True)
+    # por ultima actividad (ultimo mensaje), no por mtime: ver last_activity
+    files = sorted(((last_activity(f), cwd, f) for cwd, f in files),
+                   key=lambda t: t[0], reverse=True)
     needle = q.strip().lower()
     out = []
-    for cwd, f in files:
+    for act, cwd, f in files:
         try:
             mt = f.stat().st_mtime
         except OSError:
@@ -542,7 +606,7 @@ def search_sessions(cwds, q, cap=30):
         if needle and needle not in label.lower():
             continue
         out.append({"path": str(f), "cwd": cwd, "label": label,
-                    "mtime": int(mt)})
+                    "mtime": act})
         if len(out) >= cap:
             break
     return out
@@ -2377,6 +2441,10 @@ class Bridge:
         proc, self.proc = self.proc, None
         if not proc:
             return
+        # el gen sube ANTES de cerrar: el lector de este pi ve EOF mientras
+        # el nuevo aun se lanza (Popen tarda en Windows), y con el gen viejo
+        # se creia el actual y pintaba un "pi exited" falso
+        self.gen += 1
         try:
             proc.stdin.close()
         except OSError:
