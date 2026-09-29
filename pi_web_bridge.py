@@ -1853,6 +1853,112 @@ def extensions_list(scope, cwd):
     return out
 
 
+# ---- instrucciones: los ficheros que pi mete en su system prompt
+# (resource-loader.js). En cada carpeta, el PRIMERO que exista de estos; se
+# suman el global (AGENT_DIR) y el de cada carpeta desde la raiz hasta el
+# cwd. APPEND_SYSTEM.md va aparte (uno solo). Crear un AGENTS.md donde ya
+# hay un CLAUDE.md haria que pi dejara de leer el CLAUDE.md: por eso se
+# edita siempre el que pi usa, y solo se crea si no hay ninguno.
+CONTEXT_NAMES = ("AGENTS.override.md", "AGENTS.md", "AGENTS.MD",
+                 "CLAUDE.md", "CLAUDE.MD")
+INSTR_CAP = 512_000
+
+
+def context_file(d):
+    """El fichero de contexto que pi carga en la carpeta d, o None."""
+    for n in CONTEXT_NAMES:
+        p = Path(d) / n
+        if p.is_file():
+            return p
+    return None
+
+
+def _instr_target(scope, cwd, kind):
+    """(ruta, error). Proyecto: siempre el cwd abierto en el puente."""
+    if scope == "project":
+        if not cwd:
+            return None, "no project open"
+        if kind != "context":
+            return None, "bad kind"
+        d = Path(cwd)
+        return context_file(d) or d / "AGENTS.md", None
+    if kind == "agents":
+        return context_file(AGENT_DIR) or AGENT_DIR / "AGENTS.md", None
+    if kind == "append":
+        return AGENT_DIR / "APPEND_SYSTEM.md", None
+    return None, "bad kind"
+
+
+def instructions_get(scope, cwd):
+    kinds = ("context",) if scope == "project" else ("agents", "append")
+    files = []
+    for k in kinds:
+        p, err = _instr_target(scope, cwd, k)
+        if err:
+            return {"error": err}
+        item = {"kind": k, "name": p.name, "path": str(p),
+                "exists": p.is_file()}
+        if item["exists"]:
+            try:
+                item["body"] = p.read_text(encoding="utf-8-sig",
+                                           errors="replace")
+            except OSError as exc:
+                return {"error": "cannot read %s: %s" % (p.name, exc)}
+        files.append(item)
+    also = []
+    if scope == "project":
+        # lo demas que pi carga ademas del de la raiz: global y carpetas
+        # superiores, de la raiz del disco hacia abajo, como las ordena pi
+        g = context_file(AGENT_DIR)
+        if g:
+            also.append({"name": g.name, "path": str(g), "global": True})
+        here = Path(cwd).resolve()
+        ups = []
+        for d in here.parents:
+            f = context_file(d)
+            if f:
+                ups.append({"name": f.name, "path": str(f)})
+        also += list(reversed(ups))
+    return {"files": files, "also": also}
+
+
+def instructions_save(scope, cwd, kind, body):
+    if not isinstance(body, str):
+        return "bad body"
+    if len(body) > INSTR_CAP:
+        return "too long"
+    p, err = _instr_target(scope, cwd, kind)
+    if err:
+        return err
+    text = body.replace("\r\n", "\n")
+    bom = False
+    try:
+        if p.is_file():
+            raw = p.read_bytes()
+            bom = raw.startswith(b"\xef\xbb\xbf")
+            if b"\r\n" in raw:           # respetar CRLF: el diff en git limpio
+                text = text.replace("\n", "\r\n")
+        with open(p, "w", encoding="utf-8-sig" if bom else "utf-8",
+                  newline="") as fh:
+            fh.write(text)
+    except OSError as exc:
+        return "cannot write %s: %s" % (p.name, exc)
+    return None
+
+
+def instructions_delete(scope, cwd, kind):
+    p, err = _instr_target(scope, cwd, kind)
+    if err:
+        return err
+    if not p.is_file():
+        return "not found"
+    try:
+        p.unlink()
+    except OSError as exc:
+        return "cannot delete %s: %s" % (p.name, exc)
+    return None
+
+
 # ---- store: catalogo de paquetes de pi.dev. No hay API JSON (verificado:
 # /api/* devuelve 404/501), asi que se parsea el HTML con regex tolerante:
 # si pi.dev cambia la maquetacion, la pagina degrada a una nota de error,
@@ -3862,6 +3968,23 @@ class Bridge:
             key = "skills" if t == "skills_list" else "extensions"
             self.emit({"type": "rpc", "command": t,
                        "data": {key: data, "scope": scope}})
+            return
+
+        if t in ("instructions_get", "instructions_save",
+                 "instructions_delete"):
+            scope = msg.get("scope") if msg.get("scope") == "project" \
+                else "global"
+            if t == "instructions_get":
+                data = instructions_get(scope, self.cwd)
+            else:
+                err = (instructions_save(scope, self.cwd, msg.get("kind"),
+                                         msg.get("body"))
+                       if t == "instructions_save"
+                       else instructions_delete(scope, self.cwd,
+                                                msg.get("kind")))
+                data = {"error": err} if err else {}
+            data["scope"] = scope
+            self.emit({"type": "rpc", "command": t, "data": data})
             return
 
         if t in ("skill_toggle", "skill_save", "skill_delete"):

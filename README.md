@@ -472,6 +472,17 @@ of optional switches, each remembered per browser.
 - **Agent behaviour**: how messages sent while pi is working are queued
   (`steeringMode`, `followUpMode`) and the provider transport. The two queue
   modes apply immediately; the transport waits for a restart.
+- **Instructions** (global and project settings): the files pi adds to its
+  system prompt, created, edited and deleted from the phone. Global shows
+  `AGENTS.md` and `APPEND_SYSTEM.md` in `~/.pi/agent/`; a project shows its
+  root context file. pi reads the **first** of `AGENTS.override.md`,
+  `AGENTS.md` and `CLAUDE.md` in each folder, so the page always edits the one
+  pi actually uses and only offers to create `AGENTS.md` when there is none
+  (creating it next to a `CLAUDE.md` would make pi stop reading that one). A
+  project also lists, read-only, the other context files pi loads: the global
+  one and any in the folders above. Saving keeps the file's line endings.
+  `SYSTEM.md`, which replaces pi's whole prompt, is left out on purpose.
+  Changes apply after a restart.
 - **Macros** (the `+` button next to the composer): pi's prompt templates,
   launched with one tap. Any markdown file under `~/.pi/agent/prompts/`, or
   `.pi/prompts/` inside a project, becomes one — the file name is the macro,
@@ -610,7 +621,7 @@ python tests/run.py            # everything, about four minutes
 python tests/run.py rail       # just the ones matching "rail"
 ```
 
-Seventy-three probes: the page is driven in a real headless Chrome through the
+Seventy-four probes: the page is driven in a real headless Chrome through the
 DevTools protocol, which is how the animation, contrast, layout and security
 checks are measured rather than assumed. Chrome or Edge is found
 automatically; point `CHROME` at it otherwise.

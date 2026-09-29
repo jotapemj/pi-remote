@@ -807,6 +807,8 @@ html.hide-think .think-turn{display:none}
 .ask .verdict.expired{color:var(--faint)}
 /* paquete configurado sin carpeta: pi no carga nada de el */
 .skrow.extrow .stxt small.bad{color:var(--coral)}
+/* instrucciones: el editor ocupa la hoja (ficheros largos) */
+.mfield.instrta textarea{min-height:52vh}
 
 /* ---------- readout: the signature ---------- */
 .readout[hidden]{display:none}     /* display:flex below beats [hidden] */
@@ -5992,7 +5994,7 @@ const STR = {
       compactB:"The conversation gets summarised. It cannot be undone.",
       clearqQ:"Drop the queued messages?",
       restartQ:"Restart pi remote now?",
-      typeAnswer:"type an answer", answered:"answered", askExpired:"closed without an answer", pkgMissing:"configured but not installed: pi loads nothing from it", tools:"tool",
+      typeAnswer:"type an answer", answered:"answered", askExpired:"closed without an answer", pkgMissing:"configured but not installed: pi loads nothing from it", instructions:"Instructions", notCreated:"not created", alsoLoaded:"Also loaded", editLbl:"Edit", deleteInstrQ:"Delete {name}?", deleteInstrB:"The file is deleted for good. Changes apply after restarting pi remote.", tools:"tool",
       fold:"collapse",
       thinking:"Thinking\u2026", thoughtFor:"Thought for {n} {u}",
       secOne:"second", secMany:"seconds", minOne:"minute", minMany:"minutes",
@@ -6149,7 +6151,7 @@ const STR = {
       compactB:"La conversaci\u00f3n se resume. No se puede deshacer.",
       clearqQ:"\u00bfDescartar los mensajes en cola?",
       restartQ:"\u00bfReiniciar pi remote ahora?",
-      typeAnswer:"escribir respuesta", answered:"respondido", askExpired:"cerrada sin respuesta", pkgMissing:"configurado pero no instalado: pi no carga nada de \u00e9l",
+      typeAnswer:"escribir respuesta", answered:"respondido", askExpired:"cerrada sin respuesta", pkgMissing:"configurado pero no instalado: pi no carga nada de \u00e9l", instructions:"Instrucciones", notCreated:"no creado", alsoLoaded:"Tambi\u00e9n se cargan", editLbl:"Editar", deleteInstrQ:"\u00bfEliminar {name}?", deleteInstrB:"El fichero se borra definitivamente. Los cambios se aplican al reiniciar pi remote.",
       tools:"herramienta", fold:"plegar", output:"salida", noOutput:"sin salida",
       command:"comando", pasted:"Texto pegado {n} líneas", prefilling:"prefilling",
       thinking:"Pensando\u2026", thoughtFor:"Pens\u00f3 durante {n} {u}",
@@ -6306,7 +6308,7 @@ const STR = {
       compactB:"Das Gespr\u00e4ch wird zusammengefasst. Das l\u00e4sst sich nicht r\u00fcckg\u00e4ngig machen.",
       clearqQ:"Nachrichten in der Warteschlange verwerfen?",
       restartQ:"pi remote jetzt neu starten?",
-      typeAnswer:"Antwort eingeben", answered:"beantwortet", askExpired:"ohne Antwort geschlossen", pkgMissing:"konfiguriert, aber nicht installiert: pi l\u00e4dt nichts daraus",
+      typeAnswer:"Antwort eingeben", answered:"beantwortet", askExpired:"ohne Antwort geschlossen", pkgMissing:"konfiguriert, aber nicht installiert: pi l\u00e4dt nichts daraus", instructions:"Anweisungen", notCreated:"nicht erstellt", alsoLoaded:"Ebenfalls geladen", editLbl:"Bearbeiten", deleteInstrQ:"{name} l\u00f6schen?", deleteInstrB:"Die Datei wird endg\u00fcltig gel\u00f6scht. \u00c4nderungen gelten nach dem Neustart von pi remote.",
       tools:"Werkzeug", fold:"einklappen", output:"Ausgabe",
       noOutput:"keine Ausgabe", command:"Befehl",
       pasted:"Einf\u00fcgung: {n} Zeilen", prefilling:"prefilling",
@@ -6464,7 +6466,7 @@ const STR = {
       compactB:"La conversation sera r\u00e9sum\u00e9e. Irr\u00e9versible.",
       clearqQ:"Vider les messages en file d'attente ?",
       restartQ:"Red\u00e9marrer pi remote maintenant ?",
-      typeAnswer:"Saisir une r\u00e9ponse", answered:"r\u00e9pondu", askExpired:"ferm\u00e9e sans r\u00e9ponse", pkgMissing:"configur\u00e9 mais non install\u00e9 : pi n\u2019en charge rien",
+      typeAnswer:"Saisir une r\u00e9ponse", answered:"r\u00e9pondu", askExpired:"ferm\u00e9e sans r\u00e9ponse", pkgMissing:"configur\u00e9 mais non install\u00e9 : pi n\u2019en charge rien", instructions:"Instructions", notCreated:"non cr\u00e9\u00e9", alsoLoaded:"\u00c9galement charg\u00e9s", editLbl:"Modifier", deleteInstrQ:"Supprimer {name} ?", deleteInstrB:"Le fichier est supprim\u00e9 d\u00e9finitivement. Les modifications s\u2019appliquent au red\u00e9marrage de pi remote.",
       tools:"Outil", fold:"replier", output:"sortie",
       noOutput:"aucune sortie", command:"commande",
       pasted:"Texte coll\u00e9, {n} lignes", prefilling:"prefilling",
@@ -6621,7 +6623,7 @@ const STR = {
       compactB:"A conversa ser\u00e1 resumida. N\u00e3o se desfaz.",
       clearqQ:"Descartar as mensagens na fila?",
       restartQ:"Reiniciar o pi remote agora?",
-      typeAnswer:"digite a resposta", answered:"respondido", askExpired:"fechada sem resposta", pkgMissing:"configurado mas n\u00e3o instalado: o pi n\u00e3o carrega nada dele",
+      typeAnswer:"digite a resposta", answered:"respondido", askExpired:"fechada sem resposta", pkgMissing:"configurado mas n\u00e3o instalado: o pi n\u00e3o carrega nada dele", instructions:"Instru\u00e7\u00f5es", notCreated:"n\u00e3o criado", alsoLoaded:"Tamb\u00e9m carregados", editLbl:"Editar", deleteInstrQ:"Eliminar {name}?", deleteInstrB:"O ficheiro \u00e9 apagado definitivamente. As altera\u00e7\u00f5es aplicam-se ao reiniciar o pi remote.",
       tools:"Ferramenta", fold:"recolher", output:"sa\u00edda",
       noOutput:"sem sa\u00edda", command:"comando",
       pasted:"Texto colado, {n} linhas", prefilling:"prefilling",
@@ -6773,7 +6775,7 @@ const STR = {
       compactB:"对话将被摘要化。不可撤销。",
       clearqQ:"丢弃排队中的消息？",
       restartQ:"现在重启 pi remote？",
-      typeAnswer:"输入回答", answered:"已回答", askExpired:"未回答，已关闭", pkgMissing:"已配置但未安装：pi 不会加载其中任何内容",
+      typeAnswer:"输入回答", answered:"已回答", askExpired:"未回答，已关闭", pkgMissing:"已配置但未安装：pi 不会加载其中任何内容", instructions:"指令", notCreated:"未创建", alsoLoaded:"同时加载", editLbl:"编辑", deleteInstrQ:"删除 {name}？", deleteInstrB:"文件将被永久删除。更改将在重启 pi remote 后生效。",
       tools:"工具", fold:"收起", output:"输出",
       noOutput:"无输出", command:"命令",
       pasted:"粘贴文本，{n} 行", prefilling:"prefilling",
@@ -7782,6 +7784,9 @@ function paintProjSet(){
   rcard = pickBtn({icon:"package", label:T("resources"),
     chevron:true, run:()=>goPage("resproj")});
   body.appendChild(rcard);
+  // fuera de sync(): el fichero de contexto no depende del interruptor
+  body.appendChild(pickBtn({icon:"read", label:T("instructions"),
+    chevron:true, run:()=>openInstr("project")}));
   sync();
 }
 
@@ -7890,6 +7895,41 @@ function paintExtRows(scope){
     c.appendChild(r);
   });
 }
+/* ---------- instrucciones: lo que pi mete en su system prompt ----------
+   Global: AGENTS.md (o el que pi use de verdad en AGENT_DIR) y
+   APPEND_SYSTEM.md. Proyecto: el fichero de contexto de la raiz del cwd
+   (AGENTS.md / CLAUDE.md...), mas la lista de lo que pi carga ademas.
+   SYSTEM.md fuera a proposito: sustituye el prompt entero de pi. El
+   puente decide el fichero (el que pi usa, o AGENTS.md si no hay ninguno):
+   crear AGENTS.md junto a un CLAUDE.md haria que pi dejara de leer este */
+let instrScope = "global", instrData = null, instrDraft = null;
+function openInstr(scope){
+  instrScope = scope; instrData = null;
+  goPage("instructions");
+}
+function editInstr(f){
+  instrDraft = {scope: instrScope, kind: f.kind, name: f.name,
+                exists: f.exists, body: f.body || "", orig: f.body || ""};
+  goPage("instredit");
+}
+function instrDirty(){
+  return !!instrDraft && instrDraft.body !== instrDraft.orig;
+}
+function instrMenu(anchor, f, at){
+  const rows = [{icon:"pen", label:T("editLbl"), run:()=>editInstr(f)}];
+  if(f.exists) rows.push({icon:"remove", bad:true, label:T("deleteLbl"),
+    run:()=>confirmModal(T("deleteInstrQ").replace("{name}", f.name),
+      esc(T("deleteInstrB")),
+      ()=>send({type:"instructions_delete", scope:instrScope, kind:f.kind}))});
+  ctxPopup(anchor, rows, at);
+}
+function instrGuard(){
+  if(sheetPage !== "instredit" || !instrDirty()) return false;
+  openModal(T("discardQ"), "", () => { instrDraft = null; goBack(); },
+    {ok: T("yes"), no: T("no")});
+  return true;
+}
+
 /* salir del compositor con cambios sin guardar: preguntar */
 function skillGuard(){
   if(sheetPage !== "skilledit") return false;
@@ -8537,6 +8577,8 @@ function paintSheet(page){
       chevron:true, run: () => goPage("agentprefs")}));
     body.appendChild(pickBtn({icon:"package", label:T("resources"),
       chevron:true, run: () => goPage("resglobal")}));
+    body.appendChild(pickBtn({icon:"read", label:T("instructions"),
+      chevron:true, run: () => openInstr("global")}));
     return;
   }
   if(page === "macros"){
@@ -9031,6 +9073,69 @@ function paintSheet(page){
     // paintSheet ya borro las filas: repintar con lo ultimo que se tuvo
     setTimeout(() => { if(sheetPage === page){ paintSkillRows(scope);
       paintExtRows(scope); } }, 250);
+    return;
+  }
+  if(page === "instructions"){
+    $("#sheetTitle").textContent = T("instructions");
+    const d = instrData;
+    if(!d){ send({type:"instructions_get", scope:instrScope});
+            head("loadingModels"); return; }
+    if(d.error){                      // puente viejo o sin proyecto: decirlo
+      const e = document.createElement("div");
+      e.className = "cwarn"; e.textContent = rpcErrText(d.error);
+      body.appendChild(e);
+      return;
+    }
+    (d.files || []).forEach(f => {
+      const b = pickBtn({icon:"read", label:f.name,
+        hint: f.exists ? tilde(f.path) : T("notCreated"),
+        dots: dd => instrMenu(b, f, dd),
+        run: () => editInstr(f)});
+      if(!f.exists) b.classList.add("instrnew");
+      ctxMenu(b, () => instrMenu(b, f));
+      body.appendChild(b);
+    });
+    if((d.also || []).length){        // solo leer: lo que pi suma ademas
+      const sec = document.createElement("div");
+      sec.className = "sec"; body.appendChild(sec);
+      head("alsoLoaded", sec);
+      d.also.forEach(a => {
+        const r = document.createElement("div");
+        r.className = "skrow extrow"; r.style.cursor = "default";
+        r.innerHTML = `<span class="stxt"><span>${esc(a.name)}</span>`
+          + `<small>${esc(tilde(a.path))}</small></span>`;
+        sec.appendChild(r);
+      });
+    }
+    return;
+  }
+  if(page === "instredit"){
+    const d0 = instrDraft;
+    if(!d0) return;
+    // el titulo de la hoja va en versalitas: "AGENTS.MD" es OTRO nombre
+    // para pi. El nombre exacto va en la etiqueta del campo
+    $("#sheetTitle").textContent = T("instructions");
+    const sub = document.createElement("div");
+    sub.className = "shead";
+    sub.textContent = d0.scope === "project" ? T("provProject") : T("provGlobal");
+    body.appendChild(sub);
+    const f = document.createElement("div");
+    f.className = "mfield ta instrta";
+    const ta = document.createElement("textarea");
+    ta.placeholder = " "; ta.value = d0.body;
+    // el check aparece con cambios y se va con fundido si se deshacen
+    ta.addEventListener("input", () => { d0.body = ta.value;
+      compSetOk(instrDirty()); });
+    const lbl = document.createElement("label");
+    lbl.textContent = d0.name;
+    f.append(ta, lbl); body.appendChild(f);
+    const okb = $("#sheetOk");
+    okb.hidden = true; okb.classList.remove("out");
+    okb.onclick = () => openModal(
+      T("confirmChanges"), `<p>${esc(T("applyRestart"))}</p>`,
+      () => send({type:"instructions_save", scope:d0.scope, kind:d0.kind,
+                  body:d0.body}),
+      {ok: T("confirm")});
     return;
   }
   if(page === "skilledit"){
@@ -9662,6 +9767,7 @@ function goPage(page){
 function goBack(){
   if(projGuard()) return;
   if(skillGuard()) return;
+  if(instrGuard()) return;
   if(compGuard()) return;
   // en la pagina con la que se abrio la hoja no hay nivel al que subir:
   // atras la cierra y devuelve al chat
@@ -10590,6 +10696,22 @@ function onRpc(m){
     const scope = d.scope === "project" ? "project" : "global";
     skillCache[scope] = null;
     send({type:"skills_list", scope});
+    return;
+  }
+  if(m.command === "instructions_get"){
+    instrData = d || {error: "no data"};
+    if(sheetPage === "instructions") paintSheet("instructions");
+    return;
+  }
+  if(m.command === "instructions_save" || m.command === "instructions_delete"){
+    if(d && d.error) return note(d.error);
+    // guardado o borrado: la lista se pide de nuevo; desde el editor se
+    // vuelve a ella (sin preguntar: ya no hay cambios pendientes)
+    instrData = null;
+    if(sheetPage === "instredit"){
+      instrDraft = null; compSetOk(false);
+      turnTo(sheetStack.pop() || "instructions", -1);
+    } else if(sheetPage === "instructions") paintSheet("instructions");
     return;
   }
   if(m.command === "skill_save"){
