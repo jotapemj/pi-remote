@@ -3,6 +3,7 @@
 tested without a model. Not part of the project, just a harness."""
 import json
 import os
+import subprocess
 import sys
 import threading
 import time
@@ -183,9 +184,39 @@ def readimg_turn():
     out({"type": "agent_settled"})
 
 
+def tool_turn(text):
+    """Una herramienta que lanza un proceso hijo. `hangtool` IGNORA el abort
+    (como ctx_execute de context-mode: pi espera a que el proceso acabe);
+    `slowtool` lo respeta y mata su hijo al instante. El PID del hijo sale en
+    los args para que el probe compruebe si sigue vivo."""
+    hang = "hangtool" in text
+    ABORT.clear()
+    out({"type": "agent_start"})
+    child = subprocess.Popen([sys.executable, "-c",
+                              "import time; time.sleep(90)"])
+    out({"type": "tool_execution_start", "toolCallId": "k1",
+         "toolName": "ctx_execute" if hang else "slow_tool",
+         "args": {"language": "shell", "code": "gradlew", "pid": child.pid}})
+    while child.poll() is None:
+        if not hang and ABORT.is_set():
+            child.kill()
+            break
+        time.sleep(0.05)
+    child.wait()
+    out({"type": "tool_execution_end", "toolCallId": "k1",
+         "toolName": "ctx_execute" if hang else "slow_tool",
+         "result": {"content": [{"type": "text", "text": "ended"}]},
+         "isError": True})
+    out({"type": "agent_end", "messages": [], "willRetry": False})
+    out({"type": "agent_settled"})
+
+
 def turn(text, nimg=0):
     if nimg:
         image_turn(nimg)
+        return
+    if "hangtool" in text or "slowtool" in text:
+        tool_turn(text)
         return
     if "readimg" in text:
         readimg_turn()

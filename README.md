@@ -113,6 +113,7 @@ the fonts, all served locally so the page never calls out to anyone.
 | `PI_STORE_BASE` | `https://pi.dev` | package catalog the bridge browses |
 | `PI_PKG_CMD` | `pi` | JSON command list used instead of `pi install/remove` (tests) |
 | `PI_UPDATE_CHECK` | `on` | `off` stops the hourly check for a newer release |
+| `PI_AGGR_GRACE` | `5` | Seconds a stopped turn gets to end before aggressive abort kills its tool's processes |
 
 ### Generating a token
 
@@ -558,6 +559,14 @@ of optional switches, each remembered per browser.
     hidden instruction to every prompt, at a small context cost.
   - **Summary on agent stop**: stopping a working turn asks the agent, in the
     background, for one line on what it was doing instead of just killing it.
+  - **Aggressive abort**: some extension tools ignore stop (context-mode's
+    `ctx_execute`, for one), and pi then waits for them however long they
+    take. With this on, a stopped turn that has not ended within five seconds
+    gets the processes its running tool started killed: only those created
+    since that tool began, never pi or the extensions' own servers. A stop that
+    ends by itself in time, or one with no tool running, kills nothing. A
+    server an extension started during that same call goes too and comes
+    back on next use. Asks for confirmation before turning on.
   - **Notifications**: a local notification, with the last reply as its body,
     when a turn ends while the tab is hidden. The browser's own; no third
     parties.
@@ -624,7 +633,7 @@ python tests/run.py            # everything, about four minutes
 python tests/run.py rail       # just the ones matching "rail"
 ```
 
-Seventy-four probes: the page is driven in a real headless Chrome through the
+Seventy-five probes: the page is driven in a real headless Chrome through the
 DevTools protocol, which is how the animation, contrast, layout and security
 checks are measured rather than assumed. Chrome or Edge is found
 automatically; point `CHROME` at it otherwise.

@@ -1959,6 +1959,105 @@ def instructions_delete(scope, cwd, kind):
     return None
 
 
+# ---- abort agresivo: matar lo que una herramienta colgada dejo corriendo.
+# Algunas herramientas de extension ignoran la senal de abortar
+# (context-mode: `execute(_toolCallId, params)` no la recoge y su callTool
+# no tiene tope) y pi espera a que terminen: el stop no para nada. Con el
+# modo agresivo, si el turno sigue vivo AGGR_GRACE segundos despues del
+# stop, se matan los procesos del arbol de pi creados despues de que
+# empezara la herramienta. Lo anterior (pi, los servidores MCP de las
+# extensiones) no se toca. Un stop normal (el turno asienta a tiempo, o no
+# habia herramienta en marcha) no mata nada.
+AGGR_GRACE = float(os.environ.get("PI_AGGR_GRACE", "5"))
+
+
+def _process_table():
+    """[(pid, ppid, creado_epoch, nombre)] de todos los procesos; [] si no
+    se puede leer. Solo se llama al pulsar stop."""
+    rows = []
+    try:
+        if os.name == "nt":
+            ps = ("Get-CimInstance Win32_Process | ForEach-Object { "
+                  "if($_.CreationDate){ '{0} {1} {2} {3}' -f $_.ProcessId, "
+                  "$_.ParentProcessId, [int64](($_.CreationDate"
+                  ".ToUniversalTime() - [datetime]'1970-01-01')"
+                  ".TotalMilliseconds), $_.Name } }")
+            out = subprocess.run(
+                ["powershell", "-NoProfile", "-NonInteractive", "-Command",
+                 ps], capture_output=True, text=True, timeout=30,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            ).stdout
+            for line in out.splitlines():
+                parts = line.strip().split(" ", 3)
+                if len(parts) >= 3:
+                    try:
+                        rows.append((int(parts[0]), int(parts[1]),
+                                     int(parts[2]) / 1000,
+                                     parts[3] if len(parts) > 3 else ""))
+                    except ValueError:
+                        continue
+        else:
+            now = time.time()
+            out = subprocess.run(["ps", "-A", "-o", "pid=,ppid=,etimes=,comm="],
+                                 capture_output=True, text=True,
+                                 timeout=30).stdout
+            for line in out.splitlines():
+                parts = line.split(None, 3)
+                if len(parts) >= 3:
+                    try:
+                        rows.append((int(parts[0]), int(parts[1]),
+                                     now - int(parts[2]),
+                                     parts[3] if len(parts) > 3 else ""))
+                    except ValueError:
+                        continue
+    except (OSError, subprocess.SubprocessError):
+        return []
+    return rows
+
+
+def spawned_since(root_pid, since, rows=None):
+    """Descendientes de root_pid creados desde `since`, solo las cabezas
+    (cuyo padre no es tambien nuevo): matar su arbol ya se lleva el resto.
+    [(pid, nombre)]."""
+    rows = _process_table() if rows is None else rows
+    kids = {}
+    for pid, ppid, t, name in rows:
+        kids.setdefault(ppid, []).append((pid, t, name))
+    new, seen, stack = [], {root_pid}, [root_pid]
+    while stack:
+        parent = stack.pop()
+        for pid, t, name in kids.get(parent, []):
+            if pid in seen:
+                continue
+            seen.add(pid)
+            stack.append(pid)
+            if t >= since:
+                new.append((pid, name, parent))
+    fresh = {pid for pid, _, _ in new}
+    return [(pid, name) for pid, name, parent in new if parent not in fresh]
+
+
+def kill_tree(pid):
+    try:
+        if os.name == "nt":
+            r = subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(pid)],
+                capture_output=True, timeout=30,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            return r.returncode == 0
+        import signal
+        rows = _process_table()
+        doomed = [pid] + [p for p, _ in spawned_since(pid, 0, rows)]
+        for p in doomed:
+            try:
+                os.kill(p, signal.SIGKILL)
+            except OSError:
+                pass
+        return True
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 # ---- store: catalogo de paquetes de pi.dev. No hay API JSON (verificado:
 # /api/* devuelve 404/501), asi que se parsea el HTML con regex tolerante:
 # si pi.dev cambia la maquetacion, la pagina degrada a una nota de error,
@@ -2520,6 +2619,8 @@ class Bridge:
         self.summary_pending = False         # tras el abort, toca pedir el resumen
         self.summary_ctx = ""                # lo que hacia, para realimentarlo
         self.restart_pending = False         # /restart mientras corre un turno
+        self.tool_t0 = None                  # cuando empezo la herramienta viva
+        self.abort_seq = 0                   # cada stop agresivo, el suyo
         self.fork_from = None                # sesion origen, por si toca papelearla
         self.fork_trash = False              # el usuario pidio borrar la original
         self.trash_after_new = None          # borrar la abierta = salir y papelear
@@ -2907,6 +3008,7 @@ class Bridge:
 
         elif t == "tool_execution_start":
             self.state["tool"] = ev.get("toolName")
+            self.tool_t0 = time.time()
             item = {"kind": "tool", "name": ev.get("toolName"),
                     "args": ev.get("args"), "status": "running",
                     "callId": ev.get("toolCallId")}
@@ -3523,6 +3625,8 @@ class Bridge:
             return
 
         if t == "abort":
+            if msg.get("aggressive"):
+                self.arm_aggressive()
             # matar primero el comando shell en curso: sin esto el abort queda
             # en cola hasta que el bash termina, y en un bucle think->bash el
             # agente seguia pensando y ejecutando. abort_bash lo desbloquea ya.
@@ -4015,6 +4119,34 @@ class Bridge:
 
         self.emit({"type": "rpc", "command": t,
                    "data": {"error": "command not allowed"}})
+
+    def arm_aggressive(self):
+        """Stop con el modo agresivo. Tolerante: sin herramienta en marcha no
+        hace nada, y con ella espera AGGR_GRACE s; si para entonces el turno
+        asento (un stop normal) tampoco. Solo si sigue colgado mata lo que
+        la herramienta arranco."""
+        if not (self.proc and self.state.get("running")
+                and self.state.get("tool") and self.tool_t0):
+            return
+        self.abort_seq += 1
+        seq, gen = self.abort_seq, self.gen
+        root, since = self.proc.pid, self.tool_t0 - 1.0
+
+        def check():
+            if (seq != self.abort_seq or gen != self.gen
+                    or not self.state.get("running")):
+                return                   # asento solo: nada que matar
+            heads = spawned_since(root, since)
+            killed = [name for pid, name in heads if kill_tree(pid)]
+            if killed:
+                self.note("warn", "aggr_killed",
+                          "aggressive abort: killed %d stuck process(es): %s"
+                          % (len(killed), ", ".join(sorted(set(killed)))),
+                          n=len(killed), names=", ".join(sorted(set(killed))))
+
+        t = threading.Timer(AGGR_GRACE, check)
+        t.daemon = True
+        t.start()
 
     def begin_restart(self):
         # aviso "reiniciando" y, tras 2 s, se dispara el reinicio real. El
