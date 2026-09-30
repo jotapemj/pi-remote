@@ -243,7 +243,7 @@ SAFE_HEADERS = {
 # ------------------------------------------------------------ session files
 
 def sessions_root():
-    return Path.home() / ".pi" / "agent" / "sessions"
+    return AGENT_DIR / "sessions"
 
 
 def _norm(s):

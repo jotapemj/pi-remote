@@ -58,12 +58,17 @@ def backend():
             d, at = B.trust_decision(str(other))
             checks.append(("otra carpeta: None", d is None and at is None))
             # errores
-            checks += [
+            checks.append(
                 ("directorio inexistente da error",
-                 "not a directory" in B.set_trust(str(other / "no"), True)),
-                ("path bloqueado da error",
-                 "blocked" in B.set_trust("C:\\Windows", True)),
-            ]
+                 "not a directory" in B.set_trust(str(other / "no"), True)))
+            import os
+            if os.name == "nt":
+                checks.append(
+                    ("path bloqueado da error",
+                     "blocked" in B.set_trust("C:\\Windows", True)))
+            else:
+                checks.append(
+                    ("path bloqueado da error (skip: not Windows)", True))
             # settings por proyecto: fusion y borrado de clave
             err = B.save_project_settings(str(root), {"defaultModel": "a"})
             s = B.read_project_settings(str(root))

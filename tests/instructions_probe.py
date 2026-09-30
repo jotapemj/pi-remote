@@ -14,7 +14,7 @@ from pathlib import Path
 
 from harness import Bridge, Page, report
 
-TMP = Path(tempfile.gettempdir()) / "pi_instr_probe"
+TMP = (Path(tempfile.gettempdir()) / "pi_instr_probe").resolve()
 
 
 def backend():

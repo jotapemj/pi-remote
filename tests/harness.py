@@ -162,7 +162,7 @@ class FakeProject:
 
     @property
     def path(self):
-        return str(self.dir)
+        return str(self.dir.resolve())
 
 
 # ------------------------------------------------------- el navegador
