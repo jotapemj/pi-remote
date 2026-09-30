@@ -1968,51 +1968,160 @@ def instructions_delete(scope, cwd, kind):
 # empezara la herramienta. Lo anterior (pi, los servidores MCP de las
 # extensiones) no se toca. Un stop normal (el turno asienta a tiempo, o no
 # habia herramienta en marcha) no mata nada.
+# Los HUERFANOS: medido en Fision, `gradlew` arranca un daemon de Gradle (y
+# este uno de Kotlin) que hereda la tuberia de salida de la shell de
+# ctx_execute y la mantiene abierta; context-mode espera a que se cierre y
+# no vuelve nunca (ni con su propio timeout). El cliente gradlew termina y
+# el daemon queda sin padre: recorriendo el arbol desde pi no se llega a el.
+# Por eso, mientras una herramienta corre, cada TRACK_EVERY s se apunta lo
+# que va naciendo en su arbol (pid + hora de creacion), y el stop mata
+# tambien lo apuntado que siga vivo aunque ya sea huerfano. La hora evita
+# matar un proceso ajeno que haya heredado el pid.
 AGGR_GRACE = float(os.environ.get("PI_AGGR_GRACE", "5"))
+TRACK_EVERY = 1.0
+
+
+def _proc_table_win():
+    """Windows por la API nativa (Toolhelp + GetProcessTimes): milisegundos,
+    sin lanzar nada. Lo que no se puede abrir (sistema, elevado) sale sin
+    hora y no cuenta: no es nuestro."""
+    import ctypes
+    from ctypes import wintypes
+
+    class PE(ctypes.Structure):
+        _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD),
+                    ("th32ProcessID", wintypes.DWORD),
+                    ("th32DefaultHeapID", ctypes.c_void_p),
+                    ("th32ModuleID", wintypes.DWORD),
+                    ("cntThreads", wintypes.DWORD),
+                    ("th32ParentProcessID", wintypes.DWORD),
+                    ("pcPriClassBase", ctypes.c_long),
+                    ("dwFlags", wintypes.DWORD),
+                    ("szExeFile", ctypes.c_wchar * 260)]
+
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+    k32.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
+    k32.Process32FirstW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PE)]
+    k32.Process32NextW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PE)]
+    k32.OpenProcess.restype = wintypes.HANDLE
+    k32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    k32.GetProcessTimes.argtypes = [wintypes.HANDLE] + \
+        [ctypes.POINTER(wintypes.FILETIME)] * 4
+    k32.CloseHandle.argtypes = [wintypes.HANDLE]
+    snap = k32.CreateToolhelp32Snapshot(0x2, 0)       # TH32CS_SNAPPROCESS
+    if not snap or snap == wintypes.HANDLE(-1).value:
+        raise OSError("no process snapshot")
+    rows = []
+    try:
+        e = PE()
+        e.dwSize = ctypes.sizeof(PE)
+        ok = k32.Process32FirstW(snap, ctypes.byref(e))
+        while ok:
+            pid, ppid = e.th32ProcessID, e.th32ParentProcessID
+            h = k32.OpenProcess(0x1000, False, pid)    # QUERY_LIMITED_INFO
+            if h:
+                c, x, kt, ut = (wintypes.FILETIME() for _ in range(4))
+                if k32.GetProcessTimes(h, ctypes.byref(c), ctypes.byref(x),
+                                       ctypes.byref(kt), ctypes.byref(ut)):
+                    ft = (c.dwHighDateTime << 32) | c.dwLowDateTime
+                    rows.append((pid, ppid,
+                                 (ft - 116444736000000000) / 1e7,
+                                 e.szExeFile))
+                k32.CloseHandle(h)
+            ok = k32.Process32NextW(snap, ctypes.byref(e))
+    finally:
+        k32.CloseHandle(snap)
+    return rows
+
+
+def _proc_table_linux(proc="/proc", hz=None):
+    """Linux por /proc: padre y arranque (ticks desde el boot) en stat.
+    `proc` y `hz` solo para el probe (un /proc falso en Windows)."""
+    hz = hz or os.sysconf("SC_CLK_TCK")
+    with open(proc + "/stat", encoding="ascii") as fh:
+        btime = next(int(l.split()[1]) for l in fh if l.startswith("btime"))
+    rows = []
+    for d in os.listdir(proc):
+        if not d.isdigit():
+            continue
+        try:
+            with open("%s/%s/stat" % (proc, d), encoding="utf-8",
+                      errors="replace") as fh:
+                st = fh.read()
+        except OSError:
+            continue                     # murio entre el listado y la lectura
+        # el nombre va entre parentesis y puede llevar espacios y ')'
+        name = st[st.index("(") + 1:st.rindex(")")]
+        rest = st[st.rindex(")") + 2:].split()
+        rows.append((int(d), int(rest[1]), btime + int(rest[19]) / hz, name))
+    return rows
+
+
+def _proc_table_ps():
+    """macOS y demas unix sin /proc: ps."""
+    now = time.time()
+    out = subprocess.run(["ps", "-A", "-o", "pid=,ppid=,etime=,comm="],
+                         capture_output=True, text=True, timeout=30).stdout
+    rows = []
+    for line in out.splitlines():
+        parts = line.split(None, 3)
+        if len(parts) < 3:
+            continue
+        # etime: [[dd-]hh:]mm:ss (macOS no tiene etimes)
+        try:
+            days, _, hms = parts[2].rpartition("-")
+            secs = 0
+            for f in hms.split(":"):
+                secs = secs * 60 + int(f)
+            secs += int(days or 0) * 86400
+            rows.append((int(parts[0]), int(parts[1]), now - secs,
+                         parts[3] if len(parts) > 3 else ""))
+        except ValueError:
+            continue
+    return rows
+
+
+def _proc_table_powershell():
+    """Respaldo en Windows si la API nativa fallara: lento (~1 s)."""
+    ps = ("Get-CimInstance Win32_Process | ForEach-Object { "
+          "if($_.CreationDate){ '{0} {1} {2} {3}' -f $_.ProcessId, "
+          "$_.ParentProcessId, [int64](($_.CreationDate"
+          ".ToUniversalTime() - [datetime]'1970-01-01')"
+          ".TotalMilliseconds), $_.Name } }")
+    out = subprocess.run(
+        ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+        capture_output=True, text=True, timeout=30,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).stdout
+    rows = []
+    for line in out.splitlines():
+        parts = line.strip().split(" ", 3)
+        if len(parts) >= 3:
+            try:
+                rows.append((int(parts[0]), int(parts[1]),
+                             int(parts[2]) / 1000,
+                             parts[3] if len(parts) > 3 else ""))
+            except ValueError:
+                continue
+    return rows
 
 
 def _process_table():
     """[(pid, ppid, creado_epoch, nombre)] de todos los procesos; [] si no
-    se puede leer. Solo se llama al pulsar stop."""
-    rows = []
+    se puede leer. Windows y Linux medidos en milisegundos; macOS lanza
+    `ps`. Solo se usa mientras corre una herramienta y al pulsar stop.
+    Windows medido en la suite; Linux y macOS escritos, sin medir aqui."""
     try:
         if os.name == "nt":
-            ps = ("Get-CimInstance Win32_Process | ForEach-Object { "
-                  "if($_.CreationDate){ '{0} {1} {2} {3}' -f $_.ProcessId, "
-                  "$_.ParentProcessId, [int64](($_.CreationDate"
-                  ".ToUniversalTime() - [datetime]'1970-01-01')"
-                  ".TotalMilliseconds), $_.Name } }")
-            out = subprocess.run(
-                ["powershell", "-NoProfile", "-NonInteractive", "-Command",
-                 ps], capture_output=True, text=True, timeout=30,
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
-            ).stdout
-            for line in out.splitlines():
-                parts = line.strip().split(" ", 3)
-                if len(parts) >= 3:
-                    try:
-                        rows.append((int(parts[0]), int(parts[1]),
-                                     int(parts[2]) / 1000,
-                                     parts[3] if len(parts) > 3 else ""))
-                    except ValueError:
-                        continue
-        else:
-            now = time.time()
-            out = subprocess.run(["ps", "-A", "-o", "pid=,ppid=,etimes=,comm="],
-                                 capture_output=True, text=True,
-                                 timeout=30).stdout
-            for line in out.splitlines():
-                parts = line.split(None, 3)
-                if len(parts) >= 3:
-                    try:
-                        rows.append((int(parts[0]), int(parts[1]),
-                                     now - int(parts[2]),
-                                     parts[3] if len(parts) > 3 else ""))
-                    except ValueError:
-                        continue
-    except (OSError, subprocess.SubprocessError):
+            try:
+                return _proc_table_win()
+            except (OSError, AttributeError, ValueError):
+                return _proc_table_powershell()
+        if os.path.isdir("/proc/self"):
+            return _proc_table_linux()
+        return _proc_table_ps()
+    except (OSError, ValueError, subprocess.SubprocessError, StopIteration):
         return []
-    return rows
 
 
 def spawned_since(root_pid, since, rows=None):
@@ -2620,6 +2729,8 @@ class Bridge:
         self.summary_ctx = ""                # lo que hacia, para realimentarlo
         self.restart_pending = False         # /restart mientras corre un turno
         self.tool_t0 = None                  # cuando empezo la herramienta viva
+        self.tool_seq = 0                    # cada herramienta, la suya
+        self.tool_seen = {}                  # pid -> (creado, nombre) de su arbol
         self.abort_seq = 0                   # cada stop agresivo, el suyo
         self.fork_from = None                # sesion origen, por si toca papelearla
         self.fork_trash = False              # el usuario pidio borrar la original
@@ -3009,6 +3120,7 @@ class Bridge:
         elif t == "tool_execution_start":
             self.state["tool"] = ev.get("toolName")
             self.tool_t0 = time.time()
+            self.track_tool()
             item = {"kind": "tool", "name": ev.get("toolName"),
                     "args": ev.get("args"), "status": "running",
                     "callId": ev.get("toolCallId")}
@@ -4120,6 +4232,32 @@ class Bridge:
         self.emit({"type": "rpc", "command": t,
                    "data": {"error": "command not allowed"}})
 
+    def track_tool(self):
+        """Apunta lo que nace en el arbol de pi mientras corre la herramienta:
+        un daemon que se queda huerfano (su lanzador termina) ya no se ve
+        desde pi al pulsar stop, pero aqui quedo apuntado."""
+        self.tool_seq += 1
+        self.tool_seen = {}
+        seq, gen, t0 = self.tool_seq, self.gen, self.tool_t0
+        root = self.proc.pid if self.proc else None
+        if root is None:
+            return
+
+        def run():
+            while (seq == self.tool_seq and gen == self.gen
+                   and self.state.get("tool") and self.state.get("running")):
+                rows = _process_table()
+                byid = {r[0]: r for r in rows}
+                for pid, _name in spawned_since(root, t0 - 1.0, rows):
+                    # la cabeza y todo lo suyo: tambien los nietos
+                    for sub in [pid] + [q for q, _ in
+                                        spawned_since(pid, 0, rows)]:
+                        if sub in byid:
+                            self.tool_seen[sub] = (byid[sub][2], byid[sub][3])
+                time.sleep(TRACK_EVERY)
+
+        threading.Thread(target=run, daemon=True).start()
+
     def arm_aggressive(self):
         """Stop con el modo agresivo. Tolerante: sin herramienta en marcha no
         hace nada, y con ella espera AGGR_GRACE s; si para entonces el turno
@@ -4136,8 +4274,26 @@ class Bridge:
             if (seq != self.abort_seq or gen != self.gen
                     or not self.state.get("running")):
                 return                   # asento solo: nada que matar
-            heads = spawned_since(root, since)
-            killed = [name for pid, name in heads if kill_tree(pid)]
+            rows = _process_table()
+            heads = spawned_since(root, since, rows)
+            # los apuntados que siguen vivos (mismo pid Y misma hora de
+            # creacion: si no, el pid lo reutilizo otro) y no cuelgan ya de
+            # una cabeza: los huerfanos
+            alive = {r[0]: r for r in rows}
+            covered = set()
+            for pid, _ in heads:
+                covered.add(pid)
+                covered.update(q for q, _ in spawned_since(pid, 0, rows))
+            orphans = [(pid, name) for pid, (born, name)
+                       in list(self.tool_seen.items())
+                       if pid in alive and pid not in covered
+                       and abs(alive[pid][2] - born) < 1.0]
+            ids = {pid for pid, _ in orphans}
+            # de los huerfanos, solo las cabezas: /T se lleva a sus hijos
+            orphans = [(pid, name) for pid, name in orphans
+                       if alive[pid][1] not in ids]
+            killed = [name for pid, name in heads + orphans
+                      if kill_tree(pid)]
             if killed:
                 self.note("warn", "aggr_killed",
                           "aggressive abort: killed %d stuck process(es): %s"

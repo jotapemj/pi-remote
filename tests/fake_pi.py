@@ -211,9 +211,44 @@ def tool_turn(text):
     out({"type": "agent_settled"})
 
 
+# el caso de Fision tal cual: un hijo con la salida entubada (la shell de
+# ctx_execute) lanza un nieto (el daemon de Gradle) que HEREDA esa tuberia y
+# el hijo termina (el cliente gradlew). El nieto queda huerfano y la tuberia
+# sigue abierta: leer hasta EOF no vuelve mientras el nieto viva
+ORPHAN_CHILD = (
+    "import subprocess, sys, time\n"
+    "g = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(90)'],"
+    " stdout=sys.stdout)\n"
+    "print(g.pid, flush=True)\n"
+    "time.sleep(2)\n")
+
+
+def orphan_turn():
+    ABORT.clear()
+    out({"type": "agent_start"})
+    child = subprocess.Popen([sys.executable, "-c", ORPHAN_CHILD],
+                             stdout=subprocess.PIPE)
+    gpid = int(child.stdout.readline())
+    out({"type": "tool_execution_start", "toolCallId": "o1",
+         "toolName": "ctx_execute",
+         "args": {"language": "shell", "code": "gradlew",
+                  "pid": child.pid, "gpid": gpid}})
+    child.stdout.read()                  # EOF: solo cuando muere el nieto
+    child.wait()
+    out({"type": "tool_execution_end", "toolCallId": "o1",
+         "toolName": "ctx_execute",
+         "result": {"content": [{"type": "text", "text": "ended"}]},
+         "isError": True})
+    out({"type": "agent_end", "messages": [], "willRetry": False})
+    out({"type": "agent_settled"})
+
+
 def turn(text, nimg=0):
     if nimg:
         image_turn(nimg)
+        return
+    if "orphantool" in text:
+        orphan_turn()
         return
     if "hangtool" in text or "slowtool" in text:
         tool_turn(text)

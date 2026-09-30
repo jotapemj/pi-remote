@@ -567,6 +567,15 @@ of optional switches, each remembered per browser.
     ends by itself in time, or one with no tool running, kills nothing. A
     server an extension started during that same call goes too and comes
     back on next use. Asks for confirmation before turning on.
+    It also catches **orphans**: a build tool's daemon (Gradle, Kotlin) is
+    launched by a client that then exits, so the daemon no longer hangs from
+    pi's process tree, yet it keeps the tool's output pipe open and the tool
+    never returns. While a tool runs, the bridge notes every process born
+    under it (pid and start time) once a second and, on stop, kills the ones
+    still alive even if orphaned; the start time guards against a reused pid.
+    Processes are read with the native API on Windows and from `/proc` on
+    Linux, in milliseconds; macOS runs `ps`. Measured on Windows; the Linux
+    and macOS readers are checked against sample data only.
   - **Notifications**: a local notification, with the last reply as its body,
     when a turn ends while the tab is hidden. The browser's own; no third
     parties.
