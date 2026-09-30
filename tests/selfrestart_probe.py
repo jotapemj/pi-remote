@@ -92,6 +92,66 @@ async def main():
                 ("dispara al asentarse el turno", late == 2),
             ]
 
+            # --- ocupado: dialogo Wait / Restart anyway. Un turno que no
+            # asienta nunca (herramienta que ignora el abort) no puede
+            # dejar el reinicio sin salida ---
+            # el reinicio falso no mata nada: el bloqueo del primer bloque
+            # sigue puesto (se quita solo a los 2 min)
+            await js("restartLock(false)")
+            await js("setLang('en'); feed.innerHTML=''; send({type:'prompt',"
+                     " message:'stopme'})")
+            await until(p, "state.running === true")
+            await js("CMDS.find(c=>c.n==='restart').run()")
+            await asyncio.sleep(0.4)
+            # orden pintado de arriba abajo (apiladas): Wait, Restart anyway, Cancel
+            busy = await js("""[$('#modalTitle').textContent,
+              ...[...document.querySelectorAll('.macts .ok')]
+                .filter(b => !b.hidden)
+                .sort((a, b) => a.getBoundingClientRect().top
+                                - b.getBoundingClientRect().top)
+                .map(b => b.textContent)]""")
+            await js("$('#modalNo').click()")   # Cancel: nada
+            await asyncio.sleep(0.4)
+            m_cancel = marks(mark)
+            await js("CMDS.find(c=>c.n==='restart').run()")
+            await asyncio.sleep(0.4)
+            await js("closeModal()")        # cerrar por fuera: nada
+            await asyncio.sleep(0.4)
+            m_dismiss = marks(mark)
+            await js("CMDS.find(c=>c.n==='restart').run()")
+            await asyncio.sleep(0.4)
+            await js("$('#modalExtra').click()")   # Wait
+            await asyncio.sleep(0.6)
+            waited = await js("({lock: !!$('#rlock'),"
+                              " note: [...document.querySelectorAll('.note')]"
+                              ".some(e => /waiting for the turn/i.test(e.textContent))})")
+            m_wait = marks(mark)
+            await js("CMDS.find(c=>c.n==='restart').run()")
+            await asyncio.sleep(0.4)
+            still = await js("state.running")   # el turno sigue al forzar
+            await js("$('#modalOk').click()")   # Restart anyway
+            await asyncio.sleep(2.6)
+            m_force = marks(mark)
+            # el Wait de antes ya no espera: al asentarse, sin segundo reinicio
+            await until(p, "state.running === false")
+            await asyncio.sleep(2.6)
+            m_after = marks(mark)
+            print("  wait/force:", waited, m_wait, m_force, still, m_after)
+            checks += [
+                ("ocupado: Wait, Restart anyway y Cancel, apilados",
+                 # "cancel" es el de toda la app (minuscula, T("cancel"))
+                 busy == ["The agent is busy", "Wait", "Restart anyway",
+                          "cancel"]),
+                ("Cancel no dispara nada", m_cancel == 2),
+                ("cerrarlo por fuera tampoco", m_dismiss == 2),
+                ("Wait: queda en espera, sin bloquear la pantalla",
+                 m_wait == 2 and waited["note"] and not waited["lock"]),
+                ("Restart anyway: dispara ya, con el turno aun en curso",
+                 m_force == 3 and still is True),
+                ("y el Wait pendiente no reinicia otra vez al asentarse",
+                 m_after == 3),
+            ]
+
     fake.unlink(missing_ok=True)
     if mark.exists():
         mark.unlink()

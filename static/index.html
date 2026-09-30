@@ -1967,6 +1967,13 @@ body.hasproj .addp:not(.ghost):hover{background:var(--surface)}
 }
 .ok:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 .ok.alt{background:var(--raise);color:var(--dim);border-color:var(--rule)}
+/* tres opciones: en fila no caben en movil ("Reiniciar igualmente").
+   Apiladas como hoja de acciones: la extra (segura) arriba, la principal
+   en medio y cancelar al fondo */
+.macts.stack{flex-direction:column}
+.macts.stack #modalExtra{order:1}
+.macts.stack #modalOk{order:2}
+.macts.stack #modalNo{order:3}
 .ok.alt:hover{color:var(--ink)}
 /* what it does cannot be undone: outline, not a filled button */
 .ok.danger{background:none;border-color:var(--coral);color:var(--coral)}
@@ -2502,6 +2509,7 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
   <div class="mbody" id="modalBody"></div>
   <div class="macts">
     <button class="ok alt" id="modalNo" hidden></button>
+    <button class="ok alt" id="modalExtra" hidden></button>
     <button class="ok" id="modalOk">OK</button>
   </div>
 </div></div>
@@ -4549,6 +4557,13 @@ function openModal(title, body, run, opts){
                              modalCancel = null; closeModal(); run(v); }
                    : () => closeModal();
   no.onclick = () => closeModal();
+  const ex = $("#modalExtra");
+  ex.hidden = !opts.extra;
+  ok.parentNode.classList.toggle("stack", !!opts.extra);
+  if(opts.extra){
+    ex.textContent = opts.extra.label;
+    ex.onclick = () => { modalCancel = null; closeModal(); opts.extra.run(); };
+  }
   $("#modal").classList.add("open"); navArm();
   if(field) requestAnimationFrame(() => field.focus());
 }
@@ -5144,9 +5159,10 @@ const CMDS = [
                 run:a=>a&&send({type:"steer", message:a})},
   {n:"abort",   h:"Stop the current turn", hEs:"Parar el turno actual",            run:()=>send({type:"abort"})},
   {n:"restart", h:"Restart pi remote", hEs:"Reiniciar pi remote",
-                run:()=>confirmModal(T("restartQ"), "",
-                                     ()=>{ restartLock(true);
-                                           send({type:"restart"}); })},
+                run:()=>state.running ? restartBusy()
+                  : confirmModal(T("restartQ"), "",
+                                 ()=>{ restartLock(true);
+                                       send({type:"restart"}); })},
   {n:"queue",   h:"Show queued messages", hEs:"Ver los mensajes en cola",             run:()=>{
       const q = state.queue||{};
       note(`steering: ${(q.steering||[]).length}   follow-up: ${(q.followUp||[]).length}`);}},
@@ -5994,7 +6010,7 @@ const STR = {
       compactB:"The conversation gets summarised. It cannot be undone.",
       clearqQ:"Drop the queued messages?",
       restartQ:"Restart pi remote now?",
-      typeAnswer:"type an answer", answered:"answered", askExpired:"closed without an answer", pkgMissing:"configured but not installed: pi loads nothing from it", instructions:"Instructions", notCreated:"not created", alsoLoaded:"Also loaded", editLbl:"Edit", deleteInstrQ:"Delete {name}?", deleteInstrB:"The file is deleted for good. Changes apply after restarting pi remote.", tools:"tool",
+      typeAnswer:"type an answer", answered:"answered", askExpired:"closed without an answer", pkgMissing:"configured but not installed: pi loads nothing from it", instructions:"Instructions", notCreated:"not created", alsoLoaded:"Also loaded", editLbl:"Edit", deleteInstrQ:"Delete {name}?", deleteInstrB:"The file is deleted for good. Changes apply after restarting pi remote.", restartBusyQ:"The agent is busy", restartBusyB:"pi is still working on a turn. Wait for it to finish and restart then, or restart now: the turn and any command it started are cut off.", restartAnyway:"Restart anyway", waitLbl:"Wait", tools:"tool",
       fold:"collapse",
       thinking:"Thinking\u2026", thoughtFor:"Thought for {n} {u}",
       secOne:"second", secMany:"seconds", minOne:"minute", minMany:"minutes",
@@ -6151,7 +6167,7 @@ const STR = {
       compactB:"La conversaci\u00f3n se resume. No se puede deshacer.",
       clearqQ:"\u00bfDescartar los mensajes en cola?",
       restartQ:"\u00bfReiniciar pi remote ahora?",
-      typeAnswer:"escribir respuesta", answered:"respondido", askExpired:"cerrada sin respuesta", pkgMissing:"configurado pero no instalado: pi no carga nada de \u00e9l", instructions:"Instrucciones", notCreated:"no creado", alsoLoaded:"Tambi\u00e9n se cargan", editLbl:"Editar", deleteInstrQ:"\u00bfEliminar {name}?", deleteInstrB:"El fichero se borra definitivamente. Los cambios se aplican al reiniciar pi remote.",
+      typeAnswer:"escribir respuesta", answered:"respondido", askExpired:"cerrada sin respuesta", pkgMissing:"configurado pero no instalado: pi no carga nada de \u00e9l", instructions:"Instrucciones", notCreated:"no creado", alsoLoaded:"Tambi\u00e9n se cargan", editLbl:"Editar", deleteInstrQ:"\u00bfEliminar {name}?", deleteInstrB:"El fichero se borra definitivamente. Los cambios se aplican al reiniciar pi remote.", restartBusyQ:"El agente est\u00e1 ocupado", restartBusyB:"pi sigue trabajando en un turno. Espera a que termine y reinicia entonces, o reinicia ya: el turno y cualquier comando que haya lanzado se cortan.", restartAnyway:"Reiniciar igualmente", waitLbl:"Esperar",
       tools:"herramienta", fold:"plegar", output:"salida", noOutput:"sin salida",
       command:"comando", pasted:"Texto pegado {n} líneas", prefilling:"prefilling",
       thinking:"Pensando\u2026", thoughtFor:"Pens\u00f3 durante {n} {u}",
@@ -6308,7 +6324,7 @@ const STR = {
       compactB:"Das Gespr\u00e4ch wird zusammengefasst. Das l\u00e4sst sich nicht r\u00fcckg\u00e4ngig machen.",
       clearqQ:"Nachrichten in der Warteschlange verwerfen?",
       restartQ:"pi remote jetzt neu starten?",
-      typeAnswer:"Antwort eingeben", answered:"beantwortet", askExpired:"ohne Antwort geschlossen", pkgMissing:"konfiguriert, aber nicht installiert: pi l\u00e4dt nichts daraus", instructions:"Anweisungen", notCreated:"nicht erstellt", alsoLoaded:"Ebenfalls geladen", editLbl:"Bearbeiten", deleteInstrQ:"{name} l\u00f6schen?", deleteInstrB:"Die Datei wird endg\u00fcltig gel\u00f6scht. \u00c4nderungen gelten nach dem Neustart von pi remote.",
+      typeAnswer:"Antwort eingeben", answered:"beantwortet", askExpired:"ohne Antwort geschlossen", pkgMissing:"konfiguriert, aber nicht installiert: pi l\u00e4dt nichts daraus", instructions:"Anweisungen", notCreated:"nicht erstellt", alsoLoaded:"Ebenfalls geladen", editLbl:"Bearbeiten", deleteInstrQ:"{name} l\u00f6schen?", deleteInstrB:"Die Datei wird endg\u00fcltig gel\u00f6scht. \u00c4nderungen gelten nach dem Neustart von pi remote.", restartBusyQ:"Der Agent ist besch\u00e4ftigt", restartBusyB:"pi arbeitet noch an einem Vorgang. Warte, bis er fertig ist, und starte dann neu, oder starte jetzt neu: der Vorgang und alle gestarteten Befehle werden abgebrochen.", restartAnyway:"Trotzdem neu starten", waitLbl:"Warten",
       tools:"Werkzeug", fold:"einklappen", output:"Ausgabe",
       noOutput:"keine Ausgabe", command:"Befehl",
       pasted:"Einf\u00fcgung: {n} Zeilen", prefilling:"prefilling",
@@ -6466,7 +6482,7 @@ const STR = {
       compactB:"La conversation sera r\u00e9sum\u00e9e. Irr\u00e9versible.",
       clearqQ:"Vider les messages en file d'attente ?",
       restartQ:"Red\u00e9marrer pi remote maintenant ?",
-      typeAnswer:"Saisir une r\u00e9ponse", answered:"r\u00e9pondu", askExpired:"ferm\u00e9e sans r\u00e9ponse", pkgMissing:"configur\u00e9 mais non install\u00e9 : pi n\u2019en charge rien", instructions:"Instructions", notCreated:"non cr\u00e9\u00e9", alsoLoaded:"\u00c9galement charg\u00e9s", editLbl:"Modifier", deleteInstrQ:"Supprimer {name} ?", deleteInstrB:"Le fichier est supprim\u00e9 d\u00e9finitivement. Les modifications s\u2019appliquent au red\u00e9marrage de pi remote.",
+      typeAnswer:"Saisir une r\u00e9ponse", answered:"r\u00e9pondu", askExpired:"ferm\u00e9e sans r\u00e9ponse", pkgMissing:"configur\u00e9 mais non install\u00e9 : pi n\u2019en charge rien", instructions:"Instructions", notCreated:"non cr\u00e9\u00e9", alsoLoaded:"\u00c9galement charg\u00e9s", editLbl:"Modifier", deleteInstrQ:"Supprimer {name} ?", deleteInstrB:"Le fichier est supprim\u00e9 d\u00e9finitivement. Les modifications s\u2019appliquent au red\u00e9marrage de pi remote.", restartBusyQ:"L\u2019agent est occup\u00e9", restartBusyB:"pi travaille encore sur un tour. Attendez qu\u2019il se termine pour red\u00e9marrer, ou red\u00e9marrez maintenant : le tour et les commandes lanc\u00e9es sont interrompus.", restartAnyway:"Red\u00e9marrer quand m\u00eame", waitLbl:"Attendre",
       tools:"Outil", fold:"replier", output:"sortie",
       noOutput:"aucune sortie", command:"commande",
       pasted:"Texte coll\u00e9, {n} lignes", prefilling:"prefilling",
@@ -6623,7 +6639,7 @@ const STR = {
       compactB:"A conversa ser\u00e1 resumida. N\u00e3o se desfaz.",
       clearqQ:"Descartar as mensagens na fila?",
       restartQ:"Reiniciar o pi remote agora?",
-      typeAnswer:"digite a resposta", answered:"respondido", askExpired:"fechada sem resposta", pkgMissing:"configurado mas n\u00e3o instalado: o pi n\u00e3o carrega nada dele", instructions:"Instru\u00e7\u00f5es", notCreated:"n\u00e3o criado", alsoLoaded:"Tamb\u00e9m carregados", editLbl:"Editar", deleteInstrQ:"Eliminar {name}?", deleteInstrB:"O ficheiro \u00e9 apagado definitivamente. As altera\u00e7\u00f5es aplicam-se ao reiniciar o pi remote.",
+      typeAnswer:"digite a resposta", answered:"respondido", askExpired:"fechada sem resposta", pkgMissing:"configurado mas n\u00e3o instalado: o pi n\u00e3o carrega nada dele", instructions:"Instru\u00e7\u00f5es", notCreated:"n\u00e3o criado", alsoLoaded:"Tamb\u00e9m carregados", editLbl:"Editar", deleteInstrQ:"Eliminar {name}?", deleteInstrB:"O ficheiro \u00e9 apagado definitivamente. As altera\u00e7\u00f5es aplicam-se ao reiniciar o pi remote.", restartBusyQ:"O agente est\u00e1 ocupado", restartBusyB:"O pi ainda est\u00e1 a trabalhar num turno. Espere que termine e reinicie depois, ou reinicie j\u00e1: o turno e os comandos que lan\u00e7ou s\u00e3o interrompidos.", restartAnyway:"Reiniciar mesmo assim", waitLbl:"Esperar",
       tools:"Ferramenta", fold:"recolher", output:"sa\u00edda",
       noOutput:"sem sa\u00edda", command:"comando",
       pasted:"Texto colado, {n} linhas", prefilling:"prefilling",
@@ -6775,7 +6791,7 @@ const STR = {
       compactB:"对话将被摘要化。不可撤销。",
       clearqQ:"丢弃排队中的消息？",
       restartQ:"现在重启 pi remote？",
-      typeAnswer:"输入回答", answered:"已回答", askExpired:"未回答，已关闭", pkgMissing:"已配置但未安装：pi 不会加载其中任何内容", instructions:"指令", notCreated:"未创建", alsoLoaded:"同时加载", editLbl:"编辑", deleteInstrQ:"删除 {name}？", deleteInstrB:"文件将被永久删除。更改将在重启 pi remote 后生效。",
+      typeAnswer:"输入回答", answered:"已回答", askExpired:"未回答，已关闭", pkgMissing:"已配置但未安装：pi 不会加载其中任何内容", instructions:"指令", notCreated:"未创建", alsoLoaded:"同时加载", editLbl:"编辑", deleteInstrQ:"删除 {name}？", deleteInstrB:"文件将被永久删除。更改将在重启 pi remote 后生效。", restartBusyQ:"代理正忙", restartBusyB:"pi 仍在处理当前轮次。可以等待其结束后再重启，也可以立即重启：当前轮次及其启动的命令都会被中断。", restartAnyway:"仍然重启", waitLbl:"等待",
       tools:"工具", fold:"收起", output:"输出",
       noOutput:"无输出", command:"命令",
       pasted:"粘贴文本，{n} 行", prefilling:"prefilling",
@@ -7895,6 +7911,19 @@ function paintExtRows(scope){
     c.appendChild(r);
   });
 }
+/* /restart con el agente ocupado. Esperar al turno era la unica via, y un
+   turno que no termina (una herramienta de extension que ignora el abort,
+   como ctx_execute) dejaba el chat bloqueado sin salida. Tres salidas:
+   Wait conserva lo de antes sin bloquear la pantalla (se puede volver a
+   pedir y forzar); Restart anyway reinicia ya (la tarea mata el arbol
+   entero, herramienta colgada incluida); Cancel no hace nada */
+function restartBusy(){
+  openModal(T("restartBusyQ"), `<p>${esc(T("restartBusyB"))}</p>`,
+    () => { restartLock(true); send({type:"restart", force:true}); },
+    {ok: T("restartAnyway"),
+     extra: {label: T("waitLbl"), run: () => send({type:"restart"})}});
+}
+
 /* ---------- instrucciones: lo que pi mete en su system prompt ----------
    Global: AGENTS.md (o el que pi use de verdad en AGENT_DIR) y
    APPEND_SYSTEM.md. Proyecto: el fichero de contexto de la raiz del cwd

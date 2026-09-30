@@ -3555,7 +3555,13 @@ class Bridge:
             # la tarea corre fuera de nuestro arbol: sobrevive a nuestra muerte.
             # Con un turno en curso, avisamos y esperamos a que asiente (la
             # ultima respuesta llega entera); sin turno, reiniciamos ya.
-            if self.state.get("running"):
+            # `force` (Restart anyway): ya, con turno o sin el. Un turno que
+            # no asienta nunca (herramienta de extension que ignora el abort)
+            # dejaba la espera sin salida; la tarea mata el arbol entero
+            if msg.get("force"):
+                self.restart_pending = False
+                self.begin_restart()
+            elif self.state.get("running"):
                 self.note("info", "restart_wait",
                           "waiting for the turn to finish before restarting"
                           " pi remote")

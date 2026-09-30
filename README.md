@@ -437,8 +437,11 @@ guardrails: it is your hand, not the agent's.
 cannot come from inside (a child dies with its parent's tree), so the command
 fires a one-shot scheduled task (the bridge registers it at startup), which
 runs under the Task Scheduler service, outside the process tree. If a turn is
-running, it waits for it to settle so the last reply lands
-intact; then, after a two-second fade, it kills the bridge, relaunches it and
+running, a dialog says the agent is busy: **Wait** restarts once the turn
+settles, so the last reply lands intact, and leaves the page usable in the
+meantime; **Restart anyway** restarts now, cutting the turn and any command it
+started (the way out when a tool never returns, as an extension tool that
+ignores stop can); **Cancel** does nothing. Then, after a two-second fade, it kills the bridge, relaunches it and
 verifies the port answers. The session comes back from disk and the phone
 reconnects on its own. From the moment it is confirmed the page ignores taps,
 scrolling and keys, and it stays behind the curtain until the history, the
