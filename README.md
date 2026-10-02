@@ -432,7 +432,10 @@ message.
 
 The ones that cannot be undone (`/compact`, `/clearq`, `/new`) ask first.
 `/bash` runs a command **skipping the model entirely**, and with it the
-guardrails: it is your hand, not the agent's.
+guardrails: it is your hand, not the agent's. Its command card shows up the
+moment it is sent, running, and fills in with the output when it ends: pi
+runs it and, over RPC, only answers at the end. As in pi, the output joins
+the agent's context.
 
 `/restart` asks too: it restarts the bridge itself, agent included. The kill
 cannot come from inside (a child dies with its parent's tree), so the command
@@ -642,7 +645,7 @@ python tests/run.py            # everything, about four minutes
 python tests/run.py rail       # just the ones matching "rail"
 ```
 
-Seventy-five probes: the page is driven in a real headless Chrome through the
+Seventy-six probes: the page is driven in a real headless Chrome through the
 DevTools protocol, which is how the animation, contrast, layout and security
 checks are measured rather than assumed. Chrome or Edge is found
 automatically; point `CHROME` at it otherwise.

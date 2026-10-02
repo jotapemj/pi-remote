@@ -3808,9 +3808,15 @@ function wireAsk(el, it){
   el.querySelectorAll(".opt").forEach(b=>b.onclick=()=>{
     let choice = b.dataset.c;
     if(choice === "__text__"){
-      const v = prompt(it.title, it.prefill||"");
-      if(v === null) return;
-      choice = v;
+      const tl = String(it.title || "").split(/\r?\n/)
+        .map(x => x.trim()).filter(Boolean);
+      const body = tl.slice(1).concat(it.body ? [it.body] : [])
+        .map(x => `<p>${esc(x)}</p>`).join("");
+      openModal(tl[0] || T("typeAnswer"), body,
+        v => send({type:"answer", rid: it.rid, choice: v || ""}),
+        {input: T("typeAnswer"), value: it.prefill || "",
+         area: it.method === "editor", ok: T("ok"), plain: true});
+      return;
     }
     send({type:"answer", rid: it.rid, choice});
   });
@@ -4530,11 +4536,12 @@ function openModal(title, body, run, opts){
                                                  : opts.input}])
       .forEach((spec, i) => {
         const f = document.createElement("div");
-        f.className = "mfield";
-        const inp = document.createElement("input");
+        f.className = "mfield" + (opts.area ? " ta" : "");
+        const inp = document.createElement(opts.area ? "textarea" : "input");
         inp.placeholder = " ";
         inp.setAttribute("autocomplete", "off");
-        if(i === 0){ field = inp; inp.id = "modalInput"; }
+        if(i === 0){ field = inp; inp.id = "modalInput";
+                     if(opts.value) inp.value = opts.value; }
         const lbl = document.createElement("label");
         lbl.textContent = spec.label;
         f.append(inp, lbl); wrap.appendChild(f);
@@ -10258,7 +10265,8 @@ $("#sheet").onclick = e => {
 addEventListener("keydown", e => {
   if($("#modal").classList.contains("open")){
     // Enter acepta, Esc cancela: el dialogo responde al teclado
-    if(e.key === "Enter"){ e.preventDefault(); $("#modalOk").click(); return; }
+    if(e.key === "Enter" && !(e.target && e.target.tagName === "TEXTAREA")){
+      e.preventDefault(); $("#modalOk").click(); return; }
     if(e.key === "Escape") return closeModal();
   }
   if(e.key !== "Escape") return;

@@ -551,6 +551,15 @@ for line in sys.stdin:
     elif t == "abort":
         ABORT.set()
         out({"type": "response", "command": "abort", "success": True})
+    elif t == "bash":
+        # /bash del usuario: pi lo ejecuta y responde al final (en RPC no
+        # hay salida parcial). Tarda un poco, para ver la tarjeta en marcha
+        def run_bash(c=cmd.get("command", "")):
+            time.sleep(1.5)
+            out({"type": "response", "command": "bash", "success": True,
+                 "data": {"output": "$ %s\nhecho" % c,
+                          "exitCode": 1 if "fail" in c else 0}})
+        threading.Thread(target=run_bash, daemon=True).start()
     elif t == "fork":
         out({"type": "response", "command": "fork", "success": True,
              "data": {"cancelled": False, "text": "forked here"}})

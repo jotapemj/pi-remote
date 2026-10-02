@@ -2729,6 +2729,7 @@ class Bridge:
         self.summary_ctx = ""                # lo que hacia, para realimentarlo
         self.restart_pending = False         # /restart mientras corre un turno
         self.tool_t0 = None                  # cuando empezo la herramienta viva
+        self.bash_rows = deque()             # /bash del usuario en curso (FIFO)
         self.tool_seq = 0                    # cada herramienta, la suya
         self.tool_seen = {}                  # pid -> (creado, nombre) de su arbol
         self.abort_seq = 0                   # cada stop agresivo, el suyo
@@ -2775,6 +2776,7 @@ class Bridge:
         self.cur = None
         self.pending.clear()
         self.turn_asks.clear()
+        self.bash_rows.clear()
         self.emit({"type": "cleared"})
         if dropped:
             self.note("warn", "dropped_ask",
@@ -3314,6 +3316,10 @@ class Bridge:
         cmd, data = ev.get("command"), ev.get("data") or {}
 
         if not ev.get("success", True):
+            if cmd == "bash" and self.bash_rows:     # su tarjeta, en error
+                self.patch(self.bash_rows.popleft(), status="error",
+                           output=str(ev.get("error") or "")[:8000])
+                return
             self.note("error", "cmd_failed",
                       f"{cmd} failed: {ev.get('error')}",
                       cmd=cmd, err=str(ev.get("error")))
@@ -3412,9 +3418,13 @@ class Bridge:
             self.load_history(data.get("messages"))
 
         elif cmd == "bash":
-            self.push({"kind": "tool", "name": "bash (direct)",
-                       "status": "error" if data.get("exitCode") else "done",
-                       "output": (data.get("output") or "")[:8000]})
+            fields = {"status": "error" if data.get("exitCode") else "done",
+                      "output": (data.get("output") or "")[:8000]}
+            if self.bash_rows:           # la tarjeta que se abrio al lanzarlo
+                self.patch(self.bash_rows.popleft(), **fields)
+            else:
+                self.push(dict({"kind": "tool", "name": "bash (direct)"},
+                               **fields))
 
         elif cmd == "export_html":
             self.note("info", "exported", f"exported to {data.get('path')}",
@@ -4223,6 +4233,15 @@ class Bridge:
                 err = skill_delete(scope, self.cwd, msg.get("dir"))
             data = {"error": err} if err else {"scope": scope}
             self.emit({"type": "rpc", "command": t, "data": data})
+            return
+
+        if t == "bash" and (msg.get("command") or "").strip():
+            if self.proc:
+                self.bash_rows.append(self.push({
+                    "kind": "tool", "name": "bash (direct)",
+                    "args": {"command": msg["command"]},
+                    "status": "running"}))
+            self.send_pi({k: v for k, v in msg.items() if k != "token"})
             return
 
         if t in PASSTHROUGH:

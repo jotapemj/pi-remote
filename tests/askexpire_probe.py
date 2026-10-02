@@ -158,6 +158,37 @@ async def main():
                 ("un titulo de una linea queda igual",
                  ml["one"] == "Allow?" and ml["noMeta"]),
             ]
+            # respuesta escrita: dialogo propio, no el prompt() del navegador
+            ti = await p.js("""(() => {
+              const sent = []; const s0 = ws.send.bind(ws);
+              ws.send = x => { sent.push(JSON.parse(x)); };
+              let native = false; const p0 = window.prompt;
+              window.prompt = () => { native = true; return null; };
+              render({id: 903, kind: 'ask', rid: 'rr', method: 'input',
+                title: 'Permission Required\\nShare why this request was denied (optional).',
+                prefill: 'sugerido'});
+              nodes.get(903).querySelector('.opt[data-c="__text__"]').click();
+              const r = {native, open: $('#modal').classList.contains('open'),
+                title: $('#modalTitle').textContent,
+                body: $('#modalBody').textContent,
+                val: ($('#modalInput') || {}).value};
+              $('#modalInput').value = 'uses a slow path';
+              $('#modalOk').click();
+              r.sent = sent.filter(o => o.type === 'answer');
+              ws.send = s0; window.prompt = p0;
+              return r; })()""")
+            print("  respuesta escrita:", ti)
+            checks += [
+                ("escribir la respuesta abre el dialogo propio, no prompt()",
+                 ti["open"] and not ti["native"]),
+                ("titulo = primera linea; cuerpo = el resto",
+                 ti["title"] == "Permission Required"
+                 and "Share why this request was denied" in ti["body"]),
+                ("con el texto sugerido ya puesto", ti["val"] == "sugerido"),
+                ("y lo escrito viaja como respuesta",
+                 ti["sent"] and ti["sent"][0]["rid"] == "rr"
+                 and ti["sent"][0]["choice"] == "uses a slow path"),
+            ]
             checks += [
                 ("caducada: sin botones", ui["done"] and ui["opts"] == "none"),
                 ("con su rotulo traducido",
