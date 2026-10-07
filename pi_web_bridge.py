@@ -176,7 +176,8 @@ SUGGEST_HINT = (
     "<hint: Wait, show me the diff first.>\n"
     "<hint: What about the tests?>\n"
     "Replace the example text with suggestions that fit. Always write all "
-    "three lines. Write nothing after the third.]"
+    "three lines. Each marker must be the entire line: no bullet, no "
+    "number, no heading, no prefix. Write nothing after the third.]"
 )
 
 # La instruccion viaja dentro del prompt, asi que pi la guarda en disco. Al

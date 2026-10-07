@@ -7513,7 +7513,9 @@ function splitHints(t, streaming){
   const hints = [];
   let saw = false;
   while(i >= 0){
-    const s = lines[i].trim();
+    // el modelo a veces saca los hints como lista (" - <hint: ..>",
+    // "1. <hint: ..>"): se quita el prefijo antes de comparar
+    const s = lines[i].trim().replace(/^([-*•]\s+|\d+[.)]\s+)/, "");
     // la cerrada antes que la abierta: <hint>x</hint> no capture "x</hint>"
     const done = s.match(/^<hint:\s*([\s\S]*?)>$/)
       || s.match(/^<hint>\s*([\s\S]*?)<\/hint>\s*$/)

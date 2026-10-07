@@ -208,6 +208,48 @@ async def in_page():
                  and "Listo." in shown),
             ]
 
+            # vinetas y numeros al final (el modelo saca lista):
+            # el prefijo se quita y los hints se parsean igual
+            await js("setSuggest(true); feed.innerHTML=''; nodes.clear();"
+                     " render({id:6, kind:'assistant', streaming:false,"
+                     " text:'Siguientes:\\n"
+                     "- <hint: Prueba en el movil.>"
+                     "\\n- <hint: Añade tests.>"
+                     "\\n- <hint: Sube version?>'}); placeActions()")
+            await asyncio.sleep(0.05)
+            shown = await js("document.querySelector('.said,[data-body]')"
+                             ".textContent")
+            rows = await js("[...document.querySelectorAll"
+                            "('.suggests .sug .stext')].map(n=>n.textContent)")
+            print("  vinetas: filas=%s body=%r" % (rows, shown))
+            checks += [
+                ("vinetas al final dan 3 filas",
+                 rows == ["Prueba en el movil.", "Añade tests.",
+                          "Sube version?"]),
+                ("y el cuerpo no muestra las vinetas",
+                 "<hint" not in shown and "Siguientes:" in shown),
+            ]
+
+            # numeros: "1. <hint: ..>"
+            await js("setSuggest(true); feed.innerHTML=''; nodes.clear();"
+                     " render({id:7, kind:'assistant', streaming:false,"
+                     " text:'Hecho.\\n"
+                     "1. <hint: Una.>"
+                     "\\n2. <hint: Dos.>"
+                     "\\n3. <hint: Tres.>'}); placeActions()")
+            await asyncio.sleep(0.05)
+            shown = await js("document.querySelector('.said,[data-body]')"
+                             ".textContent")
+            rows = await js("[...document.querySelectorAll"
+                            "('.suggests .sug .stext')].map(n=>n.textContent)")
+            print("  numeros: filas=%s body=%r" % (rows, shown))
+            checks += [
+                ("numeros al final dan 3 filas",
+                 rows == ["Una.", "Dos.", "Tres."]),
+                ("y el cuerpo queda limpio",
+                 "<hint" not in shown and "Hecho." in shown),
+            ]
+
             # abierta sin cierre (el modelo se olvida del </hint>) + canonica
             await js("setSuggest(true); feed.innerHTML=''; nodes.clear();"
                      " render({id:6, kind:'assistant', streaming:false,"
