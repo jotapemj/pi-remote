@@ -333,6 +333,9 @@ html.booted .curtain:not(.restarting){display:none}
   padding:13px var(--gut);
   background:linear-gradient(var(--plate-a),var(--plate-b));
 }
+/* PWA instalada (fullscreen): sin barra de estado, el aire de arriba
+   flota; la cabecera sube 5 px (13 -> 8, escala de la casa) */
+@media (display-mode: fullscreen){ .plate{padding-top:8px} }
 .plate .txt{
   flex:1; min-width:0; display:flex; flex-direction:column;
   justify-content:center;
