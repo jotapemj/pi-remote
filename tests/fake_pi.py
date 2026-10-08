@@ -3,6 +3,7 @@
 tested without a model. Not part of the project, just a harness."""
 import json
 import os
+import queue
 import subprocess
 import sys
 import threading
@@ -11,6 +12,20 @@ import time
 def out(o):
     sys.stdout.write(json.dumps(o) + "\n")
     sys.stdout.flush()
+
+# /bash en cola serial: dos comandos seguidos responden en el orden pedido.
+# Un hilo por comando se pisa y el FIFO de la tarjeta los empareja al reves
+BASH_Q = queue.Queue()
+
+def bash_worker():
+    while True:
+        c, dt = BASH_Q.get()
+        time.sleep(dt)
+        out({"type": "response", "command": "bash", "success": True,
+             "data": {"output": "$ %s\nhecho" % c,
+                      "exitCode": 1 if "fail" in c else 0}})
+
+threading.Thread(target=bash_worker, daemon=True).start()
 
 USAGE = {"input": 12000, "output": 240, "cacheRead": 0, "cacheWrite": 0,
          "reasoning": 30, "totalTokens": 12270, "cost": {"total": 0}}
@@ -554,12 +569,7 @@ for line in sys.stdin:
     elif t == "bash":
         # /bash del usuario: pi lo ejecuta y responde al final (en RPC no
         # hay salida parcial). Tarda un poco, para ver la tarjeta en marcha
-        def run_bash(c=cmd.get("command", "")):
-            time.sleep(1.5)
-            out({"type": "response", "command": "bash", "success": True,
-                 "data": {"output": "$ %s\nhecho" % c,
-                          "exitCode": 1 if "fail" in c else 0}})
-        threading.Thread(target=run_bash, daemon=True).start()
+        BASH_Q.put((cmd.get("command", ""), 1.5))
     elif t == "fork":
         out({"type": "response", "command": "fork", "success": True,
              "data": {"cancelled": False, "text": "forked here"}})
