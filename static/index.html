@@ -2085,14 +2085,18 @@ body.hasproj .addp:not(.ghost):hover{background:var(--surface)}
   /* plegado: el rail se hace fino y muestra la columna de iconos. El
      contenido completo y los iconos se funden entre si */
   body.folded .rail{width:64px}
-  .railfull, .slim{
+  .railfull{
     position:absolute; inset:0; display:flex; flex-direction:column;
     transition:opacity .18s ease;
+    padding:calc(15px + env(safe-area-inset-top)) 11px 0;
   }
-  .railfull{padding:calc(15px + env(safe-area-inset-top)) 11px 0}
+  /* en la misma celda del grid, junto al rail: el rotulo escapa del recorte */
   .slim{
-    align-items:center; padding:16px 0 calc(14px + env(safe-area-inset-bottom));
+    grid-area:1/1; position:relative; z-index:2; min-width:0;
+    display:flex; flex-direction:column; align-items:center;
+    padding:16px 0 calc(14px + env(safe-area-inset-bottom));
     opacity:0; pointer-events:none;
+    transition:opacity .18s ease;
   }
   body.folded .railfull{opacity:0; pointer-events:none}
   body.folded .slim{opacity:1; pointer-events:auto}
@@ -2455,18 +2459,20 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
       <button class="trashb" id="trashBtn" aria-label="trash"></button>
     </div>
   </div>
-  <!-- rail fino de iconos: solo escritorio, con el rail plegado -->
-  <div class="slim" id="slimRail">
-    <button class="slimb logo" id="slimLogo" title="pi remote">
-      <span class="cubemask" aria-hidden="true"></span>
-      <span class="hov" aria-hidden="true"></span>
-    </button>
-    <button class="slimb" id="slimNew" aria-label="new session"></button>
-    <button class="slimb" id="slimSearch" aria-label="search"></button>
-    <button class="slimb" id="slimChat" aria-label="chats"></button>
-    <div class="slimfoot"><button class="slimb" id="slimTrash" aria-label="trash"></button></div>
-  </div>
 </aside>
+<!-- rail fino de iconos: solo escritorio, con el rail plegado. HERMANO del
+     aside, no hijo: el rail recorta su contenido (overflow:hidden) y eso
+     recortaba tambien los rotulos, que asoman por fuera de los 64px -->
+<div class="slim" id="slimRail">
+  <button class="slimb logo" id="slimLogo" title="pi remote">
+    <span class="cubemask" aria-hidden="true"></span>
+    <span class="hov" aria-hidden="true"></span>
+  </button>
+  <button class="slimb" id="slimNew" aria-label="new session"></button>
+  <button class="slimb" id="slimSearch" aria-label="search"></button>
+  <button class="slimb" id="slimChat" aria-label="chats"></button>
+  <div class="slimfoot"><button class="slimb" id="slimTrash" aria-label="trash"></button></div>
+</div>
 <div class="grip" id="grip"></div>
 
 <div class="searchview" id="searchView">

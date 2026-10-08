@@ -96,6 +96,35 @@ async def wide(p, js):
         ("y la hamburguesa sigue escondida", c["menu"] == "none"),
         ("el chat ocupa el resto", c["chatIzq"] == 64),
     ]
+    # el rotulo del icono: asoma por fuera de los 64px. El rail recorta su
+    # contenido, asi que si el rail fino vive DENTRO del rail el rotulo no se ve
+    t = await js("""(() => {
+      const b = $('#slimNew'), a = getComputedStyle(b, '::after');
+      const bb = b.getBoundingClientRect();
+      const right = bb.left + parseFloat(a.left) + parseFloat(a.width);
+      let el = b, clip = null;
+      while (el) {
+        const o = getComputedStyle(el), r = el.getBoundingClientRect();
+        if (o.overflowX !== 'visible' && right > r.right + 0.5) {
+          clip = el.id || el.className; break;
+        }
+        el = el.parentElement;
+      }
+      return {tipRight: Math.round(right),
+              railRight: Math.round($('#rail').getBoundingClientRect().right),
+              clip: clip, enRail: !!b.closest('#rail'),
+              z: getComputedStyle($('#slimRail')).zIndex};
+    })()""")
+    print("  rotulo  : llega a x=%s (barra acaba en %s) | recorta %r | en rail=%s"
+          % (t["tipRight"], t["railRight"], t["clip"], t["enRail"]))
+    checks += [
+        ("el rotulo asoma por fuera de los 64px",
+         t["tipRight"] > t["railRight"]),
+        ("y ningun ancestro lo recorta", t["clip"] is None),
+        ("el rail fino es hermano del rail, no hijo", t["enRail"] is False),
+        ("y pinta por encima del chat", int(t["z"]) > 0),
+    ]
+
     await js("$('#slimLogo').click()")
     await asyncio.sleep(0.35)
     d = await js(LAYOUT)
@@ -166,8 +195,9 @@ async def narrow(p, js):
                  " getComputedStyle($('#foldBtn')).display,"
                  " getComputedStyle($('#rail')).position,"
                  " getComputedStyle(document.querySelector('.sheet .card'))"
-                 ".borderRadius]")
-    print("  estrecho: body=%s grip=%s menu=%s plegar=%s rail=%s radio=%s"
+                 ".borderRadius,"
+                 " getComputedStyle($('#slimRail')).display]")
+    print("  estrecho: body=%s grip=%s menu=%s plegar=%s rail=%s radio=%s fino=%s"
           % tuple(n))
     return [
         ("en estrecho la barra sigue siendo un cajon",
@@ -177,6 +207,7 @@ async def narrow(p, js):
         ("y con el boton de menu de siempre", n[2] != "none"),
         ("los ajustes vuelven a subir desde abajo",
          n[5].startswith("12px 12px 0")),
+        ("el rail fino no aparece en movil", n[6] == "none"),
     ]
 
 
