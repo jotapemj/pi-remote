@@ -81,6 +81,20 @@ async def main():
                 ("y junto al puntero", pop and abs(pop[0] - (x + 2)) <= 2
                  and abs(pop[1] - (y + 2)) <= 2),
             ]
+            # el icono: trazado de Symbols (viewBox 960) pintado a 18 px
+            icon = await js("""(() => { const b = document.querySelectorAll('.ctxrow')[1];
+              const s = b.querySelector('svg'), r = s.getBoundingClientRect();
+              const pr = s.querySelector('path').getBBox();
+              return {vb: s.getAttribute('viewBox'), w: Math.round(r.width),
+                      h: Math.round(r.height),
+                      paint: pr.width > 0 && pr.height > 0}; })()""")
+            print("  icono     : %s" % icon)
+            checks += [
+                ("el icono de seleccionar es el de Symbols",
+                 icon["vb"] == "0 -960 960 960"),
+                ("y pinta a 17 px", icon["w"] == 17 and icon["h"] == 17
+                 and icon["paint"]),
+            ]
 
             # copiar: el texto entero, tal como lo ve el usuario
             await js("document.querySelector('.ctxrow').click()")
