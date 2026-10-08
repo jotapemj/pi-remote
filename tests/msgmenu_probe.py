@@ -39,13 +39,14 @@ OUTSIDE = """document.body.dispatchEvent(new PointerEvent('pointerdown',
   {bubbles:true}))"""
 
 SEL = """(() => { const s = getSelection();
-  if(!s.rangeCount) return null;
-  const r = s.getRangeAt(0), b = r.getBoundingClientRect();
-  const t = document.querySelector('.mine .utext').getBoundingClientRect();
-  return {txt: s.toString(), inside: b.left >= t.left - 1 && b.right <= t.right + 1
-          && b.top >= t.top - 1,
-          sel: getComputedStyle(document.querySelector('.mine .utext')).userSelect};
-})()"""
+  const t = document.querySelector('.mine .utext');
+  const r = t.getBoundingClientRect();
+  const out = {txt: s.toString(), sel: getComputedStyle(t).userSelect,
+               inside: false};
+  if(s.rangeCount){ const b = s.getRangeAt(0).getBoundingClientRect();
+    out.inside = b.left >= r.left - 1 && b.right <= r.right + 1
+                 && b.top >= r.top - 1; }
+  return out; })()"""
 
 LONG = """(() => { const t = document.querySelector('.mine .utext');
   const r = t.getBoundingClientRect();
@@ -160,6 +161,26 @@ async def main():
             print("  tactil fuera: %s" % closed)
             checks.append(("en tactil el menu se cierra con un toque fuera",
                            closed is None))
+
+            # el pulso siguiente arranca limpio: sin cursores del anterior
+            await js(LONG)
+            await asyncio.sleep(0.7)
+            rows2 = await js(ROWS)
+            s3 = await js(SEL)
+            print("  pulso 2   : %s | %s" % (rows2, s3))
+            checks.append(("el pulso siguiente abre el menu sin cursores previos",
+                           rows2 == ["Copiar mensaje", "Seleccionar texto"]
+                           and s3["txt"] == "" and s3["sel"] == "none"))
+
+            # y al vaciar la seleccion (toque fuera) el texto vuelve a su sitio
+            await js("document.querySelectorAll('.ctxrow')[1].click()")
+            await asyncio.sleep(0.3)
+            await js("getSelection().removeAllRanges()")
+            await asyncio.sleep(0.3)
+            s4 = await js(SEL)
+            print("  vaciado   : %s" % s4)
+            checks.append(("al vaciar la seleccion el texto deja de seleccionarse",
+                           s4["sel"] == "none"))
     return checks
 
 

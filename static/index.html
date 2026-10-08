@@ -4195,6 +4195,28 @@ function selectAt(el, x, y){
   const sel = getSelection();
   sel.removeAllRanges(); sel.addRange(r);
 }
+function dropSel(el){
+  const box = el.querySelector(".utext");
+  if(box) box.classList.remove("selmode");
+  const sel = getSelection();
+  if(sel.rangeCount) sel.removeAllRanges();
+}
+/* el texto del usuario vuelve a no seleccionarse cuando la seleccion se vacia.
+   Si se queda en modo seleccion, el pulso largo siguiente monta los cursores y
+   el menu nativo del navegador encima del nuestro. Un solo escucha, registrada
+   desde wireMsgMenu: COARSE es const declarado mas abajo y en TDZ mata el
+   script entero (la trampa de slimTips) */
+let selWatch = false;
+function watchSel(){
+  if(selWatch || !COARSE.matches) return;
+  selWatch = true;
+  document.addEventListener("selectionchange", () => {
+    const s = getSelection();
+    if(s.rangeCount && !s.getRangeAt(0).collapsed) return;
+    document.querySelectorAll(".utext.selmode")
+      .forEach(b => b.classList.remove("selmode"));
+  });
+}
 function msgMenu(el, x, y){
   const it = el.__item;
   if(!it || it.kind !== "user" || !it.text) return;
@@ -4207,6 +4229,7 @@ function msgMenu(el, x, y){
   ctxAt = null;
 }
 function wireMsgMenu(el){
+  watchSel();
   el.addEventListener("contextmenu", e=>{
     if(COARSE.matches) return;         // en tactil manda la pulsacion larga
     e.preventDefault();
@@ -4218,6 +4241,7 @@ function wireMsgMenu(el){
   el.addEventListener("pointerdown", e=>{
     if(e.pointerType !== "touch" || e.button) return;
     if(e.target.closest("button,a,.macrochip,.ufold")) return;
+    dropSel(el);                        // el pulso anterior no deja cursores
     x0 = e.clientX; y0 = e.clientY;
     tm = setTimeout(() => { msgMenu(el, x0, y0); }, LONG_MS);
   });
