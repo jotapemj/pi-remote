@@ -35,6 +35,7 @@ import sys
 import tempfile
 import threading
 import time
+import traceback
 import html as _html
 import ipaddress
 import urllib.error
@@ -3001,7 +3002,10 @@ class Bridge:
             try:
                 self.on_event(ev)
             except Exception as exc:                        # noqa: BLE001
-                print("handler:", exc, file=sys.stderr)
+                # con el tipo de evento y la linea: sin eso no se sabe cual fallo
+                print("handler:", ev.get("type") if isinstance(ev, dict)
+                      else type(ev).__name__, exc, file=sys.stderr)
+                traceback.print_exc()
         if gen != self.gen:
             return                       # replaced by another project, hush
         self.state["alive"] = False
