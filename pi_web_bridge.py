@@ -3617,7 +3617,9 @@ class Bridge:
         self.turn_asks.discard(rid)
         for item in self.log:
             if item.get("id") == item_id:
-                self.patch(item, answered=label)
+                # cancelada: el cliente la pinta en coral, el item lo dice
+                self.patch(item, answered=label,
+                           cancelled=bool(payload.get("cancelled")))
                 break
         payload.update({"type": "extension_ui_response", "id": rid})
         self.send_pi(payload)

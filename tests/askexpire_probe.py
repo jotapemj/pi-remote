@@ -3,7 +3,9 @@ resuelve al vencer, y uno con senal de aborto al abortarse, sin decirle nada
 al host: la tarjeta se quedaba abierta para siempre, con `waiting` en true y
 la lectura oculta. Ahora caduca al vencer el timeout, o al asentarse el turno
 en que nacio (un dialogo bloquea su turno: si el turno asento, ya no lo
-espera nadie). Uno contestado sigue siendo contestado. Contra fake_pi.
+espera nadie). Uno contestado sigue siendo contestado, y ahora se compacta a dos lineas
+(titulo + respuesta) con un chevron a la derecha; el detalle queda dentro.
+Contra fake_pi.
 """
 import asyncio
 import json
@@ -105,6 +107,18 @@ async def main():
                            ans and ans[0]["fields"].get("answered")
                            and not expired(b3, ask3["id"])))
 
+            # cancelada: el puente lo anota (el cliente la pinta en coral)
+            ask4, _, _ = await run(ws, proj, "danger", 0.1, 0.1)
+            await ws.send(json.dumps({"type": "answer", "rid": ask4["rid"],
+                                      "choice": "__cancel__"}))
+            b4 = await drain(ws, 1.0)
+            cx = [m for m in b4 if m.get("type") == "patch"
+                  and m.get("id") == ask4["id"]]
+            print("  cancelada:", cx and cx[0]["fields"])
+            checks.append(("cancelada: el puente lo anota",
+                           cx and cx[0]["fields"].get("cancelled") is True
+                           and cx[0]["fields"].get("answered") == "cancelled"))
+
             # recargar: la caducada no vuelve como pendiente
             async with websockets.connect(WS_URL) as w2:
                 snap = [m for m in await drain(w2, 0.8)
@@ -121,17 +135,24 @@ async def main():
             await asyncio.sleep(1.0)
             await p.js("setLang('es')")
             ui = await p.js("""(() => {
+              render({id: 904, kind: 'ask', rid: 'ok', method: 'confirm',
+                      title: 'Allow?', answered: 'yes'});
               render({id: 900, kind: 'ask', rid: 'r', method: 'confirm',
                       title: 'Proceed?', expired: true});
-              const el = nodes.get(900), v = el.querySelector('.verdict');
-              const ic = v && v.querySelector('path');
-              return {done: el.querySelector('.ask').classList.contains('done'),
-                      icon: ic ? ic.getAttribute('d').slice(0, 12) : null,
-                      opts: getComputedStyle(el.querySelector('.opts')).display,
-                      text: v && v.textContent.trim(),
-                      grey: v && getComputedStyle(v).color
-                        !== getComputedStyle(document.querySelector(
-                          '.ask .verdict:not(.expired)') || document.body).color};
+              const a = nodes.get(900).querySelector('.ask');
+              const b = nodes.get(904).querySelector('.ask');
+              const q = a.querySelector('.qans'), w = b.querySelector('.qans');
+              const ic = q.querySelector('path');
+              return {tag: a.tagName, open: a.open,
+                      top: a.querySelector('.qtop').textContent,
+                      ans: q.textContent.trim(),
+                      icon: ic.getAttribute('d').slice(0, 12),
+                      opts: !a.querySelector('.opts'),
+                      grey: getComputedStyle(q).color
+                            != getComputedStyle(w).color,
+                      green: getComputedStyle(w).color
+                             == getComputedStyle(
+                               b.querySelector('.verdict')).color};
             })()""")
             print("  ", ui)
             # titulo de varias lineas (pi-permission-system mete el detalle
@@ -189,12 +210,103 @@ async def main():
                  ti["sent"] and ti["sent"][0]["rid"] == "rr"
                  and ti["sent"][0]["choice"] == "uses a slow path"),
             ]
+            # contestada: se compacta a dos lineas, chevron a la derecha
+            cp = await p.js("""(() => {
+              render({id: 910, kind: 'ask', rid: 'm', method: 'select',
+                title: 'Permission Required\\ncommand: ls ~/.claude',
+                options: ['Yes','No'], tool: 'bash', detail: 'ls ~/.claude',
+                answered: 'allow for this session'});
+              const a = nodes.get(910).querySelector('.ask');
+              const s = a.querySelector('summary'), tw = s.querySelector('.tw');
+              const r = {tag: a.tagName, open: a.open,
+                top: s.querySelector('.qtop').textContent,
+                ans: s.querySelector('.qans').textContent.trim(),
+                chev: !!tw,
+                right: tw.getBoundingClientRect().left
+                       > s.querySelector('.qtop').getBoundingClientRect().right,
+                h: Math.round(a.getBoundingClientRect().height),
+                noOpts: !a.querySelector('.opts')};
+              s.click();
+              r.opened = a.open;
+              r.rot = getComputedStyle(tw).transform !== 'none';
+              r.cap = a.querySelector('.cap').textContent;
+              r.noH3 = !a.querySelector('h3');
+              r.what = !!a.querySelector('.what');
+              r.verdict = a.querySelector('.verdict').textContent.trim();
+              return r; })()""")
+            print("  compacta:", cp)
             checks += [
-                ("caducada: sin botones", ui["done"] and ui["opts"] == "none"),
+                ("contestada: compacta, cerrada",
+                 cp["tag"] == "DETAILS" and not cp["open"]),
+                ("linea 1: el titulo", cp["top"] == "Permission Required"),
+                ("linea 2: la respuesta dada",
+                 cp["ans"] == "respondido: allow for this session"),
+                ("chevron a la derecha", cp["chev"] and cp["right"]),
+                ("fila compacta (< 60 px)", cp["h"] < 60),
+                ("la fila entera abre", cp["opened"]),
+                ("el chevron rota al abrir", cp["rot"]),
+                ("el detalle queda dentro",
+                 cp["cap"] == "pi pregunta" and cp["what"]),
+                ("el titulo no se repite al abrir", cp["noH3"]),
+                ("la respuesta entera al abrir",
+                 cp["verdict"] == "respondido: allow for this session"),
+            ]
+            # respuesta larga: truncada en la fila, entera al abrir
+            lg = await p.js("""(() => {
+              render({id: 911, kind: 'ask', rid: 'L', method: 'confirm',
+                title: 'Allow?', answered: 'no, el comando toca ficheros '
+                  + 'fuera del proyecto y la carpeta no esta confiada'});
+              const a = nodes.get(911).querySelector('.ask');
+              const sp = a.querySelector('.qans > span');
+              const r = {clip: sp.scrollWidth > sp.clientWidth};
+              a.querySelector('summary').click();
+              r.full = a.querySelector('.verdict').textContent.trim().length;
+              return r; })()""")
+            print("  respuesta larga:", lg)
+            checks += [
+                ("respuesta larga: truncada en la fila", lg["clip"]),
+                ("y entera al abrir", lg["full"] > 40),
+            ]
+            # cancelada: coral, no verde (el pixel pintado, contra el token)
+            cx = await p.js("""(() => {
+              render({id: 912, kind: 'ask', rid: 'x', method: 'confirm',
+                title: 'Allow?', answered: 'cancelled', cancelled: true});
+              const a = nodes.get(912).querySelector('.ask');
+              const q = a.querySelector('.qans');
+              const ref = document.createElement('span');
+              ref.style.color = 'var(--coral)';
+              document.body.appendChild(ref);
+              const r = {coral: getComputedStyle(q).color
+                         == getComputedStyle(ref).color,
+                        notMint: getComputedStyle(q).color
+                         != getComputedStyle(nodes.get(910)
+                           .querySelector('.qans')).color,
+                        ans: q.textContent.trim(),
+                        verdict: a.querySelector('.verdict').textContent.trim(),
+                        icon: q.querySelector('path').getAttribute('d')
+                              .slice(0, 9)};
+              ref.remove();
+              return r; })()""")
+            print("  cancelada UI:", cx)
+            checks += [
+                ("cancelada: en coral, no en verde",
+                 cx["coral"] and cx["notMint"]),
+                ("con su X y el texto de la respuesta",
+                 cx["ans"] == "respondido: cancelled"
+                 and cx["verdict"] == "respondido: cancelled"
+                 and cx["icon"] == "m330-288 "),
+            ]
+            checks += [
+                ("caducada: sin botones", ui["opts"]),
+                ("caducada: compacta, cerrada",
+                 ui["tag"] == "DETAILS" and not ui["open"]
+                 and ui["top"] == "Proceed?"),
                 ("con su rotulo traducido",
-                 ui["text"] == "cerrada sin respuesta"),
+                 ui["ans"] == "cerrada sin respuesta"),
                 ("con el icono history_toggle_off",
                  ui["icon"] == "M15.1,19.37l"),
+                ("caducada en gris, contestada en verde",
+                 ui["grey"] and ui["green"]),
             ]
     return checks
 

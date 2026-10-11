@@ -815,6 +815,34 @@ html.hide-think .think-turn{display:none}
 }
 .ask .verdict .i{width:16px;height:16px}
 .ask .verdict.expired{color:var(--faint)}
+.ask .verdict.cancelled{color:var(--coral)}
+/* contestada: la tarjeta se compacta a dos lineas, chevron a la derecha.
+   el detalle (comando y veredicto entero) queda dentro, para leerlo */
+.ask.done > summary{
+  list-style:none; cursor:pointer; user-select:none;
+  display:grid; grid-template-columns:1fr auto; align-items:center;
+  column-gap:8px; row-gap:3px; padding:9px 12px;
+}
+.ask.done > summary::-webkit-details-marker{display:none}
+.ask.done .qtop{
+  grid-column:1; font:600 13px/1.4 var(--sans); color:var(--ink);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.ask.done .qans{
+  grid-column:1; display:flex; align-items:center; gap:6px; min-width:0;
+  font:500 12px/1.4 var(--mono); color:var(--mint);
+}
+.ask.done .qans.expired{color:var(--faint)}
+.ask.done .qans.cancelled{color:var(--coral)}
+.ask.done .qans .i{width:15px;height:15px;flex:none}
+.ask.done .qans > span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.ask.done .tw{
+  grid-row:1/3; grid-column:2; width:16px; height:16px; opacity:.7;
+  flex:none; transition:transform .2s ease;
+}
+.ask.done[open] .tw{transform:rotate(90deg)}
+.ask.done .tbody{transition:height .25s cubic-bezier(.45,0,.15,1)}
+.ask.done.moving > .tbody{overflow:hidden}
 /* paquete configurado sin carpeta: pi no carga nada de el */
 .skrow.extrow .stxt small.bad{color:var(--coral)}
 /* instrucciones: el editor ocupa la hoja (ficheros largos) */
@@ -2601,6 +2629,8 @@ const ICONS = {
   warn:"M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z",
   error:"M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z",
   chevron:"M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z",
+  // X dentro del circulo (cancel, Material Symbols): la cancelada va en coral
+  cancel:"m330-288 150-150 150 150 42-42-150-150 150-150-42-42-150 150-150-150-42 42 150 150-150 150 42 42ZM480-80q-82 0-155-31.5t-127.5-86Q143-252 111.5-325T80-480q0-83 31.5-156t86-127Q252-817 325-848.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 82-31.5 155T763-197.5q-54 54.5-127 86T480-80Zm0-60q142 0 241-99.5T820-480q0-142-99-241t-241-99q-141 0-240.5 99T140-480q0 141 99.5 240.5T480-140Zm0-340Z",
   // tres puntos verticales (more_vert)
   more:"M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z",
   // bocadillo de conversacion
@@ -2623,7 +2653,7 @@ const ICONS = {
   shield:"M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z",
 };
 // viewBox por icono: los Symbols de fonts.google.com vienen en 0 -960 960 960
-const VB = { selEnd: "0 -960 960 960" };
+const VB = { selEnd: "0 -960 960 960", cancel: "0 -960 960 960" };
 const ico = (k, cls) => ICONS[k]
   ? `<svg class="i${cls ? " " + cls : ""}" viewBox="${VB[k] || "0 0 24 24"}"`
     + ` fill="currentColor" aria-hidden="true"><path d="${ICONS[k]}"/></svg>`
@@ -3659,7 +3689,7 @@ function html(it){
   }
   if(it.kind === "ask"){
     // caducada: pi la cerro solo (timeout o turno abortado) sin avisar
-    const done = it.answered || it.expired ? " done" : "";
+    const closed = !!(it.answered || it.expired);
     let opts = "";
     const cancel = `<button class="opt no" data-c="__cancel__">`
                  + `${esc(T("cancel"))}</button>`;
@@ -3693,18 +3723,33 @@ function html(it){
     const cmd = (it.detail || "").trim();
     const meta = tl.slice(1)
       .filter(s => !(cmd && s.includes(cmd))).join("\n");
-    return `<div class="ask${done}" data-rid="${esc(it.rid)}">
-      <div class="cap">${esc(T("asking"))}</div>
-      <h3>${esc(tl[0] || it.title || "")}</h3>
-      ${meta ? `<div class="body askmeta">${esc(meta)}</div>` : ""}
-      ${it.body?`<div class="body">${esc(it.body)}</div>`:""}
-      ${what}
-      <div class="opts">${opts}</div>
-      ${it.answered?`<div class="verdict">${ico("done")}`
-        + `<span>${esc(T("answered"))}: ${esc(it.answered)}</span></div>`
-        : it.expired ? `<div class="verdict expired">${ico("historyOff")}`
-        + `<span>${esc(T("askExpired"))}</span></div>` : ""}
-    </div>`;
+    // tres veredictos: contestada (mint), cancelada (coral), caducada (gris)
+    // el texto es siempre lo que se dio; solo color e icono cambian
+    const vcls = it.expired ? " expired" : it.cancelled ? " cancelled" : "";
+    const vtxt = it.expired ? T("askExpired")
+      : T("answered") + ": " + it.answered;
+    const vico = it.expired ? "historyOff" : it.cancelled ? "cancel" : "done";
+    const verdict = it.answered || it.expired
+      ? `<div class="verdict${vcls}">${ico(vico)}`
+        + `<span>${esc(vtxt)}</span></div>` : "";
+    // al abrir, el titulo ya vive en la fila: el h3 se repitia
+    const full = `<div class="cap">${esc(T("asking"))}</div>`
+      + (closed ? "" : `<h3>${esc(tl[0] || it.title || "")}</h3>`)
+      + (meta ? `<div class="body askmeta">${esc(meta)}</div>` : "")
+      + (it.body ? `<div class="body">${esc(it.body)}</div>` : "")
+      + what
+      + (closed ? "" : `<div class="opts">${opts}</div>`)
+      + verdict;
+    if(!closed)
+      return `<div class="ask" data-rid="${esc(it.rid)}">${full}</div>`;
+    // la fila compacta: titulo y lo que se respondio; el detalle entero
+    // (comando, respuesta larga) vive dentro del cuerpo
+    const ans = `<span class="qans${vcls}">${ico(vico)}`
+      + `<span>${esc(vtxt)}</span></span>`;
+    return `<details class="ask done" data-rid="${esc(it.rid)}">`
+      + `<summary><span class="qtop">${esc(tl[0] || it.title || "")}</span>`
+      + ans + `${ico("chevron", "tw")}</summary>`
+      + `<div class="tbody">${full}</div></details>`;
   }
   return "";
 }
@@ -3744,7 +3789,7 @@ feed.addEventListener("click", e=>{
     }
     return;
   }
-  const sum = e.target.closest(".tool > summary, .think > summary");
+  const sum = e.target.closest(".tool > summary, .think > summary, .ask.done > summary");
   if(!sum) return;
   const det = sum.parentNode;
   const body = det.querySelector(":scope > .tbody, :scope > pre, :scope > .diff");
