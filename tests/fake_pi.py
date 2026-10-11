@@ -393,6 +393,27 @@ def turn(text, nimg=0):
             out({"type": "agent_end", "messages": [], "willRetry": False})
             out({"type": "agent_settled"})
         return
+    if "quiz" in text:
+        # ask_user en RPC: el cuestionario entero en UN dialogo editor, con
+        # el titulo marcador y las preguntas en JSON en el prefill
+        out({"type": "tool_execution_start", "toolCallId": "cq",
+             "toolName": "ask_user", "args": {}})
+        global QUIZ_N
+        QUIZ_N += 1                 # pi da un id unico por dialogo
+        out({"type": "extension_ui_request", "id": "uuid-q%d" % QUIZ_N,
+             "method": "editor", "title": "pi-remote:ask_user",
+             "prefill": json.dumps({"questions": [
+                 {"question": "Where are playlists stored?",
+                  "header": "Storage", "recommended": 1, "options": [
+                      {"label": "Phone only",
+                       "description": "Local Room database."},
+                      {"label": "Phone + server",
+                       "description": "Synced with the server."}]},
+                 {"question": "Which extras?", "header": "Extras",
+                  "multiSelect": True, "options": [
+                      {"label": "Covers"}, {"label": "Lyrics"},
+                      {"label": "Stats"}]}]})})
+        return                      # bloquea hasta la respuesta
     if "danger" in text:
         # la herramienta se queda en marcha mientras se pide permiso:
         # es de ahi de donde el puente saca que comando va a ejecutarse
@@ -405,6 +426,8 @@ def turn(text, nimg=0):
              "options": ["Allow once", "Allow for session", "Deny"]})
         return                      # blocks until the client answers
     finish()
+
+QUIZ_N = 0
 
 def finish():
     out({"type": "message_end", "message": {
@@ -513,6 +536,10 @@ for line in sys.stdin:
                          daemon=True).start()
     elif t == "extension_ui_response":
         out({"type": "response", "command": "ui", "success": True})
+        if str(cmd.get("id")).startswith("uuid-q"):   # el probe lee lo que llego a pi
+            out({"type": "extension_ui_request", "id": "n-q",
+                 "method": "notify",
+                 "message": "ui:" + json.dumps(cmd.get("value"))})
         threading.Thread(target=finish, daemon=True).start()
     elif t == "get_state":
         out({"type": "response", "command": "get_state", "success": True,

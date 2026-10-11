@@ -330,7 +330,7 @@ sets no timeout.
 
 <p align="center">
   <img src="docs/permission.png" width="860"
-       alt="Permission cards on desktop and phone: the plain-words explanation over the raw command with the real options, and a second one already answered with a green check">
+       alt="Permission cards on desktop and phone: the plain-words explanation over the raw command with the real options, and a second one already answered, folded into one line with a green check">
 </p>
 
 Four things that are easy to get wrong, and that this bridge handles:
@@ -579,6 +579,23 @@ of optional switches, each remembered per browser.
     Processes are read with the native API on Windows and from `/proc` on
     Linux, in milliseconds; macOS runs `ps`. Measured on Windows; the Linux
     and macOS readers are checked against sample data only.
+  - **Ask the user**: gives the agent an `ask_user` tool to ask one to four
+    multiple-choice questions when a decision depends on a preference. They
+    show as one card, a question per page: numbered options with a short
+    description, the recommended one marked, a "something else" field, skip,
+    and send once every question has an answer. Picking an option moves to the
+    next question. The tool is pi remote's own extension
+    (`extensions/ask_user.ts`, based on pi's `questionnaire.ts` example), loaded
+    with `pi -e` only while this is on. pi's example draws its UI with
+    `ctx.ui.custom()`, which does not exist over RPC, so in pi remote the whole
+    questionnaire travels as one `editor` dialog and comes back as JSON. Once
+    answered, the card folds into one line with the answers; opened, it lists
+    every question with its own answer. The tool call itself gets no row of
+    its own: the card is the question. The extension returns the answers in
+    the tool result's `details`, so the answered card is rebuilt when the
+    session is reopened. The tool's description adds a few hundred tokens to
+    every request. The setting is stored by the bridge (`askUser` in
+    `state.json`) and applies after a restart.
   - **Notifications**: a local notification, with the last reply as its body,
     when a turn ends while the tab is hidden. The browser's own; no third
     parties.
@@ -588,7 +605,14 @@ of optional switches, each remembered per browser.
 
 <p align="center">
   <img src="docs/functions.png" width="300"
-       alt="The Functions page: switches for show reasoning, response suggestions, summary on agent stop, notifications and auto-naming sessions, plus the generation animation picker">
+       alt="The Functions page: switches for show reasoning, response suggestions, summary on agent stop, aggressive abort, ask the user, notifications and auto-naming sessions, plus the generation animation picker">
+</p>
+
+<p align="center">
+  <img src="docs/askuser.png" width="300"
+       alt="An ask_user card: a question per page with a pager, numbered options with descriptions, the recommended one marked, a something-else field, and cancel, skip and send">
+  <img src="docs/askuser-done.png" width="300"
+       alt="The same questionnaire answered and opened: each question with its answer, a skipped one in grey">
 </p>
 
 ## Security

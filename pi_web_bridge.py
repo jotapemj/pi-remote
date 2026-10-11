@@ -929,6 +929,106 @@ def save_default_model(provider, mid):
         print("state:", exc, file=sys.stderr)
 
 
+# Herramienta ask_user: extension propia que pi carga con -e solo si el
+# interruptor esta activo. En RPC manda el cuestionario entero como UN dialogo
+# `editor` con este titulo; el puente lo pinta como tarjeta de preguntas
+ASK_EXT = HERE / "extensions" / "ask_user.ts"
+ASK_MARK = "pi-remote:ask_user"
+
+
+def read_ask_user():
+    return read_state().get("askUser") is True
+
+
+def save_ask_user(on):
+    d = read_state()
+    d["askUser"] = bool(on)
+    try:
+        with open(STATE_FILE, "w", encoding="utf-8") as fh:
+            json.dump(d, fh, indent=1)
+    except OSError as exc:
+        print("state:", exc, file=sys.stderr)
+
+
+def quiz_questions(prefill):
+    """Las preguntas del dialogo de ask_user, saneadas (vienen del modelo)."""
+    try:
+        qs = json.loads(prefill or "").get("questions")
+    except (ValueError, AttributeError):
+        return None
+    out = []
+    for q in (qs if isinstance(qs, list) else []):
+        if not isinstance(q, dict) or not isinstance(q.get("question"), str):
+            continue
+        opts = [{"label": str(o.get("label") or ""),
+                 "description": str(o.get("description") or "")}
+                for o in (q.get("options") or []) if isinstance(o, dict)]
+        rec = q.get("recommended")
+        out.append({"question": q["question"],
+                    "header": str(q.get("header") or ""),
+                    "options": [o for o in opts if o["label"]][:6],
+                    "recommended": rec if isinstance(rec, int) else None,
+                    "multiSelect": q.get("multiSelect") is True})
+    return out[:4] or None
+
+
+def quiz_answers(raw, n):
+    """Las respuestas del cuestionario, una por pregunta, saneadas (las
+    manda el navegador o las guarda la extension en `details`)."""
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except ValueError:
+            return None
+    a = raw.get("answers") if isinstance(raw, dict) else None
+    if not isinstance(a, list):
+        return None
+    out = []
+    for x in a[:n]:
+        x = x if isinstance(x, dict) else {}
+        if x.get("skipped") is True:
+            out.append({"skipped": True})
+            continue
+        sel = [str(v) for v in (x.get("selected") or []) if isinstance(v, str)]
+        o = {"selected": sel}
+        if isinstance(x.get("other"), str) and x["other"].strip():
+            o["other"] = x["other"].strip()
+        out.append(o)
+    return out
+
+
+QUIZ_LINE_RE = re.compile(r"^Q(\d+) \(.*?\): (.*)$")
+
+
+def quiz_answers_text(text, n):
+    """Respaldo para sesiones sin `details`: el texto que leyo el modelo
+    ("Q1 (Storage): user selected: X; user wrote: Y")."""
+    out = [None] * n
+    for line in (text or "").splitlines():
+        m = QUIZ_LINE_RE.match(line.strip())
+        if not m or not 0 < int(m.group(1)) <= n:
+            continue
+        body, o = m.group(2), {"selected": []}
+        if body == "user skipped this question":
+            o = {"skipped": True}
+        for part in body.split("; "):
+            if part.startswith("user selected: "):
+                o["selected"] = part[15:].split(", ")
+            elif part.startswith("user wrote: "):
+                o["other"] = part[12:]
+        out[int(m.group(1)) - 1] = o
+    return out if any(out) else None
+
+
+def quiz_label(answers):
+    """Resumen de la fila compacta (el cliente lo rehace traducido)."""
+    return " · ".join(
+        "skipped" if a and a.get("skipped") else ", ".join(
+            (a or {}).get("selected", []) + ([a["other"]] if a and a.get("other")
+                                             else []))
+        for a in answers)
+
+
 def read_models_json():
     """El catalogo de modelos de pi, para sacar el endpoint del provider."""
     p = Path(os.environ.get("PI_MODELS_JSON") or (AGENT_DIR / "models.json"))
@@ -2712,6 +2812,8 @@ class Bridge:
             # como servicio nadie lee la consola: el aviso va a la pantalla
             "readOnly": READ_ONLY, "tokenMade": TOKEN_MADE, "version": VERSION,
             "update": None,           # release mas nueva que la que corre
+            # ask_user: lo pedido (state.json) y lo que el pi vivo cargo
+            "askUser": read_ask_user(), "askUserLive": False,
         }
         self.autoname_done = False           # un solo intento por sesion
         self.lang = "en"                     # ultimo idioma del cliente
@@ -2792,6 +2894,10 @@ class Bridge:
             args.append("-c")
         elif SESSION_NAME:
             args += ["--name", SESSION_NAME]
+        # una -e que no existe tumba pi al arrancar: solo si el fichero esta
+        ask = read_ask_user() and ASK_EXT.is_file()
+        if ask:
+            args += ["-e", str(ASK_EXT)]
         try:
             self.proc = subprocess.Popen(
                 args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, cwd=cwd,
@@ -2807,7 +2913,8 @@ class Bridge:
         self.gen += 1
         self.state.update(alive=True, running=False, tool=None, cwd=cwd,
                           context=None, sessionName=None, waiting=False,
-                          recent=remember(cwd), loading=True)
+                          recent=remember(cwd), loading=True,
+                          askUserLive=ask)
         self.refresh_proj_state()
         threading.Thread(target=self.reader, args=(self.proc, self.gen),
                          daemon=True).start()
@@ -3127,6 +3234,9 @@ class Bridge:
         elif t == "tool_execution_start":
             self.state["tool"] = ev.get("toolName")
             self.tool_t0 = time.time()
+            if ev.get("toolName") == "ask_user":
+                self.push_state()       # su tarjeta es la pregunta: sin fila
+                return
             self.track_tool()
             item = {"kind": "tool", "name": ev.get("toolName"),
                     "args": ev.get("args"), "status": "running",
@@ -3482,6 +3592,7 @@ class Bridge:
         self.log.clear()
         self.cur = None
         calls = {}
+        asks = {}               # ask_user: tarjeta, no fila de herramienta
 
         def add(item):
             self.seq += 1
@@ -3510,6 +3621,15 @@ class Bridge:
                     if kind == "text" and b.get("text", "").strip():
                         add({"kind": "assistant", "text": b["text"],
                              "streaming": False, "t": stamp})
+                    elif kind == "toolCall" and b.get("name") == "ask_user":
+                        quiz = quiz_questions(json.dumps(b.get("arguments") or {}))
+                        if quiz:
+                            asks[b.get("id")] = add({
+                                "kind": "ask", "rid": "h-%s" % b.get("id"),
+                                "method": "editor", "quiz": quiz,
+                                "title": quiz[0]["question"], "body": "",
+                                "options": [], "prefill": "", "tool": None,
+                                "detail": "", "answered": None, "t": stamp})
                     elif kind == "toolCall":
                         item = {"kind": "tool", "name": b.get("name"),
                                 "args": b.get("arguments"),
@@ -3522,6 +3642,17 @@ class Bridge:
                     elif kind == "thinking" and b.get("thinking", "").strip():
                         add({"kind": "thinking", "text": b["thinking"],
                              "streaming": False, "t": stamp})
+
+            elif role == "toolResult" and m.get("toolName") == "ask_user":
+                ask = asks.get(m.get("toolCallId"))
+                if ask:
+                    n = len(ask["quiz"])
+                    qa = quiz_answers(m.get("details"), n)                         or quiz_answers_text(text_of(m.get("content")), n)
+                    if qa:
+                        ask["quizAnswers"] = qa
+                        ask["answered"] = quiz_label(qa)
+                    else:               # la cerro sin contestar
+                        ask.update(answered="cancelled", cancelled=True)
 
             elif role == "toolResult":
                 # half of what a live turn keeps: the whole history
@@ -3541,6 +3672,10 @@ class Bridge:
                         it["images"] = imgs
                     add(it)
 
+        # ask_user sin resultado: sigue esperando (va en `waiting`) o se corto
+        for ask in asks.values():
+            if not ask.get("answered"):
+                self.log.remove(ask)
         for note in notes:                  # recent warnings survive the redraw
             self.log.append(note)
         for item in waiting:                # y pi sigue bloqueado en estos
@@ -3574,8 +3709,16 @@ class Bridge:
                 waiting = it
                 break
 
+        # ask_user: el cuestionario entero viaja en el prefill del editor
+        quiz = quiz_questions(ev.get("prefill")) \
+            if method == "editor" and ev.get("title") == ASK_MARK else None
+        if quiz:
+            ev = {"title": quiz[0]["question"]}
+            waiting = None                 # la herramienta es la pregunta
+
         item = self.push({
             "kind": "ask", "rid": rid, "method": method,
+            "quiz": quiz,
             "title": ev.get("title") or "Approval needed",
             "body": ev.get("message") or "",
             "options": ev.get("options", []),
@@ -3622,8 +3765,13 @@ class Bridge:
         for item in self.log:
             if item.get("id") == item_id:
                 # cancelada: el cliente la pinta en coral, el item lo dice
-                self.patch(item, answered=label,
-                           cancelled=bool(payload.get("cancelled")))
+                fields = dict(answered=label,
+                              cancelled=bool(payload.get("cancelled")))
+                if item.get("quiz") and "value" in payload:
+                    qa = quiz_answers(payload["value"], len(item["quiz"]))
+                    if qa is not None:
+                        fields["quizAnswers"] = qa   # una por pregunta
+                self.patch(item, **fields)
                 break
         payload.update({"type": "extension_ui_response", "id": rid})
         self.send_pi(payload)
@@ -3650,7 +3798,16 @@ class Bridge:
                 ok = choice == "__yes__"
                 self.answer(rid, {"confirmed": ok}, "yes" if ok else "no")
             else:
-                self.answer(rid, {"value": choice}, choice)
+                # el cuestionario manda JSON a pi y un resumen legible al item
+                self.answer(rid, {"value": choice},
+                            msg.get("label") or choice)
+            return
+
+        if t == "ask_user_set":
+            on = msg.get("on") is True
+            save_ask_user(on)
+            self.state["askUser"] = on
+            self.push_state()
             return
 
         if t == "prompt":

@@ -833,6 +833,16 @@ html.hide-think .think-turn{display:none}
   font:500 12px/1.4 var(--mono); color:var(--mint);
 }
 .ask.done .qans.expired{color:var(--faint)}
+.ask .qitem{padding:9px 13px 0}
+.ask .qitem:last-child{padding-bottom:12px}
+.ask .qh{font:500 11px/1.4 var(--mono); color:var(--faint)}
+.ask .qq{font:600 13px/1.4 var(--sans); color:var(--ink)}
+.ask .qa{
+  display:flex; align-items:flex-start; gap:6px; margin-top:3px;
+  font:500 12px/1.45 var(--mono); color:var(--mint);
+}
+.ask .qa .i{width:15px; height:15px; flex:none; margin-top:1px}
+.ask .qa.skip{color:var(--faint)}
 .ask.done .qans.cancelled{color:var(--coral)}
 .ask.done .qans .i{width:15px;height:15px;flex:none}
 .ask.done .qans > span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
@@ -843,6 +853,51 @@ html.hide-think .think-turn{display:none}
 .ask.done[open] .tw{transform:rotate(90deg)}
 .ask.done .tbody{transition:height .25s cubic-bezier(.45,0,.15,1)}
 .ask.done.moving > .tbody{overflow:hidden}
+/* ask_user: preguntas con opciones, una por pagina */
+.ask.quiz .qhead{display:flex; align-items:center; gap:8px; padding-right:8px}
+.ask.quiz .qhead .cap{flex:1; min-width:0}
+.ask.quiz .qpager{
+  display:flex; align-items:center; gap:2px; padding-top:6px;
+  font:500 12px/1 var(--mono); color:var(--dim);
+}
+.ask.quiz .qpager button{
+  background:none; border:0; color:var(--dim); cursor:pointer;
+  padding:4px; border-radius:6px; display:flex;
+}
+.ask.quiz .qpager button:disabled{opacity:.3; cursor:default}
+.ask.quiz .qpager .i{width:16px; height:16px}
+.ask.quiz .qpager .prev .i{transform:rotate(180deg)}
+.ask.quiz .qopts{display:flex; flex-direction:column; padding:9px 13px 0}
+.ask.quiz .qopt, .ask.quiz .qother{
+  display:flex; align-items:flex-start; gap:11px; padding:9px 4px;
+  background:none; border:0; border-bottom:1px solid var(--rule);
+  color:var(--ink); text-align:left; cursor:pointer; font:inherit;
+}
+.ask.quiz .qn{
+  flex:none; width:24px; height:24px; border-radius:6px;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--raise); border:1px solid var(--rule);
+  font:500 12px/1 var(--mono); color:var(--dim);
+}
+.ask.quiz .qn .i{width:14px; height:14px}
+.ask.quiz .qopt.sel .qn{background:var(--amber); border-color:var(--amber);
+  color:var(--on-amber)}
+.ask.quiz .qopt.sel .ql{color:var(--amber)}
+.ask.quiz .qtx{display:flex; flex-direction:column; gap:2px; min-width:0;
+  padding-top:3px}
+.ask.quiz .ql{font:500 13.5px/1.35 var(--sans)}
+.ask.quiz .qrec{font:600 10px/1 var(--sans); letter-spacing:.06em;
+  text-transform:uppercase; color:var(--mint); margin-left:6px;
+  font-style:normal}
+.ask.quiz .qd{font:400 12.5px/1.45 var(--sans); color:var(--dim)}
+.ask.quiz .qother{cursor:text; border-bottom:0; align-items:center}
+.ask.quiz .qother input{
+  flex:1; min-width:0; background:none; border:0; outline:0;
+  color:var(--ink); font:400 13.5px/1.4 var(--sans); padding:2px 0;
+}
+.ask.quiz .qother.sel .qn{border-color:var(--amber); color:var(--amber)}
+.ask.quiz .opts .qsend:disabled{opacity:.45; cursor:default;
+  border-color:var(--rule); color:var(--dim)}
 /* paquete configurado sin carpeta: pi no carga nada de el */
 .skrow.extrow .stxt small.bad{color:var(--coral)}
 /* instrucciones: el editor ocupa la hoja (ficheros largos) */
@@ -3693,6 +3748,8 @@ function html(it){
   if(it.kind === "ask"){
     // caducada: pi la cerro solo (timeout o turno abortado) sin avisar
     const closed = !!(it.answered || it.expired);
+    // ask_user abierta: su tarjeta; contestada, la fila compacta de siempre
+    if(it.quiz && !closed) return quizHtml(it);
     let opts = "";
     const cancel = `<button class="opt no" data-c="__cancel__">`
                  + `${esc(T("cancel"))}</button>`;
@@ -3730,7 +3787,8 @@ function html(it){
     // el texto es siempre lo que se dio; solo color e icono cambian
     const vcls = it.expired ? " expired" : it.cancelled ? " cancelled" : "";
     const vtxt = it.expired ? T("askExpired")
-      : T("answered") + ": " + it.answered;
+      : T("answered") + ": " + (it.quizAnswers ? quizLabel(it.quizAnswers)
+                                               : it.answered);
     const vico = it.expired ? "historyOff" : it.cancelled ? "cancel" : "done";
     const verdict = it.answered || it.expired
       ? `<div class="verdict${vcls}">${ico(vico)}`
@@ -3749,10 +3807,16 @@ function html(it){
     // (comando, respuesta larga) vive dentro del cuerpo
     const ans = `<span class="qans${vcls}">${ico(vico)}`
       + `<span>${esc(vtxt)}</span></span>`;
+    // ask_user: dentro, cada pregunta con su respuesta (el resumen ya esta
+    // en la fila; repetirlo no decia nada y el resto de preguntas no salia)
+    const inner = it.quiz
+      ? `<div class="cap">${esc(T("asking"))}</div>` + quizClosedHtml(it)
+        + (it.quizAnswers ? "" : verdict)
+      : full;
     return `<details class="ask done" data-rid="${esc(it.rid)}">`
       + `<summary><span class="qtop">${esc(tl[0] || it.title || "")}</span>`
       + ans + `${ico("chevron", "tw")}</summary>`
-      + `<div class="tbody">${full}</div></details>`;
+      + `<div class="tbody">${inner}</div></details>`;
   }
   return "";
 }
@@ -3871,7 +3935,132 @@ const diffHtml = lines => '<div class="diff">' + lines.map(l => {
   return `<div class="${k}">${esc(l)}</div>`;
 }).join("") + "</div>";
 
+/* ---------- ask_user: preguntas con opciones ----------
+   Una pregunta por pagina. Elegir (una sola opcion) pasa a la siguiente;
+   escribir en «otra cosa» u omitir tambien cuentan como respuesta. Enviar
+   se activa con todas contestadas. A pi viaja JSON (lo lee la extension);
+   al item, un resumen legible para la fila compacta.
+   El estado vive fuera del item: un patch re-renderiza la tarjeta */
+const quizState = new Map();
+function quizOf(it){
+  let s = quizState.get(it.rid);
+  if(!s){
+    s = {page: 0, ans: it.quiz.map(() => ({sel: [], other: "", skipped: false}))};
+    quizState.set(it.rid, s);
+  }
+  return s;
+}
+const quizDone = a => a.skipped || a.sel.length > 0 || !!a.other.trim();
+function quizHtml(it){
+  const s = quizOf(it), n = it.quiz.length;
+  const q = it.quiz[s.page], a = s.ans[s.page];
+  const pager = n > 1
+    ? `<span class="qpager"><button class="prev" aria-label="prev"`
+      + `${s.page ? "" : " disabled"}>${ico("chevron")}</button>`
+      + `<span>${s.page + 1} / ${n}</span><button class="next" aria-label="next"`
+      + `${s.page < n - 1 ? "" : " disabled"}>${ico("chevron")}</button></span>`
+    : "";
+  const opts = q.options.map((o, i) =>
+    `<button class="qopt${a.sel.includes(i) ? " sel" : ""}" data-i="${i}">`
+    + `<span class="qn">${i + 1}</span><span class="qtx"><span class="ql">`
+    + `${esc(o.label)}${q.recommended === i + 1
+        ? `<em class="qrec">${esc(T("recommended"))}</em>` : ""}</span>`
+    + (o.description ? `<span class="qd">${esc(o.description)}</span>` : "")
+    + `</span></button>`).join("");
+  const other = `<label class="qother${a.other.trim() ? " sel" : ""}">`
+    + `<span class="qn">${ico("pen")}</span>`
+    + `<input type="text" enterkeyhint="done" placeholder="${esc(T("quizOther"))}"`
+    + ` value="${esc(a.other)}"></label>`;
+  const all = s.ans.every(quizDone);
+  return `<div class="ask quiz" data-rid="${esc(it.rid)}">`
+    + `<div class="qhead"><div class="cap">${esc(q.header || T("asking"))}</div>`
+    + `${pager}</div><h3>${esc(q.question)}</h3>`
+    + `<div class="qopts">${opts}${other}</div>`
+    + `<div class="opts"><button class="opt no" data-q="cancel">${esc(T("cancel"))}</button>`
+    + `<button class="opt" data-q="skip">${esc(T("quizSkip"))}</button>`
+    + `<button class="opt yes qsend" data-q="send"${all ? "" : " disabled"}>`
+    + `${esc(T("quizSend"))}</button></div></div>`;
+}
+function quizAnswerText(a){
+  return (a.selected || []).concat(a.other ? [a.other] : []).join(", ");
+}
+function quizLabel(answers){
+  return answers.map(a => !a ? "" : a.skipped ? T("quizSkipped")
+                                  : quizAnswerText(a)).join(" · ");
+}
+/* cerrada: cada pregunta con lo que se contesto (sin respuesta si se
+   cancelo o caduco) */
+function quizClosedHtml(it){
+  const qa = it.quizAnswers || [];
+  return it.quiz.map((q, i) => {
+    const a = qa[i];
+    const ans = !a ? ""
+      : a.skipped ? `<div class="qa skip">${esc(T("quizSkipped"))}</div>`
+      : `<div class="qa">${ico("done")}<span>${esc(quizAnswerText(a))}</span></div>`;
+    return `<div class="qitem">`
+      + (q.header ? `<div class="qh">${esc(q.header)}</div>` : "")
+      + `<div class="qq">${esc(q.question)}</div>${ans}</div>`;
+  }).join("");
+}
+function quizAnswer(it){
+  const s = quizOf(it);
+  const answers = s.ans.map((a, i) => {
+    if(a.skipped) return {skipped: true};
+    const o = {selected: a.sel.map(j => it.quiz[i].options[j].label)};
+    if(a.other.trim()) o.other = a.other.trim();
+    return o;
+  });
+  return {value: JSON.stringify({answers}), label: quizLabel(answers)};
+}
+function wireQuiz(el, it){
+  const s = quizOf(it), n = it.quiz.length;
+  const redo = () => { el.innerHTML = html(it); wireAsk(el, it); };
+  const go = p => { s.page = Math.max(0, Math.min(n - 1, p)); redo(); };
+  const fwd = () => { if(s.page < n - 1) setTimeout(() => go(s.page + 1), 220);
+                      else redo(); };
+  const prev = el.querySelector(".qpager .prev"),
+        next = el.querySelector(".qpager .next");
+  if(prev) prev.onclick = () => go(s.page - 1);
+  if(next) next.onclick = () => go(s.page + 1);
+  const q = it.quiz[s.page], a = s.ans[s.page];
+  el.querySelectorAll(".qopt").forEach(b => b.onclick = () => {
+    const i = +b.dataset.i;
+    a.skipped = false;
+    if(q.multiSelect){
+      a.sel = a.sel.includes(i) ? a.sel.filter(x => x !== i) : a.sel.concat(i);
+      return redo();
+    }
+    a.sel = [i]; a.other = "";
+    redo(); fwd();
+  });
+  // escribir no repinta (perderia el foco): solo marca y habilita enviar
+  const inp = el.querySelector(".qother input");
+  inp.oninput = () => {
+    a.other = inp.value; a.skipped = false;
+    if(!q.multiSelect && a.other.trim()){
+      a.sel = [];
+      el.querySelectorAll(".qopt.sel").forEach(x => x.classList.remove("sel"));
+    }
+    inp.parentNode.classList.toggle("sel", !!a.other.trim());
+    el.querySelector(".qsend").disabled = !s.ans.every(quizDone);
+  };
+  inp.onkeydown = e => { if(e.key === "Enter"){ e.preventDefault();
+    inp.blur(); if(a.other.trim()) fwd(); } };
+  el.querySelectorAll("[data-q]").forEach(b => b.onclick = () => {
+    const k = b.dataset.q;
+    if(k === "cancel")
+      return send({type:"answer", rid: it.rid, choice: "__cancel__"});
+    if(k === "skip"){
+      Object.assign(a, {sel: [], other: "", skipped: true});
+      return fwd();
+    }
+    const r = quizAnswer(it);
+    send({type:"answer", rid: it.rid, choice: r.value, label: r.label});
+  });
+}
 function wireAsk(el, it){
+  if(it.quiz && !(it.answered || it.expired)) return wireQuiz(el, it);
+  if(it.quiz) quizState.delete(it.rid);       // cerrada: su estado sobra
   el.querySelectorAll(".opt").forEach(b=>b.onclick=()=>{
     let choice = b.dataset.c;
     if(choice === "__text__"){
@@ -6192,7 +6381,7 @@ const STR = {
       compactQ:"Compact the context now?",
       compactB:"The conversation gets summarised. It cannot be undone.",
       clearqQ:"Drop the queued messages?",
-      restartQ:"Restart pi remote now?", restartNow:"Restart now",
+      restartQ:"Restart pi remote now?", restartNow:"Restart now", recommended:"Recommended", quizOther:"Something else", quizSkip:"Skip", quizSend:"Send", quizSkipped:"skipped", askUser:"Ask the user", askUserWarn:"The agent gets a tool to ask multiple-choice questions when a decision depends on a preference. Its description adds a few hundred tokens to every request. Applies after restarting pi remote.",
       typeAnswer:"type an answer", answered:"answered", askExpired:"closed without an answer", pkgMissing:"configured but not installed: pi loads nothing from it", instructions:"Instructions", notCreated:"not created", alsoLoaded:"Also loaded", editLbl:"Edit", deleteInstrQ:"Delete {name}?", deleteInstrB:"The file is deleted for good. Changes apply after restarting pi remote.", restartBusyQ:"The agent is busy", aggrAbort:"Aggressive abort", aggrAbortWarn:"When a stopped turn does not end within a few seconds, pi remote kills the processes started by the running tool. This frees an agent stuck on a hung or buggy tool that ignores the stop.", activate:"Activate", restartBusyB:"pi is still working on a turn. Wait for it to finish and restart then, or restart now: the turn and any command it started are cut off.", restartAnyway:"Restart anyway", waitLbl:"Wait", tools:"tool",
       fold:"collapse",
       thinking:"Thinking\u2026", thoughtFor:"Thought for {n} {u}",
@@ -6350,7 +6539,7 @@ const STR = {
       compactQ:"\u00bfCompactar el contexto ahora?",
       compactB:"La conversaci\u00f3n se resume. No se puede deshacer.",
       clearqQ:"\u00bfDescartar los mensajes en cola?",
-      restartQ:"\u00bfReiniciar pi remote ahora?", restartNow:"Reiniciar ahora",
+      restartQ:"\u00bfReiniciar pi remote ahora?", restartNow:"Reiniciar ahora", recommended:"Recomendado", quizOther:"Otra cosa", quizSkip:"Omitir", quizSend:"Enviar", quizSkipped:"omitida", askUser:"Preguntar al usuario", askUserWarn:"El agente recibe una herramienta para hacer preguntas con opciones cuando una decisión depende de una preferencia. Su descripción añade unos cientos de tokens a cada petición. Se aplica al reiniciar pi remote.",
       typeAnswer:"escribir respuesta", answered:"respondido", askExpired:"cerrada sin respuesta", pkgMissing:"configurado pero no instalado: pi no carga nada de \u00e9l", instructions:"Instrucciones", notCreated:"no creado", alsoLoaded:"Tambi\u00e9n se cargan", editLbl:"Editar", deleteInstrQ:"\u00bfEliminar {name}?", deleteInstrB:"El fichero se borra definitivamente. Los cambios se aplican al reiniciar pi remote.", restartBusyQ:"El agente est\u00e1 ocupado", aggrAbort:"Abort agresivo", aggrAbortWarn:"Si un turno detenido no termina en unos segundos, pi remote mata los procesos que lanz\u00f3 la herramienta en curso. As\u00ed se libera un agente atascado en una herramienta colgada o con fallos que ignora la orden de parar.", activate:"Activar", restartBusyB:"pi sigue trabajando en un turno. Espera a que termine y reinicia entonces, o reinicia ya: el turno y cualquier comando que haya lanzado se cortan.", restartAnyway:"Reiniciar igualmente", waitLbl:"Esperar",
       tools:"herramienta", fold:"plegar", output:"salida", noOutput:"sin salida",
       command:"comando", pasted:"Texto pegado {n} líneas", prefilling:"prefilling",
@@ -6508,7 +6697,7 @@ const STR = {
       compactQ:"Kontext jetzt kompaktieren?",
       compactB:"Das Gespr\u00e4ch wird zusammengefasst. Das l\u00e4sst sich nicht r\u00fcckg\u00e4ngig machen.",
       clearqQ:"Nachrichten in der Warteschlange verwerfen?",
-      restartQ:"pi remote jetzt neu starten?", restartNow:"Jetzt neu starten",
+      restartQ:"pi remote jetzt neu starten?", restartNow:"Jetzt neu starten", recommended:"Empfohlen", quizOther:"Etwas anderes", quizSkip:"Überspringen", quizSend:"Senden", quizSkipped:"übersprungen", askUser:"Nutzer fragen", askUserWarn:"Der Agent erhält ein Werkzeug, um Auswahlfragen zu stellen, wenn eine Entscheidung von einer Vorliebe abhängt. Seine Beschreibung fügt jeder Anfrage einige hundert Tokens hinzu. Wird nach dem Neustart von pi remote wirksam.",
       typeAnswer:"Antwort eingeben", answered:"beantwortet", askExpired:"ohne Antwort geschlossen", pkgMissing:"konfiguriert, aber nicht installiert: pi l\u00e4dt nichts daraus", instructions:"Anweisungen", notCreated:"nicht erstellt", alsoLoaded:"Ebenfalls geladen", editLbl:"Bearbeiten", deleteInstrQ:"{name} l\u00f6schen?", deleteInstrB:"Die Datei wird endg\u00fcltig gel\u00f6scht. \u00c4nderungen gelten nach dem Neustart von pi remote.", restartBusyQ:"Der Agent ist besch\u00e4ftigt", aggrAbort:"Aggressiver Abbruch", aggrAbortWarn:"Wenn ein gestoppter Vorgang nicht innerhalb weniger Sekunden endet, beendet pi remote die Prozesse, die das laufende Werkzeug gestartet hat. So wird ein Agent frei, der an einem h\u00e4ngenden oder fehlerhaften Werkzeug festh\u00e4ngt, das das Stoppen ignoriert.", activate:"Aktivieren", restartBusyB:"pi arbeitet noch an einem Vorgang. Warte, bis er fertig ist, und starte dann neu, oder starte jetzt neu: der Vorgang und alle gestarteten Befehle werden abgebrochen.", restartAnyway:"Trotzdem neu starten", waitLbl:"Warten",
       tools:"Werkzeug", fold:"einklappen", output:"Ausgabe",
       noOutput:"keine Ausgabe", command:"Befehl",
@@ -6667,7 +6856,7 @@ const STR = {
       compactQ:"Compacter le contexte maintenant ?",
       compactB:"La conversation sera r\u00e9sum\u00e9e. Irr\u00e9versible.",
       clearqQ:"Vider les messages en file d'attente ?",
-      restartQ:"Red\u00e9marrer pi remote maintenant ?", restartNow:"Redémarrer maintenant",
+      restartQ:"Red\u00e9marrer pi remote maintenant ?", restartNow:"Redémarrer maintenant", recommended:"Recommandé", quizOther:"Autre chose", quizSkip:"Passer", quizSend:"Envoyer", quizSkipped:"passée", askUser:"Interroger l’utilisateur", askUserWarn:"L’agent reçoit un outil pour poser des questions à choix lorsqu’une décision dépend d’une préférence. Sa description ajoute quelques centaines de tokens à chaque requête. S’applique au redémarrage de pi remote.",
       typeAnswer:"Saisir une r\u00e9ponse", answered:"r\u00e9pondu", askExpired:"ferm\u00e9e sans r\u00e9ponse", pkgMissing:"configur\u00e9 mais non install\u00e9 : pi n\u2019en charge rien", instructions:"Instructions", notCreated:"non cr\u00e9\u00e9", alsoLoaded:"\u00c9galement charg\u00e9s", editLbl:"Modifier", deleteInstrQ:"Supprimer {name} ?", deleteInstrB:"Le fichier est supprim\u00e9 d\u00e9finitivement. Les modifications s\u2019appliquent au red\u00e9marrage de pi remote.", restartBusyQ:"L\u2019agent est occup\u00e9", aggrAbort:"Arr\u00eat agressif", aggrAbortWarn:"Si un tour arr\u00eat\u00e9 ne se termine pas en quelques secondes, pi remote tue les processus lanc\u00e9s par l\u2019outil en cours. Cela lib\u00e8re un agent bloqu\u00e9 sur un outil fig\u00e9 ou d\u00e9faillant qui ignore l\u2019arr\u00eat.", activate:"Activer", restartBusyB:"pi travaille encore sur un tour. Attendez qu\u2019il se termine pour red\u00e9marrer, ou red\u00e9marrez maintenant : le tour et les commandes lanc\u00e9es sont interrompus.", restartAnyway:"Red\u00e9marrer quand m\u00eame", waitLbl:"Attendre",
       tools:"Outil", fold:"replier", output:"sortie",
       noOutput:"aucune sortie", command:"commande",
@@ -6825,7 +7014,7 @@ const STR = {
       compactQ:"Compactar o contexto agora?",
       compactB:"A conversa ser\u00e1 resumida. N\u00e3o se desfaz.",
       clearqQ:"Descartar as mensagens na fila?",
-      restartQ:"Reiniciar o pi remote agora?", restartNow:"Reiniciar agora",
+      restartQ:"Reiniciar o pi remote agora?", restartNow:"Reiniciar agora", recommended:"Recomendado", quizOther:"Outra coisa", quizSkip:"Omitir", quizSend:"Enviar", quizSkipped:"omitida", askUser:"Perguntar ao utilizador", askUserWarn:"O agente recebe uma ferramenta para fazer perguntas com opções quando uma decisão depende de uma preferência. A sua descrição acrescenta algumas centenas de tokens a cada pedido. Aplica-se ao reiniciar o pi remote.",
       typeAnswer:"digite a resposta", answered:"respondido", askExpired:"fechada sem resposta", pkgMissing:"configurado mas n\u00e3o instalado: o pi n\u00e3o carrega nada dele", instructions:"Instru\u00e7\u00f5es", notCreated:"n\u00e3o criado", alsoLoaded:"Tamb\u00e9m carregados", editLbl:"Editar", deleteInstrQ:"Eliminar {name}?", deleteInstrB:"O ficheiro \u00e9 apagado definitivamente. As altera\u00e7\u00f5es aplicam-se ao reiniciar o pi remote.", restartBusyQ:"O agente est\u00e1 ocupado", aggrAbort:"Abortar agressivo", aggrAbortWarn:"Se um turno parado n\u00e3o terminar em poucos segundos, o pi remote mata os processos lan\u00e7ados pela ferramenta em curso. Assim liberta um agente preso numa ferramenta bloqueada ou com falhas que ignora a ordem de parar.", activate:"Ativar", restartBusyB:"O pi ainda est\u00e1 a trabalhar num turno. Espere que termine e reinicie depois, ou reinicie j\u00e1: o turno e os comandos que lan\u00e7ou s\u00e3o interrompidos.", restartAnyway:"Reiniciar mesmo assim", waitLbl:"Esperar",
       tools:"Ferramenta", fold:"recolher", output:"sa\u00edda",
       noOutput:"sem sa\u00edda", command:"comando",
@@ -6978,7 +7167,7 @@ const STR = {
       compactQ:"现在压缩上下文？",
       compactB:"对话将被摘要化。不可撤销。",
       clearqQ:"丢弃排队中的消息？",
-      restartQ:"现在重启 pi remote？", restartNow:"立即重启",
+      restartQ:"现在重启 pi remote？", restartNow:"立即重启", recommended:"推荐", quizOther:"其他", quizSkip:"跳过", quizSend:"发送", quizSkipped:"已跳过", askUser:"询问用户", askUserWarn:"代理将获得一个工具，在决策取决于偏好时提出选择题。其描述会为每次请求增加几百个 token。重启 pi remote 后生效。",
       typeAnswer:"输入回答", answered:"已回答", askExpired:"未回答，已关闭", pkgMissing:"已配置但未安装：pi 不会加载其中任何内容", instructions:"指令", notCreated:"未创建", alsoLoaded:"同时加载", editLbl:"编辑", deleteInstrQ:"删除 {name}？", deleteInstrB:"文件将被永久删除。更改将在重启 pi remote 后生效。", restartBusyQ:"代理正忙", aggrAbort:"强制中止", aggrAbortWarn:"停止某轮后若几秒内仍未结束，pi remote 会结束当前工具启动的进程。这样可以解放卡在无响应或有缺陷、忽略停止指令的工具上的代理。", activate:"启用", restartBusyB:"pi 仍在处理当前轮次。可以等待其结束后再重启，也可以立即重启：当前轮次及其启动的命令都会被中断。", restartAnyway:"仍然重启", waitLbl:"等待",
       tools:"工具", fold:"收起", output:"输出",
       noOutput:"无输出", command:"命令",
@@ -8554,6 +8743,26 @@ function paintSheet(page){
         {ok: T("activate"), plain: true});
     };
     body.appendChild(kcard);
+
+    // ask_user: lo guarda el puente (decide con que arranca pi) y aplica al
+    // reiniciar; encender y apagar pasan por el dialogo con Restart now
+    const ucard = document.createElement("div");
+    ucard.className = "fcard";
+    ucard.innerHTML = `<div class="frow"><div class="ftext">`
+      + `<div class="flbl">${esc(T("askUser"))}</div></div>`
+      + `<button class="sw" role="switch" aria-label="${esc(T("askUser"))}"`
+      + ` aria-checked="${!!state.askUser}"><span class="knob"></span></button>`;
+    const usw = ucard.querySelector(".sw");
+    usw.id = "askUserSw";
+    usw.onclick = () => {
+      const on = usw.getAttribute("aria-checked") !== "true";
+      openModal(T("askUser"),
+        "<p>" + esc(on ? T("askUserWarn") : T("applyRestart")) + "</p>",
+        () => { usw.setAttribute("aria-checked", String(on));
+                send({type:"ask_user_set", on}); },
+        {ok: on ? T("activate") : T("confirm"), plain: true, restart: true});
+    };
+    body.appendChild(ucard);
 
     const ncard = document.createElement("div");
     ncard.className = "fcard";
@@ -10748,6 +10957,14 @@ function paintWhitelist(dirs){
 }
 function onRpc(m){
   const d = m.data || {};
+  // un puente sin reiniciar no conoce ask_user_set: el interruptor vuelve
+  // a lo que dice el puente, no se queda encendido en falso
+  if(m.command === "ask_user_set"){
+    const sw = $("#askUserSw");
+    if(sw) sw.setAttribute("aria-checked", String(!!state.askUser));
+    if(d.error) note(d.error);
+    return;
+  }
   if(m.command === "whitelist_get" || m.command === "whitelist_add"
      || m.command === "whitelist_remove"){
     if(d && d.error) return note(d.error);

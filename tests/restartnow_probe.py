@@ -39,7 +39,7 @@ BOX = """(() => {
 
 def static():
     # los 9 dialogos de confirmacion que avisan del reinicio
-    n = len(re.findall(r"restart: true\}", SRC))
+    n = len(re.findall(r"restart: true\}", SRC)) - 1   # menos el toggle ask_user
     return [("los 9 dialogos 'aplica al reiniciar' llevan restart", n == 9)]
 
 
