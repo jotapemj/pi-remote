@@ -7098,8 +7098,11 @@ function applyLang(){
   const wspan = $("#warnbar").querySelector("span");
   if(wspan) wspan.textContent = T("noToken");   // sin vaciarlo: no se remonta
   nodes.forEach((el, id)=>{                      // notes carry a key, redraw
-    if(el.__item && (el.__item.kind === "note" || el.__item.kind === "ask"))
+    if(el.__item && (el.__item.kind === "note" || el.__item.kind === "ask")){
       el.innerHTML = html(el.__item);
+      // repintada, la tarjeta pierde sus handlers: los botones quedaban muertos
+      if(el.__item.kind === "ask") wireAsk(el, el.__item);
+    }
   });
   for(const [id, k] of [["#menuBtn","menu"], ["#railBtn","project"],
                         ["#send","send"]]){
