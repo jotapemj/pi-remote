@@ -2012,6 +2012,9 @@ body.hasproj .addp:not(.ghost):hover{background:var(--surface)}
 .macts.stack #modalExtra{order:1}
 .macts.stack #modalOk{order:2}
 .macts.stack #modalNo{order:3}
+/* "aplica al reiniciar": la principal arriba y Restart now debajo */
+.macts.stack.rlast #modalOk{order:1}
+.macts.stack.rlast #modalExtra{order:2}
 .ok.alt:hover{color:var(--ink)}
 /* what it does cannot be undone: outline, not a filled button */
 .ok.danger{background:none;border-color:var(--coral);color:var(--coral)}
@@ -4719,12 +4722,18 @@ function openModal(title, body, run, opts){
                              modalCancel = null; closeModal(); run(v); }
                    : () => closeModal();
   no.onclick = () => closeModal();
+  // opts.restart: el cambio aplica al reiniciar; tercer boton que lo
+  // guarda Y reinicia ya
+  if(opts.restart && run)
+    opts.extra = {label: T("restartNow"), run: v => { run(v); restartNow(); }};
   const ex = $("#modalExtra");
   ex.hidden = !opts.extra;
   ok.parentNode.classList.toggle("stack", !!opts.extra);
+  ok.parentNode.classList.toggle("rlast", !!opts.restart);
   if(opts.extra){
     ex.textContent = opts.extra.label;
-    ex.onclick = () => { modalCancel = null; closeModal(); opts.extra.run(); };
+    ex.onclick = () => { const v = collect();
+                         modalCancel = null; closeModal(); opts.extra.run(v); };
   }
   $("#modal").classList.add("open"); navArm();
   if(field) requestAnimationFrame(() => field.focus());
@@ -6183,7 +6192,7 @@ const STR = {
       compactQ:"Compact the context now?",
       compactB:"The conversation gets summarised. It cannot be undone.",
       clearqQ:"Drop the queued messages?",
-      restartQ:"Restart pi remote now?",
+      restartQ:"Restart pi remote now?", restartNow:"Restart now",
       typeAnswer:"type an answer", answered:"answered", askExpired:"closed without an answer", pkgMissing:"configured but not installed: pi loads nothing from it", instructions:"Instructions", notCreated:"not created", alsoLoaded:"Also loaded", editLbl:"Edit", deleteInstrQ:"Delete {name}?", deleteInstrB:"The file is deleted for good. Changes apply after restarting pi remote.", restartBusyQ:"The agent is busy", aggrAbort:"Aggressive abort", aggrAbortWarn:"When a stopped turn does not end within a few seconds, pi remote kills the processes started by the running tool. This frees an agent stuck on a hung or buggy tool that ignores the stop.", activate:"Activate", restartBusyB:"pi is still working on a turn. Wait for it to finish and restart then, or restart now: the turn and any command it started are cut off.", restartAnyway:"Restart anyway", waitLbl:"Wait", tools:"tool",
       fold:"collapse",
       thinking:"Thinking\u2026", thoughtFor:"Thought for {n} {u}",
@@ -6341,7 +6350,7 @@ const STR = {
       compactQ:"\u00bfCompactar el contexto ahora?",
       compactB:"La conversaci\u00f3n se resume. No se puede deshacer.",
       clearqQ:"\u00bfDescartar los mensajes en cola?",
-      restartQ:"\u00bfReiniciar pi remote ahora?",
+      restartQ:"\u00bfReiniciar pi remote ahora?", restartNow:"Reiniciar ahora",
       typeAnswer:"escribir respuesta", answered:"respondido", askExpired:"cerrada sin respuesta", pkgMissing:"configurado pero no instalado: pi no carga nada de \u00e9l", instructions:"Instrucciones", notCreated:"no creado", alsoLoaded:"Tambi\u00e9n se cargan", editLbl:"Editar", deleteInstrQ:"\u00bfEliminar {name}?", deleteInstrB:"El fichero se borra definitivamente. Los cambios se aplican al reiniciar pi remote.", restartBusyQ:"El agente est\u00e1 ocupado", aggrAbort:"Abort agresivo", aggrAbortWarn:"Si un turno detenido no termina en unos segundos, pi remote mata los procesos que lanz\u00f3 la herramienta en curso. As\u00ed se libera un agente atascado en una herramienta colgada o con fallos que ignora la orden de parar.", activate:"Activar", restartBusyB:"pi sigue trabajando en un turno. Espera a que termine y reinicia entonces, o reinicia ya: el turno y cualquier comando que haya lanzado se cortan.", restartAnyway:"Reiniciar igualmente", waitLbl:"Esperar",
       tools:"herramienta", fold:"plegar", output:"salida", noOutput:"sin salida",
       command:"comando", pasted:"Texto pegado {n} líneas", prefilling:"prefilling",
@@ -6499,7 +6508,7 @@ const STR = {
       compactQ:"Kontext jetzt kompaktieren?",
       compactB:"Das Gespr\u00e4ch wird zusammengefasst. Das l\u00e4sst sich nicht r\u00fcckg\u00e4ngig machen.",
       clearqQ:"Nachrichten in der Warteschlange verwerfen?",
-      restartQ:"pi remote jetzt neu starten?",
+      restartQ:"pi remote jetzt neu starten?", restartNow:"Jetzt neu starten",
       typeAnswer:"Antwort eingeben", answered:"beantwortet", askExpired:"ohne Antwort geschlossen", pkgMissing:"konfiguriert, aber nicht installiert: pi l\u00e4dt nichts daraus", instructions:"Anweisungen", notCreated:"nicht erstellt", alsoLoaded:"Ebenfalls geladen", editLbl:"Bearbeiten", deleteInstrQ:"{name} l\u00f6schen?", deleteInstrB:"Die Datei wird endg\u00fcltig gel\u00f6scht. \u00c4nderungen gelten nach dem Neustart von pi remote.", restartBusyQ:"Der Agent ist besch\u00e4ftigt", aggrAbort:"Aggressiver Abbruch", aggrAbortWarn:"Wenn ein gestoppter Vorgang nicht innerhalb weniger Sekunden endet, beendet pi remote die Prozesse, die das laufende Werkzeug gestartet hat. So wird ein Agent frei, der an einem h\u00e4ngenden oder fehlerhaften Werkzeug festh\u00e4ngt, das das Stoppen ignoriert.", activate:"Aktivieren", restartBusyB:"pi arbeitet noch an einem Vorgang. Warte, bis er fertig ist, und starte dann neu, oder starte jetzt neu: der Vorgang und alle gestarteten Befehle werden abgebrochen.", restartAnyway:"Trotzdem neu starten", waitLbl:"Warten",
       tools:"Werkzeug", fold:"einklappen", output:"Ausgabe",
       noOutput:"keine Ausgabe", command:"Befehl",
@@ -6658,7 +6667,7 @@ const STR = {
       compactQ:"Compacter le contexte maintenant ?",
       compactB:"La conversation sera r\u00e9sum\u00e9e. Irr\u00e9versible.",
       clearqQ:"Vider les messages en file d'attente ?",
-      restartQ:"Red\u00e9marrer pi remote maintenant ?",
+      restartQ:"Red\u00e9marrer pi remote maintenant ?", restartNow:"Redémarrer maintenant",
       typeAnswer:"Saisir une r\u00e9ponse", answered:"r\u00e9pondu", askExpired:"ferm\u00e9e sans r\u00e9ponse", pkgMissing:"configur\u00e9 mais non install\u00e9 : pi n\u2019en charge rien", instructions:"Instructions", notCreated:"non cr\u00e9\u00e9", alsoLoaded:"\u00c9galement charg\u00e9s", editLbl:"Modifier", deleteInstrQ:"Supprimer {name} ?", deleteInstrB:"Le fichier est supprim\u00e9 d\u00e9finitivement. Les modifications s\u2019appliquent au red\u00e9marrage de pi remote.", restartBusyQ:"L\u2019agent est occup\u00e9", aggrAbort:"Arr\u00eat agressif", aggrAbortWarn:"Si un tour arr\u00eat\u00e9 ne se termine pas en quelques secondes, pi remote tue les processus lanc\u00e9s par l\u2019outil en cours. Cela lib\u00e8re un agent bloqu\u00e9 sur un outil fig\u00e9 ou d\u00e9faillant qui ignore l\u2019arr\u00eat.", activate:"Activer", restartBusyB:"pi travaille encore sur un tour. Attendez qu\u2019il se termine pour red\u00e9marrer, ou red\u00e9marrez maintenant : le tour et les commandes lanc\u00e9es sont interrompus.", restartAnyway:"Red\u00e9marrer quand m\u00eame", waitLbl:"Attendre",
       tools:"Outil", fold:"replier", output:"sortie",
       noOutput:"aucune sortie", command:"commande",
@@ -6816,7 +6825,7 @@ const STR = {
       compactQ:"Compactar o contexto agora?",
       compactB:"A conversa ser\u00e1 resumida. N\u00e3o se desfaz.",
       clearqQ:"Descartar as mensagens na fila?",
-      restartQ:"Reiniciar o pi remote agora?",
+      restartQ:"Reiniciar o pi remote agora?", restartNow:"Reiniciar agora",
       typeAnswer:"digite a resposta", answered:"respondido", askExpired:"fechada sem resposta", pkgMissing:"configurado mas n\u00e3o instalado: o pi n\u00e3o carrega nada dele", instructions:"Instru\u00e7\u00f5es", notCreated:"n\u00e3o criado", alsoLoaded:"Tamb\u00e9m carregados", editLbl:"Editar", deleteInstrQ:"Eliminar {name}?", deleteInstrB:"O ficheiro \u00e9 apagado definitivamente. As altera\u00e7\u00f5es aplicam-se ao reiniciar o pi remote.", restartBusyQ:"O agente est\u00e1 ocupado", aggrAbort:"Abortar agressivo", aggrAbortWarn:"Se um turno parado n\u00e3o terminar em poucos segundos, o pi remote mata os processos lan\u00e7ados pela ferramenta em curso. Assim liberta um agente preso numa ferramenta bloqueada ou com falhas que ignora a ordem de parar.", activate:"Ativar", restartBusyB:"O pi ainda est\u00e1 a trabalhar num turno. Espere que termine e reinicie depois, ou reinicie j\u00e1: o turno e os comandos que lan\u00e7ou s\u00e3o interrompidos.", restartAnyway:"Reiniciar mesmo assim", waitLbl:"Esperar",
       tools:"Ferramenta", fold:"recolher", output:"sa\u00edda",
       noOutput:"sem sa\u00edda", command:"comando",
@@ -6969,7 +6978,7 @@ const STR = {
       compactQ:"现在压缩上下文？",
       compactB:"对话将被摘要化。不可撤销。",
       clearqQ:"丢弃排队中的消息？",
-      restartQ:"现在重启 pi remote？",
+      restartQ:"现在重启 pi remote？", restartNow:"立即重启",
       typeAnswer:"输入回答", answered:"已回答", askExpired:"未回答，已关闭", pkgMissing:"已配置但未安装：pi 不会加载其中任何内容", instructions:"指令", notCreated:"未创建", alsoLoaded:"同时加载", editLbl:"编辑", deleteInstrQ:"删除 {name}？", deleteInstrB:"文件将被永久删除。更改将在重启 pi remote 后生效。", restartBusyQ:"代理正忙", aggrAbort:"强制中止", aggrAbortWarn:"停止某轮后若几秒内仍未结束，pi remote 会结束当前工具启动的进程。这样可以解放卡在无响应或有缺陷、忽略停止指令的工具上的代理。", activate:"启用", restartBusyB:"pi 仍在处理当前轮次。可以等待其结束后再重启，也可以立即重启：当前轮次及其启动的命令都会被中断。", restartAnyway:"仍然重启", waitLbl:"等待",
       tools:"工具", fold:"收起", output:"输出",
       noOutput:"无输出", command:"命令",
@@ -8105,6 +8114,13 @@ function paintExtRows(scope){
    Wait conserva lo de antes sin bloquear la pantalla (se puede volver a
    pedir y forzar); Restart anyway reinicia ya (la tarea mata el arbol
    entero, herramienta colgada incluida); Cancel no hace nada */
+/* Restart now de los dialogos "aplica al reiniciar": el guardado ya salio
+   por el mismo WebSocket (el puente lo procesa antes). Ocupado, el mismo
+   dialogo que /restart */
+function restartNow(){
+  if(state.running) return restartBusy();
+  restartLock(true); send({type:"restart"});
+}
 function restartBusy(){
   openModal(T("restartBusyQ"), `<p>${esc(T("restartBusyB"))}</p>`,
     () => { restartLock(true); send({type:"restart", force:true}); },
@@ -8135,9 +8151,10 @@ function instrDirty(){
 function instrMenu(anchor, f, at){
   const rows = [{icon:"pen", label:T("editLbl"), run:()=>editInstr(f)}];
   if(f.exists) rows.push({icon:"remove", bad:true, label:T("deleteLbl"),
-    run:()=>confirmModal(T("deleteInstrQ").replace("{name}", f.name),
+    run:()=>openModal(T("deleteInstrQ").replace("{name}", f.name),
       esc(T("deleteInstrB")),
-      ()=>send({type:"instructions_delete", scope:instrScope, kind:f.kind}))});
+      ()=>send({type:"instructions_delete", scope:instrScope, kind:f.kind}),
+      {restart: true})});
   ctxPopup(anchor, rows, at);
 }
 function instrGuard(){
@@ -8308,7 +8325,7 @@ function wireCompOk(){
       compOrig = Object.assign({}, compDraft);
       $("#sheetOk").hidden = true;
       goBack();
-    }, {ok: T("confirm"), no: T("no")});
+    }, {ok: T("confirm"), no: T("no"), restart: true});
 }
 
 /* cubic-bezier(.32,.72,0,1), la curva de la casa, evaluada en JS: el valor de
@@ -8701,7 +8718,7 @@ function paintSheet(page){
           send({type:"model_thinking_save", provider:editModel.provider,
                 modelId:editModel.id, level:fields.thinking || null});
       },
-      {ok: T("confirm")});
+      {ok: T("confirm"), restart: true});
     // un valor staged (razonamiento) no dispara input: evaluar al pintar.
     // Si la respuesta de model_thinking_get sigue en camino, el check se
     // reevalua solo: su onRpc repinta esta pagina
@@ -9068,7 +9085,7 @@ function paintSheet(page){
       () => { send({type:"thinking_map_save", provider:editModel.provider,
                     modelId:editModel.id, thinkingLevelMap:draft});
               thinkMap = null; okb.hidden = true; goBack(); },
-      {ok: T("confirm")});
+      {ok: T("confirm"), restart: true});
     return;
   }
   if(page === "agentprefs"){
@@ -9261,7 +9278,7 @@ function paintSheet(page){
         openModal(T("deleteModelQ").replace("{name}", m.name || m.id),
           `<p>${T("confirmBody")}</p>`,
           () => send({type:"model_delete", provider:m.provider, modelId:m.id}),
-          {ok: T("confirm")});
+          {ok: T("confirm"), restart: true});
       };
       body.appendChild(b);
     });
@@ -9371,7 +9388,7 @@ function paintSheet(page){
       T("confirmChanges"), `<p>${esc(T("applyRestart"))}</p>`,
       () => send({type:"instructions_save", scope:d0.scope, kind:d0.kind,
                   body:d0.body}),
-      {ok: T("confirm")});
+      {ok: T("confirm"), restart: true});
     return;
   }
   if(page === "skilledit"){
@@ -9403,7 +9420,7 @@ function paintSheet(page){
       () => send({type:"skill_save", scope:s.scope, name:s.name.trim(),
                   description:s.description.trim(), body:s.body,
                   oldDir:s.dir}),
-      {ok: T("confirm")});
+      {ok: T("confirm"), restart: true});
     return;
   }
 
@@ -10605,7 +10622,7 @@ function paintProvForm(page){
         send({type:"provider_save", id: fields.id, baseUrl: fields.baseUrl,
               api: fields.api});
     },
-    {ok: T("confirm")});
+    {ok: T("confirm"), restart: true});
 }
 function paintModelAdd(){
   const body = $("#sheetBody");
@@ -10704,7 +10721,7 @@ function paintModelAdd(){
                 contextWindow: fields.contextWindow,
                 maxTokens: fields.maxTokens, reasoning: fields.reasoning,
                 input: fields.input}),
-    {ok: T("confirm")});
+    {ok: T("confirm"), restart: true});
 }
 // filas de la whitelist: las fijas van atenuadas y sin papelera
 let lastDirs = [];           // la ultima lista recibida, para repintar
@@ -10846,6 +10863,11 @@ function onRpc(m){
       // como en el error: el OK de exito solo cierra, no re-ejecuta
       ok.onclick = () => closeModal();
       ok.textContent = T("ok"); ok.disabled = false; no.hidden = true;
+      // aplica al reiniciar: tambien aqui se ofrece reiniciar ya
+      const ex = $("#modalExtra");
+      ex.hidden = false; ex.textContent = T("restartNow");
+      ex.onclick = () => { modalCancel = null; closeModal(); restartNow(); };
+      ok.parentNode.classList.add("stack", "rlast");
     } else note(d.residue && d.residue.length
       ? msg + "\n" + d.residue.join("; ") : msg);
     return;
