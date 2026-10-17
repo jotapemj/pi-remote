@@ -26,3 +26,6 @@ Thumbs.db
 desktop.ini
 bridge-restart.log
 delta_log.jsonl
+
+# historico de la bitacora, tampoco sale
+CLAUDE-history.md
