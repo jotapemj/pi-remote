@@ -4399,6 +4399,11 @@ document.addEventListener("pointerdown", e => {
   if(ctxPop && !ctxPop.contains(e.target)) closeCtxPop();
 }, true);
 addEventListener("keydown", e => { if(e.key === "Escape") closeCtxPop(); });
+/* el popup va anclado a un punto de la pantalla: si algo se desplaza, la fila
+   que lo abrio se va y la lista queda en un sitio que ya no es el suyo. El
+   scroll no burbujea: por eso la captura. Son todos los ctxPopup, no solo el
+   del mensaje: el mismo control, el mismo comportamiento */
+addEventListener("scroll", () => closeCtxPop(), true);
 
 /* menu del mensaje del usuario: clic derecho en escritorio, pulsacion larga en
    tactil. Copiar entero, o poner los cursores de seleccion donde se pulso. El

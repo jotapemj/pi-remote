@@ -111,6 +111,35 @@ async def main():
             print("  fuera     : %s" % left)
             checks.append(("clic fuera quita el menu", left is None))
 
+            # scroll: la fila que lo abrio se mueve, el menu se va con ella.
+            # hace falta hueco de verdad: sin desplazamiento no hay evento
+            await js("""(() => { for(let i=0;i<12;i++) render({id:900+i,
+              kind:'assistant', streaming:false, text:'relleno ' + i});
+              paint(); })()""")
+            await asyncio.sleep(0.4)
+            # a cero: si ya esta abajo, += no se mueve y no hay evento
+            await js("document.querySelector('main').scrollTop = 0")
+            await asyncio.sleep(0.3)
+            await js(RIGHT % ".mine")
+            await asyncio.sleep(0.25)
+            open_b = await js(ROWS)
+            s0 = await js("document.querySelector('main').scrollTop")
+            await js("document.querySelector('main').scrollTop += 40")
+            await asyncio.sleep(0.3)
+            s1 = await js("document.querySelector('main').scrollTop")
+            after = await js(ROWS)
+            print("  scroll    : %s -> %s | menu %s -> %s"
+                  % (s0, s1, open_b is not None, after is None))
+            checks += [
+                ("el chat tiene de verdad donde desplazarse", s1 > s0),
+                ("scroll con el menu abierto lo quita", open_b is not None
+                 and after is None),
+            ]
+            # y de vuelta arriba: si el mensaje queda fuera de la ventana,
+            # caretRangeFromPoint devuelve null y el paso de seleccion se cae
+            await js("document.querySelector('main').scrollTop = 0")
+            await asyncio.sleep(0.3)
+
             # seleccionar texto: cursores en el punto del pulso
             await js(RIGHT % ".mine")
             await asyncio.sleep(0.25)
