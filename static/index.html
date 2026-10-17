@@ -2089,7 +2089,8 @@ body.hasproj .addp:not(.ghost):hover{background:var(--surface)}
 }
 .mq.run > span{
   width:max-content; will-change:transform;
-  animation:mq var(--mq-dur, 9s) linear infinite;
+  /* un pase y parado: el bucle sin fin marea. el raton lo reanuda (wireMq) */
+  animation:mq var(--mq-dur, 9s) linear 1;
 }
 @keyframes mq{
   0%,14%    {transform:translateX(0)}
@@ -10419,6 +10420,18 @@ $("#menuBtn").onclick = menuSheet;
 /* slide the overflow instead of cutting it. measured, not guessed:
    only what actually sticks out gets a marquee. */
 const STILL = matchMedia("(prefers-reduced-motion: reduce)");
+function wireMq(el){
+  if(el.__mqWire) return;
+  el.__mqWire = 1;
+  // al acabar el pase se quita .run: vuelve la elipsis y se apaga el degradado
+  el.addEventListener("animationend", e => {
+    if(e.animationName === "mq") el.classList.remove("run");
+  });
+  // pointerenter no burbujea: se ata al propio elemento
+  el.addEventListener("pointerenter", () => {
+    if(el.__mqOver && !el.classList.contains("run")) el.classList.add("run");
+  });
+}
 function marquee(el){
   const inner = el.firstElementChild;
   if(!inner) return;
@@ -10433,8 +10446,11 @@ function marquee(el){
   if(over > 3 && !STILL.matches){
     el.style.setProperty("--mq-shift", -(over + 4) + "px");
     el.style.setProperty("--mq-dur", (over / 26 + 6).toFixed(1) + "s");
+    wireMq(el);
+    el.__mqOver = true;              // si cabe, el raton no lo pone en marcha
     el.classList.add("run");
   } else {
+    el.__mqOver = false;
     el.classList.remove("run");
   }
 }
