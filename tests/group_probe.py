@@ -1,4 +1,6 @@
-"""Las herramientas seguidas se pliegan en 'Ejecutados N comandos'.
+"""Las herramientas seguidas se pliegan en una fila: 'Ejecuto N comandos,
+edito x.py'. En vivo tambien: desde la segunda herramienta el tramo es un
+grupo que absorbe lo que llega y ensena solo el paso en curso.
 
 Se cubren los dos ordenes: herramientas y luego texto (inyectado en el
 DOM), y el turno real de fake_pi. Y que una sola no se agrupa. Sin tocar
@@ -61,7 +63,8 @@ async def main():
                 ("tres seguidas se agrupan", g is not None and g[1] == 3),
                 ("plegado por defecto y sin altura",
                  g[0] is True and g[3] == 0),
-                ("con el rotulo del recuento", "3 comandos" in g[2]),
+                ("rotulo por tipo: comandos y fichero editado",
+                 "Ejecutó 2 comandos" in g[2] and "editó x.py" in g[2]),
                 ("y ninguna herramienta suelta fuera del grupo",
                  singles == 0),
             ]
@@ -156,7 +159,7 @@ async def main():
                      "  render({id:100+i, kind:'thinking', text:'mmm',"
                      "          streaming:false});"
                      "  render({id:200+i, kind:'tool', name:'read',"
-                     "          status:'done', args:{path:'x'}, output:'ok'});}"
+                     "          status:'done', args:{path:'d/x'+i}, output:'ok'});}"
                      " render({id:9, kind:'assistant', streaming:false,"
                      "         text:'Ya.'}); paint()")
             await asyncio.sleep(0.3)
@@ -174,10 +177,73 @@ async def main():
             checks += [
                 ("el thinking intercalado no rompe el tramo",
                  mix is not None and mix[0] == 4 and mix[3] == 0),
-                ("el rotulo cuenta solo las herramientas",
-                 mix is not None and "4 comandos" in mix[1]),
+                ("el rotulo cuenta los ficheros leidos, sin el pensar oculto",
+                 mix is not None and mix[1].startswith("Leyó 4 ficheros")),
                 ("el razonamiento se absorbe en el grupo",
                  mix is not None and mix[2] == 4),
+            ]
+
+            # --- en vivo: desde la segunda herramienta, una sola fila
+            await js("feed.innerHTML=''; nodes.clear(); state.running = true;"
+                     " render({id:1, kind:'user', text:'mira'});"
+                     " render({id:2, kind:'thinking', text:'a', streaming:false,"
+                     "         secs:7});"
+                     " render({id:3, kind:'tool', name:'bash', status:'done',"
+                     "         args:{command:'git status'}, output:'ok'})")
+            await asyncio.sleep(0.2)
+            one = await js("[!!document.querySelector('.toolgroup'),"
+                           " document.querySelectorAll('#feed > .turn').length]")
+            await js("render({id:4, kind:'thinking', text:'b', streaming:false,"
+                     "        secs:5});"
+                     " render({id:5, kind:'tool', name:'edit', status:'running',"
+                     "         args:{path:'src/app.py'}})")
+            await asyncio.sleep(0.2)
+            LV = ("(() => { const g = document.querySelector('.toolgroup');"
+                  " return g && {live: g.classList.contains('live'),"
+                  " collapsed: g.classList.contains('collapsed'),"
+                  " gn: g.querySelector('.gn').textContent,"
+                  " now: g.querySelector('.gnow').textContent,"
+                  " nowH: g.querySelector('.gnow').getBoundingClientRect().height,"
+                  " shine: !!g.querySelector('.gnow .shine'),"
+                  " turns: document.querySelectorAll('#feed > .turn').length}; })()")
+            two = await js(LV)
+            # el siguiente paso sustituye la linea, no se apila
+            await js("render({id:6, kind:'thinking', text:'c', streaming:true})")
+            await asyncio.sleep(0.2)
+            think = await js(LV)
+            # el patch de la herramienta al acabar rehace el rotulo
+            await js("ws.onmessage({data: JSON.stringify({type:'patch', id:5,"
+                     " fields:{status:'done', added:3, removed:1}})})")
+            await asyncio.sleep(0.1)
+            patched = await js(LV)
+            await js("render({id:7, kind:'assistant', streaming:false,"
+                     " text:'Hecho.'})")
+            await asyncio.sleep(0.2)
+            closed = await js(LV)
+            await js("state.running = false")
+            print("  vivo: uno=%s dos=%s" % (one, two))
+            print("  vivo: pensando=%s" % (think,))
+            print("  vivo: patch=%s cerrado=%s" % (patched, closed))
+            checks += [
+                ("en vivo, una sola herramienta sigue suelta",
+                 one[0] is False and one[1] == 3),
+                ("la segunda herramienta pliega el tramo ya, en vivo",
+                 two is not None and two["live"] and two["collapsed"]
+                 and two["turns"] == 2),
+                ("la fila en vivo ensena el paso en curso",
+                 two is not None and "edit src/app.py" in two["now"]
+                 and two["nowH"] > 0),
+                ("y suma el pensar al rotulo",
+                 two is not None
+                 and two["gn"].startswith("Pensó durante 12 s,")),
+                ("el paso nuevo sustituye la linea, sin crecer",
+                 think["now"] == "Pensando…" and think["shine"]
+                 and think["turns"] == 2),
+                ("el patch al acabar rehace el rotulo con el recuento",
+                 "editó app.py+3-1" in patched["gn"]),
+                ("al volver a escribir, el grupo se cierra sin linea en vivo",
+                 not closed["live"] and closed["now"] == ""
+                 and closed["nowH"] == 0 and closed["turns"] == 3),
             ]
 
             # --- turno real de fake_pi (dos tools, luego se cierra)
@@ -195,9 +261,9 @@ async def main():
                     break
                 await asyncio.sleep(0.2)
             print("  turno real: grupo=%s" % (live,))
-            checks.append(("un turno real agrupa sus dos comandos al acabar",
+            checks.append(("un turno real agrupa sus dos herramientas al acabar",
                            live is not None and live[1] == 2
-                           and "2 comandos" in live[2]))
+                           and live[2].startswith("Leyó build.gradle, editó main.py")))
     return checks
 
 

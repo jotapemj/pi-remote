@@ -87,9 +87,11 @@ async def main():
                  halt[5] == "space-between"),
             ]
 
+            # relleno de texto: herramientas seguidas se pliegan en una fila
+            # (tambien en vivo) y ya no dan altura para scrollear
             await js("for(let i=0;i<24;i++)"
-                     " render({id:900+i, kind:'tool', name:'bash',"
-                     "  status:'done', args:{command:'ls'}, output:'x'})")
+                     " render({id:900+i, kind:'assistant', streaming:false,"
+                     "  text:'relleno ' + i})")
             await asyncio.sleep(0.3)
             await js("main.scrollTop = 0")      # el salto necesita su turno
             await asyncio.sleep(0.3)
