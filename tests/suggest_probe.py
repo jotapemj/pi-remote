@@ -286,6 +286,28 @@ async def in_page():
                           "Sigue mostrando viejos."]),
             ]
 
+            # mezcla: abre con la forma canonica "<hint: ..>" y ademas cierra con
+            # </hint> (el modelo copia las dos). El cierre no debe arrastrarse al
+            # rotulo de la fila, que era el defecto visto en el chat.
+            await js("setSuggest(true); feed.innerHTML=''; nodes.clear();"
+                     " render({id:10, kind:'assistant', streaming:false,"
+                     " text:'Hecho.\\n"
+                     "<hint: Uno</hint>"
+                     "\\n<hint: Dos></hint>"
+                     "\\n<hint: Tres.>'}); placeActions()")
+            await asyncio.sleep(0.05)
+            shown = await js("document.querySelector('.said,[data-body]')"
+                             ".textContent")
+            rows = await js("[...document.querySelectorAll"
+                            "('.suggests .sug .stext')].map(n=>n.textContent)")
+            print("  mezcla: filas=%s body=%r" % (rows, shown))
+            checks += [
+                ("<hint: x</hint> da 3 filas sin el cierre en el rotulo",
+                 rows == ["Uno", "Dos", "Tres."]),
+                ("y el cuerpo queda limpio",
+                 "<hint" not in shown and "Hecho." in shown),
+            ]
+
             # colision: etiqueta cerrada EN MEDIO de la prosa se ve como texto
             await js("setSuggest(true); feed.innerHTML=''; nodes.clear();"
                      " render({id:7, kind:'assistant', streaming:false,"

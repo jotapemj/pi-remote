@@ -7975,6 +7975,12 @@ let revealRAF = 0;
    oculta ni se vuelve fila. Durante el streaming, oculta la ultima linea que
    empieza a formar el marcador, para que no parpadee.
    Devuelve {visible, hints}. */
+// Quita el cierre basura que el modelo pega al final del marcador: "</hint>",
+// "</hint" o un > suelto antes de ese cierre. Exige el < para no comerse la
+// palabra "hint" cuando es parte del texto.
+function cleanHint(x){
+  return (x || "").replace(/\s*>?\s*<\/?\s*hint\s*>?\s*$/i, "").trim();
+}
 function splitHints(t, streaming){
   if(!t) return {visible: t || "", hints: []};
   const lines = t.split("\n");
@@ -7991,7 +7997,11 @@ function splitHints(t, streaming){
     const done = s.match(/^<hint:\s*([\s\S]*?)>$/)
       || s.match(/^<hint>\s*([\s\S]*?)<\/hint>\s*$/)
       || (!streaming && s.match(/^<hint>([\s\S]*?)>?$/));   // tolera un > de cierre suelto
-    if(done){ hints.unshift(done[1].trim()); saw = true; i--; }
+    // el modelo a veces mezcla formas y cierra lo abierto con dos puntos
+    // ("<hint: texto</hint>"): el cierre no es parte del texto. Se recorta ahi
+    // en vez de endurecer la regex: si el marcador no casa, el bucle corta y
+    // el bloque entero vuelve a la burbuja como texto, y se pierden las filas.
+    if(done){ hints.unshift(cleanHint(done[1])); saw = true; i--; }
     // cola en construccion en su propia linea: "<", "<h", ... "<hint: algo",
     // "<hint>", "<hint>algo"
     else if(i === end && /^<(h(i(n(t((:[\s\S]*)?|>([\s\S]*)?)?)?)?)?)?$/.test(s)){ saw = true; i--; }
