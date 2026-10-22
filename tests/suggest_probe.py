@@ -1,350 +1,383 @@
-"""Sugerencias de respuesta. Con el toggle activo, el puente inyecta una
-instruccion oculta en el prompt (no en la burbuja del usuario); el modelo
-acaba con hasta 3 marcadores <hint:...> que el cliente NO muestra (visibleText)
-y pinta como filas bajo la respuesta. Clic en una fila la envia directamente.
-Apagado, nada de esto pasa. Sin agente real: fake_pi responde con los
-marcadores si ve la instruccion.
+"""Sugerencias de respuesta (v0.106.0): al asentar el turno, el puente las
+pide DIRECTO al modelo (thinking off, el mismo canal del resumen al parar).
+No viajan pegadas al prompt y la respuesta del turno NO se parsea: un formato
+raro cuesta una fila menos, no un chat roto, y el .jsonl queda limpio.
+Llegan como item propio (kind 'suggest') bajo la respuesta que las genero;
+clic = enviar ese mensaje. Se mide el DOM pintado con Chrome, contra un mini
+servidor OpenAI-compatible que registra las peticiones y devuelve tres lineas
+adornadas (numero, vineta, negrita y marcador <hint:> del diseno viejo).
+Mientras se piden, aro de carga (state.suggesting) en el sitio de las filas.
+Sin baseUrl en el proveedor no hay a quien preguntar: state.canSuggest=False,
+el interruptor sale apagado con el motivo y no sale ni una llamada extra.
+Las sesiones grabadas con el diseno viejo siguen pintando sus filas desde el
+texto: se comprueba ahi el parser legado del cliente.
 """
 import asyncio
 import json
+import os
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
 
-import websockets
+from harness import Bridge, FakeProject, Page, report
 
-from harness import Bridge, FakeProject, Page, report, WS_URL
+# El modelo adorna a proposito: numero, vineta + negrita y un marcador viejo.
+# El puente tiene que dejar las tres filas limpias.
+SAYS = ("1. Vale, haz el push.\n- **Espera, revisa antes.**\n"
+        "<hint: Muestrame el diff.>")
+ROWS = ["Vale, haz el push.", "Espera, revisa antes.", "Muestrame el diff."]
+# respuesta de fake_pi al prompt limpio: si el puente inyectara la instruccion
+# vieja, fake_pi contestaria con marcadores y estas filas serian otras
+ANSWER = "Looking at"
 
 
-async def passthrough():
-    """El puente inyecta la instruccion a pi pero deja la burbuja limpia."""
-    user, said = None, ""
-    with FakeProject() as proj, Bridge():
-        async with websockets.connect(WS_URL) as ws:
-            await ws.recv()
-            await ws.send(json.dumps({"type": "open_project", "path": proj.path}))
-            await asyncio.sleep(1.2)
-            await ws.send(json.dumps({"type": "prompt", "message": "hola",
-                                      "suggest": True}))
-            end = asyncio.get_event_loop().time() + 5
-            while asyncio.get_event_loop().time() < end:
-                try:
-                    m = json.loads(await asyncio.wait_for(ws.recv(), 2))
-                except asyncio.TimeoutError:
-                    break
-                it = m.get("item") or {}
-                if it.get("kind") == "user":
-                    user = it.get("text")
-                if it.get("kind") == "assistant":
-                    said += it.get("text", "")
-                if m.get("type") == "delta":
-                    said += m.get("delta", "")
-    print("  puente: burbuja=%r  respuesta lleva <hint:>=%s"
-          % (user, "<hint:" in said))
-    return [
-        ("la burbuja del usuario queda limpia (sin la instruccion)",
-         user == "hola"),
-        ("pi recibio la instruccion (respondio con el marcador)",
-         "<hint:" in said),
+class Model(BaseHTTPRequestHandler):
+    """Un OpenAI-compatible minimo: content plano, sin razonar. Duerme para
+    que el aro de carga sea medible y registra la peticion completa."""
+
+    def log_message(self, *a):
+        pass
+
+    def do_POST(self):
+        n = int(self.headers.get("content-length", 0))
+        req = json.loads(self.rfile.read(n).decode("utf-8"))
+        with open(os.environ["MODEL_LOG"], "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(req, ensure_ascii=True) + "\n")
+        time = float(os.environ.get("MODEL_SLEEP", "0.6"))
+        if time:
+            threading.Event().wait(time)
+        body = json.dumps({
+            "choices": [{"message": {"role": "assistant", "content": SAYS}}],
+        }).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+def start_model(log, sleep="0.6"):
+    srv = HTTPServer(("127.0.0.1", 0), Model)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    os.environ["MODEL_LOG"] = str(log)
+    os.environ["MODEL_SLEEP"] = sleep
+    return srv, srv.server_port
+
+
+def write_models(path, base=None):
+    """Catalogo de pi con el provider "local" (el que trae fake_pi por
+    defecto). Sin base: provider sin baseUrl, el caso sin endpoint."""
+    prov = {"apiKey": "sk-test"}
+    if base:
+        prov["baseUrl"] = base
+    path.write_text(json.dumps({"providers": {"local": prov}}),
+                    encoding="utf-8")
+    return str(path)
+
+
+def calls(log):
+    if not os.path.exists(log):
+        return []
+    with open(log, encoding="utf-8") as fh:
+        return [json.loads(l) for l in fh if l.strip()]
+
+
+async def until(js, cond, timeout=10.0):
+    for _ in range(int(timeout * 10)):
+        if await js(cond):
+            return True
+        await asyncio.sleep(0.1)
+    return False
+
+
+async def send_turn(js, text):
+    """El camino real: el compositor manda el mensaje con el flag de
+    sugerencias puesto y el puente lo lanza."""
+    await js("box.value = %r; submit()" % text)
+    assert await until(js, "state.running === true", 8), "no arranco el turno"
+
+
+async def settle(js):
+    assert await until(js, "state.running === false", 25), "no asento"
+
+
+async def phase_with_endpoint(p, js, checks, proj, log):
+    await p.go()
+    await js("setLang('es')")
+    await js("send({type:'open_project', path:%s})"
+                 % json.dumps(proj.path))
+    assert await until(js, "state.cwd !== null", 8), "no abrio el proyecto"
+    # el provider llega en un estado posterior: hasta que no se sabe, el
+    # puente no puede decir si tiene URL propia
+    await until(js, "state.modelProvider !== null", 8)
+    checks.append(("con baseUrl, el puente dice que puede sugerir",
+                   await js("state.canSuggest") is True))
+
+    # camino viejo: sesiones ya grabadas, los marcadores viven dentro del
+    # texto de la respuesta -> ahi el parser legado sigue pintando las filas
+    await js("setSuggest(true);")
+    await js("feed.innerHTML=''; nodes.clear();"
+             " render({id:-5, kind:'assistant', streaming:false,"
+             " text:'Hecho. Cuando digas, push.\\n<hint: Viejo A>\\n"
+             "<hint: Viejo B>', t:Date.now()}); paint(); placeActions();")
+    legacy = await js("(() => {"
+                      " const m = document.querySelector('.said');"
+                      " return {"
+                      " rows: [...document.querySelectorAll"
+                      "('.suggests.derived .stext')].map(e => e.textContent),"
+                      " msg: m ? m.innerText : ''};})()")
+    print("  legado:", json.dumps(legacy, ensure_ascii=True))
+    checks += [
+        ("sesion vieja: sus filas salen del texto, como antes",
+         legacy["rows"] == ["Viejo A", "Viejo B"]),
+        ("sesion vieja: los marcadores no se leen",
+         "<hint" not in legacy["msg"]),
+    ]
+
+    # OFF: interruptor apagado -> ni llamada al modelo, ni filas
+    await js("setSuggest(false); feed.innerHTML=''; nodes.clear();")
+    await send_turn(js, "apagado")
+    await settle(js)
+    await asyncio.sleep(0.5)
+    checks += [
+        ("OFF: no se molesta al modelo", len(calls(log)) == 0),
+        ("OFF: no hay filas de sugerencia",
+         await js("document.querySelectorAll('.suggests .sug').length") == 0),
+    ]
+
+    # ON: aro de carga en el sitio exacto y tres filas limpias al llegar
+    await js("setSuggest(true)")
+    await js("navigator.clipboard.writeText = t => {"
+             " window.__copied = t; return Promise.resolve(); };")
+    await send_turn(js, "hola")
+    await settle(js)
+    got_ring = await until(js, "!!document.querySelector('.suggests.skel')", 2)
+    ring = await js("(() => {"
+                    " const w = document.querySelector('.suggests.skel');"
+                    " if(!w) return null;"
+                    " const b = [...w.querySelectorAll('.stext')];"
+                    " return {n: b.length,"
+                    " bars: b.every(x => getComputedStyle(x).display !== 'none'"
+                    "  && x.getBoundingClientRect().width > 10),"
+                    " dead: [...w.querySelectorAll('.sug')].every(x =>"
+                    "  getComputedStyle(x).pointerEvents === 'none')};})()")
+    print("  carga:", json.dumps(ring, ensure_ascii=True))
+    checks.append(("mientras se piden: aro de carga en el sitio de las filas",
+                   got_ring and ring and ring["n"] == 3 and ring["bars"] is True
+                   and ring["dead"] is True))
+    got = await until(js, "document.querySelectorAll"
+                         "('.suggests.src .sug').length === 3", 10)
+    rows = await js("[...document.querySelectorAll"
+                    "('.suggests.src .sug .stext')].map(e => e.textContent)")
+    print("  filas:", json.dumps(rows, ensure_ascii=True))
+    checks += [
+        ("ON: pintan tres filas", got is True),
+        ("limpias: cae numero, vineta, negrita y el marcador viejo",
+         rows == ROWS),
+        ("al llegar las filas se apaga el aro de carga",
+         await js("document.querySelectorAll('.suggests.skel').length") == 0),
+        ("el puente dice que ya no esta pidiendo",
+         await js("state.suggesting") is False),
+    ]
+
+    reqs = calls(log)
+    instr = reqs[0]["messages"][0]["content"] if reqs else ""
+    tpl = (reqs[0].get("chat_template_kwargs") or {}) if reqs else {}
+    print("  peticion:", json.dumps(
+        {"n": len(reqs), "model": reqs[0].get("model") if reqs else None,
+         "think": tpl.get("enable_thinking"),
+         "toks": reqs[0].get("max_tokens") if reqs else None,
+         "instr": instr[:200]}, ensure_ascii=True))
+    checks += [
+        ("ON: una sola llamada, directa al endpoint", len(reqs) == 1),
+        ("usa el modelo activo",
+         bool(reqs) and reqs[0].get("model") == "qwen3-8b"),
+        # thinking off: un modelo que se pone a pensar gasta el presupuesto en
+        # razonamiento y devuelve content vacio
+        ("con razonamiento apagado", tpl.get("enable_thinking") is False),
+        # contexto minimo: el mensaje del usuario (ancla de idioma) y la
+        # respuesta que se acabo de leer; el turno anterior no viaja
+        ("ve el mensaje del usuario de este turno",
+         "hola" in instr and "apagado" not in instr),
+        ("ve la respuesta que el usuario acabo de leer", ANSWER in instr),
+    ]
+
+    pos = await js("(() => {"
+                   " const all = [...feed.querySelectorAll('.turn')];"
+                   " const rows = [...feed.querySelectorAll('.suggests.src')].pop();"
+                   " if(!rows) return {err:'no rows'};"
+                   " const acts = [...feed.querySelectorAll('.msgacts')].pop();"
+                   " return {last: all[all.length-1] === rows.parentElement,"
+                   " rowsTop: rows.getBoundingClientRect().top,"
+                   " actsBottom: acts ? acts.getBoundingClientRect().bottom : -1,"
+                   " actsText: acts ? (acts.parentElement.querySelector('.said')"
+                   "   || {}).innerText || '' : '',"
+                   " user: all.filter(e => e.__item && e.__item.kind === 'user')"
+                   "   .map(e => e.querySelector('.utext').innerText.trim())};})()")
+    print("  colocacion:", json.dumps(pos, ensure_ascii=True))
+    checks += [
+        # nada de prompt inyectado: fake_pi responde al texto limpio y la
+        # burbuja del usuario no muestra instruccion oculta alguna
+        ("el mensaje del usuario sale limpio",
+         (pos.get("user") or [""])[-1] == "hola"),
+        # la tanda cierra el turno: lo ultimo del transcripto, por debajo de
+        # la barra de acciones de la respuesta que la pidio
+        ("la tanda es lo ultimo del turno", pos.get("last") is True),
+        ("la respuesta que la pidio es la del turno",
+         ANSWER in (pos.get("actsText") or "")),
+        ("las filas caen bajo la barra de acciones",
+         (pos.get("actsBottom") or 0) > 0
+         and pos.get("rowsTop", 0) > (pos.get("actsBottom") or 9e9)),
+    ]
+
+    # copiar la respuesta: sin sugerencias pegadas
+    await js("document.querySelector('.mact.copy').click()")
+    await asyncio.sleep(0.2)
+    cp = await js("window.__copied || ''")
+    print("  copiado:", json.dumps(cp, ensure_ascii=True))
+    checks += [
+        ("copiar la respuesta no arrastra las sugerencias",
+         all(r not in cp for r in ROWS)),
+        ("copiar si trae lo que escribio el modelo", ANSWER in cp),
+    ]
+
+    # turno nuevo: la tanda anterior se queda bajo su respuesta, tenues y sin
+    # pulsar; cada turno pide la suya
+    await send_turn(js, "siguiente")
+    old = await js("(() => {"
+                   " const t = [...document.querySelectorAll('.suggests.src')];"
+                   " return {n: t.length, cls: t.map(e => e.className)};})()")
+    print("  tandas:", json.dumps(old, ensure_ascii=True))
+    checks.append(("la tanda anterior queda gastada (visible, sin pulsar)",
+                   old["n"] == 1 and "spent" in (old["cls"][0] or "")))
+    await settle(js)
+    checks.append(("el turno nuevo trae su propia tanda",
+                   await until(js, "document.querySelectorAll"
+                                   "('.suggests.src').length === 2", 10)
+                   and len(calls(log)) == 2))
+
+    # clic en una fila: ese mensaje se envia tal cual, y su turno pide las suyas
+    await js("[...document.querySelectorAll('.suggests.src')].pop()"
+             ".querySelector('.sug').click()")
+    sent = await until(js, "state.running === true", 8)
+    bubble = await js("(() => {"
+                      " const u = [...feed.querySelectorAll('.turn')]"
+                      "   .filter(e => e.__item && e.__item.kind === 'user');"
+                      " return u[u.length-1].querySelector('.utext')"
+                      ".innerText.trim();})()")
+    print("  burbuja:", json.dumps(bubble, ensure_ascii=True))
+    checks += [
+        ("clic en una sugerencia: el mensaje vuela", sent is True),
+        ("el mensaje enviado es la sugerencia exacta", bubble == ROWS[0]),
+    ]
+    await settle(js)
+    checks.append(("la respuesta nueva tiene su tanda",
+                   await until(js, "document.querySelectorAll"
+                                   "('.suggests.src').length === 3", 10)))
+    spent_all = await js("[...document.querySelectorAll('.suggests.src')]"
+                         ".map(e => e.className)")
+    checks.append(("solo la ultima tanda esta activa",
+                   sum("spent" in c for c in spent_all) == 2))
+
+    # el caso que rompió el diseno viejo: el usuario pega un <hint:> en el
+    # texto. Ahora la respuesta NO se parsea: las filas salen del modelo de
+    # todos modos y el marcador queda oculto en la prosa
+    await send_turn(js, "pega <hint: x> en el chat")
+    await settle(js)
+    got4 = await until(js, "document.querySelectorAll('.suggests.src')"
+                          ".length === 4", 10)
+    last = await js("(() => {"
+                    " const t = [...feed.querySelectorAll('.suggests.src')];"
+                    " const g = t[t.length-1];"
+                    " const saids = [...feed.querySelectorAll('.said')];"
+                    " return {n: t.length,"
+                    " rows: [...g.querySelectorAll('.stext')].map(e => e.textContent),"
+                    " said: saids.length ? saids[saids.length-1].innerText : ''};})()")
+    print("  marcador en prosa:", json.dumps(last, ensure_ascii=True))
+    checks += [
+        ("un <hint:> en la prosa no crea filas: manda el modelo",
+         got4 is True and last["rows"] == ROWS),
+        ("y el marcador no se ve en la respuesta",
+         "<hint" not in last["said"] and "Hecho" in last["said"]),
+    ]
+    return len(calls(log))
+
+
+async def phase_sin_endpoint(p, js, checks, proj, log, before):
+    await p.go()
+    await js("setLang('es')")
+    await js("send({type:'open_project', path:%s})"
+                 % json.dumps(proj.path))
+    assert await until(js, "state.cwd !== null", 8), "no abrio el proyecto"
+    await until(js, "state.modelProvider !== null", 8)
+    await js("setSuggest(true);")
+    checks += [
+        ("sin baseUrl, el puente dice que no puede sugerir",
+         await js("state.canSuggest") is False),
+    ]
+    sheet = await js("paintSheet('functions'); (() => {"
+                     " const c = [...document.querySelectorAll"
+                     "('#sheetBody .fcard')]"
+                     "   .find(x => /Sugerencias/.test(x.textContent));"
+                     " if(!c) return null;"
+                     " const sw = c.querySelector('.sw');"
+                     " const small = c.querySelector('.flbl small');"
+                     " return {dis: sw.disabled, op: getComputedStyle(sw).opacity,"
+                     "  checked: sw.getAttribute('aria-checked'),"
+                     "  note: small ? small.textContent : ''};})()")
+    print("  sin endpoint:", json.dumps(sheet, ensure_ascii=True))
+    checks += [
+        ("sin baseUrl: el interruptor sale apagado",
+         bool(sheet) and sheet["dis"] is True),
+        ("sin baseUrl: se dice el motivo",
+         bool(sheet) and "URL propia" in sheet["note"]),
+        ("sin baseUrl: el interruptor se ve atenuado",
+         bool(sheet) and float(sheet["op"] or 1) < 0.7),
+        ("sin baseUrl: el interruptor no finge estar activo",
+         bool(sheet) and sheet["checked"] == "false"),
+    ]
+    # y aunque el flag viaje en el prompt, no se dispara nada: no hay a quien
+    # escribirle, y el aro de carga no debe quedarse encendido
+    await send_turn(js, "sin endpoint")
+    await settle(js)
+    await asyncio.sleep(0.5)
+    checks += [
+        ("sin endpoint: no sale aro de carga",
+         await js("state.suggesting") is False
+         and await js("document.querySelectorAll('.suggests.skel').length") == 0),
+        ("sin endpoint: ni una llamada extra al modelo",
+         len(calls(log)) == before),
+        ("sin endpoint: no salen filas",
+         await js("document.querySelectorAll('.suggests.src').length") == 0),
     ]
 
 
-REPLY = ("Hecho. Cuando digas, push."
-         "\\n<hint: Vale, haz el push.>"
-         "\\n<hint: Espera, revisa antes.>"
-         "\\n<hint: Muestrame el diff.>")
-
-
-async def in_page():
-    checks = []
-    with Bridge():
-        async with Page(port=9380) as p:
-            js = p.js
-            await p.go()
-            await js("setLang('es')")
-            await js("state={running:false,waiting:false,alive:true,cwd:'C:/x',"
-                     "sessionName:'s',model:'m',thinking:'x',context:null,"
-                     "queue:{steering:[],followUp:[]},recent:[]}; paint()")
-            await js("setSuggest(true)")
-
-            await js("feed.innerHTML=''; nodes.clear();"
-                     " render({id:1, kind:'assistant', streaming:false,"
-                     " text:'%s'}); placeActions();" % REPLY)
-            await asyncio.sleep(0.1)
-
-            shown = await js("document.querySelector('.said,[data-body]')"
-                             ".textContent")
-            print("  render: mostrado=%r" % shown)
-            checks += [
-                ("el marcador no se muestra",
-                 "<hint" not in shown and "Vale, haz el push" not in shown),
-                ("el texto normal si se ve", "Cuando digas, push" in shown),
-            ]
-
-            rows = await js("[...document.querySelectorAll("
-                            "'.suggests .sug .stext')].map(n=>n.textContent)")
-            arrows = await js("document.querySelectorAll("
-                              "'.suggests .sug .sarrow .i').length")
-            print("  filas: %s  flechas=%s" % (rows, arrows))
-            checks += [
-                ("aparecen 3 filas de sugerencia", len(rows) == 3),
-                ("con los textos propuestos, sin el marcador",
-                 rows == ["Vale, haz el push.", "Espera, revisa antes.",
-                          "Muestrame el diff."]),
-                ("cada fila lleva su flechita", arrows == 3),
-            ]
-
-            # el copiar del mensaje no debe llevar los hints (visibleText)
-            await js("window.__copied=null;"
-                     " copyText=(t)=>{window.__copied=t; return Promise.resolve(true);}")
-            await js("[...document.querySelectorAll('.mact')]"
-                     ".filter(b=>!b.classList.contains('stats'))[0].click()")
-            await asyncio.sleep(0.1)
-            copied = await js("window.__copied")
-            print("  copiado=%r" % copied)
-            checks += [
-                ("copiar el mensaje no incluye los hints",
-                 bool(copied) and "<hint" not in copied
-                 and "Vale, haz el push" not in copied),
-                ("copiar el mensaje trae el texto real",
-                 bool(copied) and "Cuando digas, push" in copied),
-            ]
-
-            # clic en la 2a fila -> envia ese mensaje, con la bandera
-            await js("window.__sent=[];"
-                     " ws.send = s => window.__sent.push(JSON.parse(s));"
-                     " document.querySelectorAll('.suggests .sug')[1].click()")
-            await asyncio.sleep(0.1)
-            sent = await js("(() => { const m = window.__sent.find("
-                            "x => x.type==='prompt'); return m ? [m.message,"
-                            " m.suggest === true] : null;})()")
-            cleared = await js("box.value")
-            gone = await js("!document.querySelector('.suggests')")
-            print("  clic: enviado=%s box=%r filas_fuera=%s"
-                  % (sent, cleared, gone))
-            checks += [
-                ("clic en una sugerencia la envia con la bandera",
-                 bool(sent) and sent[0] == "Espera, revisa antes."
-                 and sent[1] is True),
-                ("y limpia el compositor", cleared == ""),
-                ("y retira las filas al enviar", gone is True),
-            ]
-
-            # el toggle pinta o quita las filas
-            await js("feed.innerHTML=''; nodes.clear();"
-                     " render({id:2, kind:'assistant', streaming:false,"
-                     " text:'%s'}); setSuggest(true)" % REPLY)
-            await asyncio.sleep(0.05)
-            on_n = await js("document.querySelectorAll('.suggests .sug').length")
-            await js("setSuggest(false)")
-            await asyncio.sleep(0.05)
-            off_n = await js("document.querySelectorAll('.suggests .sug').length")
-            print("  toggle: on=%s off=%s" % (on_n, off_n))
-            checks += [
-                ("con el toggle activo hay filas", on_n == 3),
-                ("apagado, no hay filas", off_n == 0),
-            ]
-
-            # al activar desde la card, dialog de aviso (orden oculta + contexto)
-            await js("paintSheet('functions')")
-            await js("(() => { const c = [...document.querySelectorAll('#sheetBody .fcard')]"
-                     ".find(c => c.textContent.includes('Sugerencias'));"
-                     " const s = c && c.querySelector('.sw');"
-                     " if(s) s.click(); })()")
-            await asyncio.sleep(0.05)
-            warn = await js("[document.querySelector('#modal').classList.contains('open'),"
-                            " document.querySelector('#modal').textContent]")
-            print("  aviso: abierto=%s texto=%r" % (warn and warn[0],
-                  (warn and warn[1] or "")[:70]))
-            checks += [
-                ("al activar la card, dialog de aviso",
-                 bool(warn) and warn[0] is True and "contexto" in warn[1]),
-            ]
-            await js("document.querySelector('#modal').classList.remove('open')")
-
-            # cola parcial en su propia linea no parpadea (se retiene al strea)
-            await js("setSuggest(true); feed.innerHTML=''; nodes.clear();"
-                     " render({id:3, kind:'assistant', streaming:true,"
-                     " text:'Listo\\n<hin'})")
-            await asyncio.sleep(0.05)
-            part = await js("document.querySelector('.said,[data-body]')"
-                            ".textContent")
-            print("  parcial: mostrado=%r" % part)
-            checks.append(("una cola parcial <hin no se muestra",
-                           "<hin" not in part and "Listo" in part))
-
-            # colision: un <hint:> EN MEDIO de la prosa (el modelo explicando la
-            # feature) no se oculta ni genera filas. Antes cortaba el texto.
-            await js("setSuggest(true); feed.innerHTML=''; nodes.clear();"
-                     " render({id:4, kind:'assistant', streaming:false,"
-                     " text:'Cierro con tres lineas <hint: ejemplo> y sigo "
-                     "explicando aqui.'}); placeActions()")
-            await asyncio.sleep(0.05)
-            body = await js("document.querySelector('.said,[data-body]')"
-                            ".textContent")
-            rows = await js("document.querySelectorAll('.suggests .sug').length")
-            print("  colision: filas=%s body=%r" % (rows, body))
-            checks += [
-                ("un <hint:> en prosa no genera filas", rows == 0),
-                ("y no corta el texto tras el marcador",
-                 "Cierro con tres lineas" in body and "sigo explicando" in body),
-            ]
-
-            # formas XML al final: etiqueta cerrada <hint>...</hint>
-            await js("setSuggest(true); feed.innerHTML=''; nodes.clear();"
-                     " render({id:5, kind:'assistant', streaming:false,"
-                     " text:'Listo.\\n"
-                     "<hint>Una cosa</hint>\\n"
-                     "<hint>Otra cosa</hint>\\n"
-                     "<hint>Tercera cosa</hint>'}); placeActions()")
-            await asyncio.sleep(0.05)
-            shown = await js("document.querySelector('.said,[data-body]')"
-                             ".textContent")
-            rows = await js("[...document.querySelectorAll("
-                            "'.suggests .sug .stext')].map(n=>n.textContent)")
-            print("  xml cerrado: filas=%s body=%r" % (rows, shown))
-            checks += [
-                ("etiquetas cerradas al final dan 3 filas",
-                 rows == ["Una cosa", "Otra cosa", "Tercera cosa"]),
-                ("y el cuerpo no muestra las etiquetas",
-                 "<hint" not in shown and "</hint>" not in shown
-                 and "Listo." in shown),
-            ]
-
-            # vinetas y numeros al final (el modelo saca lista):
-            # el prefijo se quita y los hints se parsean igual
-            await js("setSuggest(true); feed.innerHTML=''; nodes.clear();"
-                     " render({id:6, kind:'assistant', streaming:false,"
-                     " text:'Siguientes:\\n"
-                     "- <hint: Prueba en el movil.>"
-                     "\\n- <hint: Añade tests.>"
-                     "\\n- <hint: Sube version?>'}); placeActions()")
-            await asyncio.sleep(0.05)
-            shown = await js("document.querySelector('.said,[data-body]')"
-                             ".textContent")
-            rows = await js("[...document.querySelectorAll"
-                            "('.suggests .sug .stext')].map(n=>n.textContent)")
-            print("  vinetas: filas=%s body=%r" % (rows, shown))
-            checks += [
-                ("vinetas al final dan 3 filas",
-                 rows == ["Prueba en el movil.", "Añade tests.",
-                          "Sube version?"]),
-                ("y el cuerpo no muestra las vinetas",
-                 "<hint" not in shown and "Siguientes:" in shown),
-            ]
-
-            # numeros: "1. <hint: ..>"
-            await js("setSuggest(true); feed.innerHTML=''; nodes.clear();"
-                     " render({id:7, kind:'assistant', streaming:false,"
-                     " text:'Hecho.\\n"
-                     "1. <hint: Una.>"
-                     "\\n2. <hint: Dos.>"
-                     "\\n3. <hint: Tres.>'}); placeActions()")
-            await asyncio.sleep(0.05)
-            shown = await js("document.querySelector('.said,[data-body]')"
-                             ".textContent")
-            rows = await js("[...document.querySelectorAll"
-                            "('.suggests .sug .stext')].map(n=>n.textContent)")
-            print("  numeros: filas=%s body=%r" % (rows, shown))
-            checks += [
-                ("numeros al final dan 3 filas",
-                 rows == ["Una.", "Dos.", "Tres."]),
-                ("y el cuerpo queda limpio",
-                 "<hint" not in shown and "Hecho." in shown),
-            ]
-
-            # abierta sin cierre (el modelo se olvida del </hint>) + canonica
-            await js("setSuggest(true); feed.innerHTML=''; nodes.clear();"
-                     " render({id:6, kind:'assistant', streaming:false,"
-                     " text:'Hecho.\\n"
-                     "<hint>Sin cierre uno\\n"
-                     "<hint: con dos puntos>'}); placeActions()")
-            await asyncio.sleep(0.05)
-            shown = await js("document.querySelector('.said,[data-body]')"
-                             ".textContent")
-            rows = await js("[...document.querySelectorAll("
-                            "'.suggests .sug .stext')].map(n=>n.textContent)")
-            print("  mixto: filas=%s body=%r" % (rows, shown))
-            checks += [
-                ("abierta sin cierre + canonica dan 2 filas",
-                 rows == ["Sin cierre uno", "con dos puntos"]),
-                ("y el cuerpo queda limpio",
-                 "Hecho." in shown and "<hint" not in shown),
-            ]
-
-            # abierta con un > de cierre suelto (el modelo cierra con > en vez
-            # de </hint>): el texto no debe arrastrar ese > final (bug de la foto)
-            await js("setSuggest(true); feed.innerHTML=''; nodes.clear();"
-                     " render({id:9, kind:'assistant', streaming:false,"
-                     " text:'Hecho.\\n"
-                     "<hint>Los nombres se actualizan.>\\n"
-                     "<hint>Sigue mostrando viejos.>'}); placeActions()")
-            await asyncio.sleep(0.05)
-            rows = await js("[...document.querySelectorAll("
-                            "'.suggests .sug .stext')].map(n=>n.textContent)")
-            print("  cierre suelto: filas=%s" % rows)
-            checks += [
-                ("un > de cierre suelto no queda en el texto del hint",
-                 rows == ["Los nombres se actualizan.",
-                          "Sigue mostrando viejos."]),
-            ]
-
-            # mezcla: abre con la forma canonica "<hint: ..>" y ademas cierra con
-            # </hint> (el modelo copia las dos). El cierre no debe arrastrarse al
-            # rotulo de la fila, que era el defecto visto en el chat.
-            await js("setSuggest(true); feed.innerHTML=''; nodes.clear();"
-                     " render({id:10, kind:'assistant', streaming:false,"
-                     " text:'Hecho.\\n"
-                     "<hint: Uno</hint>"
-                     "\\n<hint: Dos></hint>"
-                     "\\n<hint: Tres.>'}); placeActions()")
-            await asyncio.sleep(0.05)
-            shown = await js("document.querySelector('.said,[data-body]')"
-                             ".textContent")
-            rows = await js("[...document.querySelectorAll"
-                            "('.suggests .sug .stext')].map(n=>n.textContent)")
-            print("  mezcla: filas=%s body=%r" % (rows, shown))
-            checks += [
-                ("<hint: x</hint> da 3 filas sin el cierre en el rotulo",
-                 rows == ["Uno", "Dos", "Tres."]),
-                ("y el cuerpo queda limpio",
-                 "<hint" not in shown and "Hecho." in shown),
-            ]
-
-            # colision: etiqueta cerrada EN MEDIO de la prosa se ve como texto
-            await js("setSuggest(true); feed.innerHTML=''; nodes.clear();"
-                     " render({id:7, kind:'assistant', streaming:false,"
-                     " text:'Uso <hint>etiqueta</hint> para marcar y sigo.'});"
-                     " placeActions()")
-            await asyncio.sleep(0.05)
-            body = await js("document.querySelector('.said,[data-body]')"
-                            ".textContent")
-            rows = await js("document.querySelectorAll('.suggests .sug').length")
-            print("  colision xml: filas=%s body=%r" % (rows, body))
-            checks += [
-                ("etiqueta cerrada en prosa no genera filas", rows == 0),
-                ("y se ve como texto",
-                 "Uso <hint>etiqueta</hint> para marcar" in body),
-            ]
-
-            # streaming: cola parcial con forma XML se retiene, no parpadea
-            await js("setSuggest(true); feed.innerHTML=''; nodes.clear();"
-                     " render({id:8, kind:'assistant', streaming:true,"
-                     " text:'Listo\\n<hint>haz'})")
-            await asyncio.sleep(0.05)
-            part = await js("document.querySelector('.said,[data-body]')"
-                            ".textContent")
-            rows = await js("document.querySelectorAll('.suggests .sug').length")
-            print("  parcial xml: mostrado=%r filas=%s" % (part, rows))
-            checks += [
-                ("una cola parcial <hint>haz no se muestra ni da filas",
-                 "<hint" not in part and "Listo" in part and rows == 0),
-            ]
-
-            checks.append(("sin errores de consola", not p.problems))
-    return checks
-
-
 async def main():
-    checks = await passthrough()
-    checks += await in_page()
+    checks = []
+    tmp = Path(os.environ.get("TEMP", "."))
+    log = tmp / "pi-suggest-calls.jsonl"
+    if log.exists():
+        log.unlink()
+    srv, port = start_model(log)
+    with Bridge(extra={"PI_MODELS_JSON": write_models(
+            tmp / "pi-suggest-models.json",
+            "http://127.0.0.1:%d/v1" % port)}) as b1, \
+            FakeProject("proj-suggest") as proj1:
+        async with Page(port=9380) as p:
+            n = await phase_with_endpoint(p, p.js, checks, proj1, log)
+            problems = [x for x in p.problems if "favicon" not in x[1]]
+            checks.append(("sin fallos en consola", not problems))
+            if problems:
+                print(problems[:4])
+    # segundo puente: el mismo provider sin baseUrl. Ahi no hay a quien
+    # pedirle las sugerencias; se apaga el interruptor y no sale ni una
+    # llamada, en vez de fallar en silencio
+    with Bridge(state=str(tmp / "pi-suggest-state2.json"), extra={
+            "PI_MODELS_JSON": write_models(tmp / "pi-suggest-models2.json")}
+            ) as b2, FakeProject("proj-suggest2") as proj2:
+        async with Page(port=9380) as p2:
+            await phase_sin_endpoint(p2, p2.js, checks, proj2, log, n)
+    srv.shutdown()
     return checks
 
 

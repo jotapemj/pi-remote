@@ -687,7 +687,8 @@ main{flex:1; overflow-y:auto; overflow-x:hidden; padding:16px var(--gut) 8px; po
   border-radius:50%; background:#fff; box-shadow:0 1px 3px #0006;
   transition:transform .2s ease;
 }
-.sw[aria-checked="true"] .knob{transform:translateX(18px)}
+ .sw[aria-checked="true"] .knob{transform:translateX(18px)}
+.sw[disabled]{opacity:.4;cursor:default}
 .sw:focus-visible{outline:2px solid var(--amber); outline-offset:2px}
 /* el interruptor apagado esconde el razonamiento */
 html.hide-think .think-turn{display:none}
@@ -1224,6 +1225,19 @@ footer > *{position:relative; z-index:1}
 .sug:hover{ color:var(--ink) }
 .sug:hover .sarrow .i{ fill:var(--amber) }
 .sug:active{ opacity:.7 }
+/* las filas de una respuesta pasada se quedan, tenues, y ya no se pulsan */
+.suggests.spent{ opacity:.45; pointer-events:none }
+/* carga: tres barras en el sitio exacto donde salen las filas reales */
+.suggests.skel{ gap:12px }
+.suggests.skel .sug{ pointer-events:none; cursor:default }
+.suggests.skel .stext{
+  height:13px; border-radius:5px; background:var(--rule);
+  animation:sugbreathe 1.7s ease-in-out infinite;
+}
+@keyframes sugbreathe{ 0%,100%{opacity:.35} 50%{opacity:.8} }
+@media (prefers-reduced-motion: reduce){
+  .suggests.skel .stext{ animation:none; opacity:.55 }
+}
 #box[contenteditable="false"]{opacity:.6; cursor:default}
 /* bloque de texto pegado: acento del tema en negrita, se borra como unidad */
 .chip{
@@ -3536,6 +3550,7 @@ function render(item){
   el.__item = item;
   el.innerHTML = html(item);
   if(item.kind === "ask") wireAsk(el, item);
+  if(item.kind === "suggest") wireSuggest(el);
   if(item.kind === "user" && item.macro) wireMacroChip(el, item);
   if(item.kind === "user"){ markFoldable(el); wireMsgMenu(el); }
   el.classList.toggle("think-turn", item.kind === "thinking");
@@ -3659,7 +3674,7 @@ const repaintGroups = () =>
 function placeActions(){
   const was = atBottom();          // seguias el final antes de colocar acciones
   feed.querySelectorAll(".msgacts").forEach(el => el.remove());
-  feed.querySelectorAll(".suggests").forEach(el => el.remove());
+  feed.querySelectorAll(".suggests.derived").forEach(el => el.remove());
   if(state.running) return;
   const said = [...feed.querySelectorAll(".turn")].filter(t =>
     t.__item && t.__item.kind === "assistant" && !t.__item.streaming);
@@ -3683,21 +3698,45 @@ function placeActions(){
 
 /* Filas de sugerencia bajo la ultima respuesta: mismo aspecto en escritorio y
    movil. Clic en una envia ese mensaje directamente. Solo si el toggle esta
-   activo y el modelo dejo marcadores <hint:>. */
+   activo y hay filas (item `suggest` del puente, o marcadores de una sesion
+   grabada con el diseno viejo). */
+const sugRow = t => `<button class="sug" type="button">`
+  + `<span class="sarrow">${ico("subdir")}</span>`
+  + `<span class="stext">${esc(t)}</span></button>`;
+/* El item `suggest` llega del puente: el modelo las pidio el, al asentar el
+   turno. Cada fila manda su texto al pulsarla. */
+function wireSuggest(el){
+  const items = el.__item.items || [];
+  [...el.querySelectorAll(".sug")].forEach((b, i) => {
+    b.onclick = () => { box.value = items[i]; submit(); };
+  });
+}
 function placeSuggests(last){
   if(!suggest) return;
+  // sesiones grabadas con el diseno viejo: los marcadores viven dentro del
+  // texto de la respuesta, ahi siguen parseandose (filas `derived`)
   const hints = parseHints(last.__item.text, last.__item.streaming);
-  if(!hints.length) return;
-  const wrap = document.createElement("div");
-  wrap.className = "suggests";
-  wrap.innerHTML = hints.map(h =>
-    `<button class="sug" type="button">`
-    + `<span class="sarrow">${ico("subdir")}</span>`
-    + `<span class="stext">${esc(h)}</span></button>`).join("");
-  [...wrap.querySelectorAll(".sug")].forEach((b, i) => {
-    b.onclick = () => { box.value = hints[i]; submit(); };
-  });
-  last.appendChild(wrap);
+  if(hints.length){
+    const wrap = document.createElement("div");
+    wrap.className = "suggests derived";
+    wrap.innerHTML = hints.map(sugRow).join("");
+    [...wrap.querySelectorAll(".sug")].forEach((b, i) => {
+      b.onclick = () => { box.value = hints[i]; submit(); };
+    });
+    last.appendChild(wrap);
+    return;
+  }
+  // diseno nuevo: mientras el puente pide las filas al modelo, tres barras de
+  // carga en el sitio exacto donde van a salir (sin salto al llegar)
+  if(state.suggesting && !feed.querySelector(".suggests.src")){
+    const wrap = document.createElement("div");
+    wrap.className = "suggests derived skel";
+    wrap.setAttribute("aria-hidden", "true");
+    wrap.innerHTML = [100, 74, 58].map(w =>
+      `<button class="sug" tabindex="-1"><span class="sarrow">${ico("subdir")}</span>`
+      + `<span class="stext" style="max-width:${w}%"></span></button>`).join("");
+    last.appendChild(wrap);
+  }
 }
 
 /* Un mensaje del usuario que ocupa mas de seis lineas se puede plegar.
@@ -3845,6 +3884,11 @@ function html(it){
     + `<span class="nm">${esc(it.name||T("tools"))}${arg}</span>${tally}`
     + `</summary><div class="tbody">${cmd}${out}${timg}</div></details>`;
   }
+  if(it.kind === "suggest")
+    // item propio del puente: tres filas bajo la respuesta que las pidio.
+    // La respuesta del turno NO se parsea: un formato raro en el texto del
+    // modelo cuesta una fila menos, no un chat roto.
+    return `<div class="suggests src">${(it.items || []).map(sugRow).join("")}</div>`;
   if(it.kind === "ask"){
     // caducada: pi la cerro solo (timeout o turno abortado) sin avisar
     const closed = !!(it.answered || it.expired);
@@ -6402,12 +6446,14 @@ function submit(){
                                          mimeType:im.mimeType}));
   if(!text && !imgs.length) return;
   box.value = ""; closePalette(); slashToggle();
-  feed.querySelectorAll(".suggests").forEach(el => el.remove());
+  // un turno nuevo: las sugerencias de la respuesta anterior se quedan bajo
+  // ella, tenues y sin pulsar (el item vive en el transcripto)
+  feed.querySelectorAll(".suggests").forEach(el => el.classList.add("spent"));
   clearThumbs();
   if(text.startsWith("/") && !imgs.length) return runLine(text);
   const cmd = {type:"prompt", message:text};
   if(imgs.length) cmd.images = imgs;
-  if(suggest) cmd.suggest = true;      // el puente inyecta la instruccion oculta
+  if(suggest) cmd.suggest = true;      // el puente las pide al modelo al asentar
   if(autoname) cmd.autoname = true;    // el puente pide el nombre al modelo
   cmd.lang = lang();                   // el titulo, en el idioma activo
   send(cmd);
@@ -6505,7 +6551,8 @@ const STR = {
       suggest:"Response suggestions",
       stopsum:"Summary on agent stop",
       stopsumWarn:"Asks the agent, in the background, for a one-line summary of what it was doing until the user stopped it. It increases the context.",
-      suggestWarn:"This feature injects an instruction into the prompt, not visible to the user, telling the agent to suggest replies for a richer experience. It increases the context in every turn.",
+      suggestWarn:"When a turn settles, the bridge asks the model, in the background and with reasoning off, for three replies you might send next. It costs one extra call per turn and needs a provider with its own base URL.",
+      suggestNoModel:"Needs a provider with its own base URL",
       notify:"Notifications",
       notifDone:"Response ready",
       notifOn:"Notifications enabled",
@@ -6664,7 +6711,8 @@ const STR = {
       suggest:"Sugerencias de respuesta",
       stopsum:"Resumen al detener agente",
       stopsumWarn:"Pide en segundo plano un resumen en una línea de lo que el agente estaba haciendo hasta que el usuario lo detuvo. Aumenta el contexto.",
-      suggestWarn:"Esta función inyecta una orden al prompt no visible al usuario que indica al agente proponer respuestas para una experiencia más enriquecedora. Supone un incremento del contexto en cada turno.",
+      suggestWarn:"Cuando un turno termina, el puente pide al modelo, en segundo plano y sin razonar, tres respuestas que quizá quieras enviar. Cuesta una llamada extra por turno y necesita un proveedor con URL propia.",
+      suggestNoModel:"Requiere un proveedor con URL propia",
       notify:"Notificaciones",
       notifDone:"Respuesta lista",
       notifOn:"Notificaciones activadas",
@@ -6823,7 +6871,8 @@ const STR = {
       suggest:"Antwortvorschl\u00e4ge",
       stopsum:"Zusammenfassung beim Stoppen des Agenten",
       stopsumWarn:"Fordert im Hintergrund eine einzeilige Zusammenfassung dessen an, was der Agent gerade tat, bis der Benutzer ihn stoppte. Das erh\u00f6ht den Kontext.",
-      suggestWarn:"Diese Funktion f\u00fcgt dem Prompt eine f\u00fcr den Benutzer unsichtliche Anweisung hinzu, die dem Agenten sagt, Antwortvorschl\u00e4ge zu machen \u2013 f\u00fcr ein reichhaltigeres Erlebnis. Der Kontext w\u00e4chst in jeder Runde.",
+      suggestWarn:"Wenn ein Turn endet, fragt die Br\u00fccke im Hintergrund und ohne Reasoning nach drei m\u00f6glichen Antworten. Das kostet einen zus\u00e4tzlichen Aufruf pro Turn und braucht einen Anbieter mit eigener Basis-URL.",
+      suggestNoModel:"Braucht Anbieter mit eigener Basis-URL",
       notify:"Benachrichtigungen",
       notifDone:"Antwort fertig",
       notifOn:"Benachrichtigungen aktiviert",
@@ -6982,7 +7031,8 @@ const STR = {
       suggest:"Suggestions de r\u00e9ponse",
       stopsum:"Résumé à l'arrêt de l'agent",
       stopsumWarn:"Demande en arri\u00e8re-plan un r\u00e9sum\u00e9 en une ligne de ce que l'agent faisait jusqu'\u00e0 ce que l'utilisateur l'arr\u00eate. Le contexte augmente.",
-      suggestWarn:"Cette fonction injecte dans le prompt une instruction invisible pour l'utilisateur, indiquant \u00e0 l'agent de proposer des r\u00e9ponses pour une exp\u00e9rience plus enrichissante. Le contexte augmente \u00e0 chaque tour.",
+      suggestWarn:"Quand un tour se termine, le pont demande au modèle, en arrière-plan et raisonnement désactivé, trois réponses possibles. Cela coûte un appel supplémentaire par tour et exige un fournisseur avec URL de base.",
+      suggestNoModel:"Exige un fournisseur avec URL de base",
       notify:"Notifications",
       notifDone:"R\u00e9ponse pr\u00eate",
       notifOn:"Notifications activ\u00e9es",
@@ -7140,7 +7190,8 @@ const STR = {
       suggest:"Sugest\u00f5es de resposta",
       stopsum:"Resumo ao parar o agente",
       stopsumWarn:"Pede em segundo plano um resumo numa linha do que o agente estava a fazer até o utilizador o parar. Aumenta o contexto.",
-      suggestWarn:"Esta fun\u00e7\u00e3o injeta no prompt uma ordem invis\u00edvel ao utilizador que indica ao agente propor respostas para uma experi\u00eancia mais enriquecedora. O contexto aumenta em cada turno.",
+      suggestWarn:"Quando um turno termina, a ponte pede ao modelo, em segundo plano e sem racioc\u00ednio, tr\u00eas respostas prov\u00e1veis. Custa uma chamada extra por turno e precisa de um fornecedor com URL pr\u00f3pria.",
+      suggestNoModel:"Requer um fornecedor com URL pr\u00f3pria",
       notify:"Notifica\u00e7\u00f5es",
       notifDone:"Resposta pronta",
       notifOn:"Notifica\u00e7\u00f5es ativadas",
@@ -7293,7 +7344,8 @@ const STR = {
       suggest:"回复建议",
       stopsum:"停止代理时摘要",
       stopsumWarn:"在后台请求代理用一行总结用户停止它之前它正在做的事。这会增加上下文。",
-      suggestWarn:"此功能会向提示词注入一条对用户不可见的指令，让代理建议回复，以获得更丰富的体验。每个回合都会增加上下文。",
+      suggestWarn:"回合结束时，桥接会在后台、关闭推理的情况下向模型请求三条可能的后续回复。每回合多一次调用，且需要自带网址的提供方。",
+      suggestNoModel:"需要自带网址的提供方",
       notify:"通知",
       notifDone:"回复已就绪",
       notifOn:"通知已开启",
@@ -8816,12 +8868,19 @@ function paintSheet(page){
 
     const scard = document.createElement("div");
     scard.className = "fcard";
+    // sin baseUrl en el proveedor no hay a quien pedirlas: el puente lo dice
+    // (state.canSuggest) y el interruptor se apaga, en vez de fallar mudo
+    const canS = state.canSuggest !== false;
     scard.innerHTML = `<div class="frow"><div class="ftext">`
-      + `<div class="flbl">${esc(T("suggest"))}</div></div>`
+      + `<div class="flbl">${esc(T("suggest"))}`
+      + (canS ? "" : `<br><small>${esc(T("suggestNoModel"))}</small>`)
+      + `</div></div>`
       + `<button class="sw" role="switch" aria-label="${esc(T("suggest"))}"`
-      + ` aria-checked="${suggest}"><span class="knob"></span></button>`;
+      + ` aria-checked="${suggest && canS}"${canS ? "" : " disabled"}>`
+      + `<span class="knob"></span></button>`;
     const ssw = scard.querySelector(".sw");
     ssw.onclick = () => {
+      if(!canS) return;
       const on = ssw.getAttribute("aria-checked") !== "true";
       if(on) modal(T("suggest"), "<p>" + esc(T("suggestWarn")) + "</p>");
       ssw.setAttribute("aria-checked", on ? "true" : "false");

@@ -102,6 +102,7 @@ the fonts, all served locally so the page never calls out to anyone.
 | `PI_SESSION` | none | sessions start unnamed; set to name fresh ones |
 | `PI_AGENT_DIR` | `~/.pi/agent` | agent directory, for auto-naming (reads `models.json`) |
 | `PI_AUTONAME_TIMEOUT` | `8` | seconds to wait on the local model when naming a session |
+| `PI_SUGGEST_TIMEOUT` | `8` | seconds to wait on the model when asking for response suggestions |
 | `PI_MODELS_JSON` | none | explicit path to `models.json`, overriding `PI_AGENT_DIR` |
 | `PI_WEB_HOST` | `0.0.0.0` | bind address |
 | `PI_WEB_PORT` | `8770` | port |
@@ -557,9 +558,14 @@ of optional switches, each remembered per browser.
     One attempt per session; on failure the session stays "Untitled".
   - **Show reasoning**: the agent's thinking as a collapsible "Thought for N
     seconds" block, closed by default.
-  - **Response suggestions**: after each turn the model offers three likely
-    replies as plain lines under its answer; a tap sends one. It appends a
-    hidden instruction to every prompt, at a small context cost.
+  - **Response suggestions**: when a turn settles, the bridge makes one extra
+    request of its own to the model's endpoint — reasoning off, a couple of
+    hundred tokens — and shows three likely replies as plain lines under the
+    answer; a tap sends one. Nothing is added to your prompts: it asks with the
+    message you sent and the answer you just read. Needs a provider with its
+    own `baseUrl` in `models.json`; without one the switch goes grey and says
+    why. Sessions recorded earlier carry the old hidden `<hint: ...>` block,
+    and their lines still render from it.
   - **Summary on agent stop**: stopping a working turn asks the agent, in the
     background, for one line on what it was doing instead of just killing it.
   - **Aggressive abort**: some extension tools ignore stop (context-mode's

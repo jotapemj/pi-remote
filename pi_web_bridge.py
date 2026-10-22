@@ -166,25 +166,32 @@ PASSTHROUGH = {
 }
 
 
-# Instruccion efimera para las sugerencias de respuesta. El puente la pega al
-# mensaje que va a pi (NO al item que ve el usuario). pi no tiene campo aparte
-# para instrucciones de turno, asi que viaja dentro del prompt.
-SUGGEST_HINT = (
-    "\n\n[After your reply, always end with exactly three suggestion lines: "
-    "three short, natural messages the user might send next, in the user's "
-    "language, each on its own final line in exactly this form:\n"
-    "<hint: Sounds good, go ahead.>\n"
-    "<hint: Wait, show me the diff first.>\n"
-    "<hint: What about the tests?>\n"
-    "Replace the example text with suggestions that fit. Always write all "
-    "three lines. Each marker must be the entire line: no bullet, no "
-    "number, no heading, no prefix. Write nothing after the third.]"
+# Sugerencias de respuesta: al asentar el turno se piden DIRECTO al modelo
+# (thinking off, como el resumen al parar y el autonombre). No viajan dentro
+# del prompt: la respuesta del turno no se parsea, asi que un formato raro
+# cuesta una sugerencia menos y no un chat roto, y el .jsonl queda limpio.
+# El idioma se ancla en lo que el usuario escribe, no en la UI.
+SUGGEST_ASK = (
+    "Reply with exactly three short suggestions of a message the user might "
+    "send next, {lang}. One per line and nothing else: no numbering, no "
+    "bullets, no quotes, no headings, no explanations, no preamble. Keep "
+    "each under twelve words, in the way people type, not full sentences."
 )
+SUGGEST_MAX = 3
+SUGGEST_LINE_MAX = 120
+SUGGEST_TIMEOUT = float(os.environ.get("PI_SUGGEST_TIMEOUT", "12"))
 
-# La instruccion viaja dentro del prompt, asi que pi la guarda en disco. Al
+# El modelo pequeno siempre adorna: numero, vineta, flecha, negrita, comillas
+# y a veces imita el <hint: ...> del diseno viejo. Se tolera todo aqui.
+SUGGEST_PREFIX_RE = re.compile(r"^\s*(?:[-*+•·–→↳]|[0-9]{1,2}[.)\]]|#+)\s*")
+SUGGEST_MARK_RE = re.compile(r"^<\s*hint\s*:?\s*(.*?)\s*(?:</\s*hint\s*>)?>$",
+                             re.I | re.S)
+
+# SUGGEST_HINT_RE: la instruccion que el puente VIEJO pegaba al prompt. Ya no
+# se inyecta, pero pi la guardo en el .jsonl de las sesiones grabadas. Al
 # reconstruir el historico hay que quitarla o la burbuja del usuario sale con
 # el bloque entero. Regex generica (bloque final que contiene <hint:), no el
-# literal: pilla el formato nuevo y los viejos ya guardados en sesiones.
+# literal: pilla el formato nuevo y los viejos.
 SUGGEST_HINT_RE = re.compile(r"\n*\[[^\]]*<hint:[\s\S]*\]\s*$")
 
 # Resumen al parar: cuando el usuario detiene un turno con la funcion activa,
@@ -1029,15 +1036,32 @@ def quiz_label(answers):
         for a in answers)
 
 
+_MODELS_CACHE = None
+
+
 def read_models_json():
-    """El catalogo de modelos de pi, para sacar el endpoint del provider."""
-    p = Path(os.environ.get("PI_MODELS_JSON") or (AGENT_DIR / "models.json"))
+    """El catalogo de modelos de pi, para sacar el endpoint del provider.
+
+    Memoizado por (ruta, mtime, tamano): push_state lo mira en CADA estado
+    para saber si el proveedor tiene URL propia (sugerencias y resumen al
+    parar), y leer el disco a cada estado sale caro."""
+    global _MODELS_CACHE
+    p = _models_json_path()
+    try:
+        st = p.stat()
+        stamp = (str(p), st.st_mtime_ns, st.st_size)
+    except OSError:
+        stamp = (str(p), 0, 0)
+    if _MODELS_CACHE and _MODELS_CACHE[0] == stamp:
+        return _MODELS_CACHE[1]
     try:
         with open(p, encoding="utf-8") as fh:
             d = json.load(fh)
-        return d if isinstance(d, dict) else {}
+        d = d if isinstance(d, dict) else {}
     except (OSError, ValueError):
-        return {}
+        d = {}
+    _MODELS_CACHE = (stamp, d)
+    return d
 
 
 def _models_json_path():
@@ -2735,6 +2759,86 @@ def stop_summary_text(ctx, user_text, lang, provider, model_id):
     return (raw or "").strip() or None
 
 
+def clean_suggestions(raw):
+    """Hasta tres lineas limpias de lo que devuelva el modelo.
+
+    Adorna (numera, vineta, comillas, negrita) y a veces imita el marcador
+    <hint: ...> del diseno viejo. Se tolera todo: la respuesta del turno no
+    se parsea, asi que un formato raro cuesta una sugerencia menos."""
+    out, seen = [], set()
+    for line in (raw or "").splitlines():
+        s = line.strip()
+        m = SUGGEST_MARK_RE.match(s)
+        if m:
+            s = m.group(1)
+        s = SUGGEST_PREFIX_RE.sub("", s).strip()
+        if len(s) > 4 and s.startswith("**") and s.endswith("**"):
+            s = s[2:-2].strip()
+        s = s.strip("`").strip()
+        if len(s) > 1 and s[0] in "\"'“" and s[-1] in "\"'”":
+            s = s[1:-1].strip()
+        s = s.strip(" -:–—\u2022").strip()
+        low = s.casefold()
+        if not s or len(set(s)) < 2:            # linea de adorno ("---", "**")
+            continue
+        if low.startswith(("suggestion", "sugerencia", "here are",
+                           "aqui", "aqu\u00ed")):
+            continue                            # el modelo anuncia la lista
+        if low in seen:                         # "repites, no cuentas"
+            continue
+        seen.add(low)
+        out.append(s[:SUGGEST_LINE_MAX])
+        if len(out) >= SUGGEST_MAX:
+            break
+    return out
+
+
+def suggest_lines(answer, user_text, ctx, lang, provider, model_id):
+    """Tres sugerencias de respuesta, directo al modelo con thinking off
+    (mismo canal que el resumen al parar): NO pasa por pi, la sesion no se
+    ensucia y el turno no hereda el xhigh que lo pondria a pensar 20 s por
+    tres lineas. None si el proveedor no tiene URL propia o no responde.
+
+    Solo ve lo que el usuario escribio, la respuesta que acaba de leer y la
+    cola de la actividad del turno. El razonamiento no viaja: hace falta
+    poco para proponer tres mensajes, y es lo que abarata el turno."""
+    base, key = model_endpoint(provider)
+    if not base or not model_id:
+        return None
+    target = ("in the same language as the user's message below" if user_text
+              else "in " + LANG_NAMES.get(lang, "English"))
+    instr = SUGGEST_ASK.replace("{lang}", target)
+    if user_text:
+        instr += "\n\nThe user's message:\n" + user_text[:600]
+    if answer:
+        instr += ("\n\nYour reply, which the user has just read:\n"
+                  + answer[-1200:])
+    if ctx:
+        instr += "\n\nWhat you were doing:\n" + ctx[-400:]
+    payload = json.dumps({
+        "model": model_id,
+        "max_tokens": 120,
+        # sin pensar: un Qwen3 con thinking se come el presupuesto en
+        # reasoning y devuelve content vacio (fin length)
+        "chat_template_kwargs": {"enable_thinking": False},
+        "messages": [{"role": "user", "content": instr}]},
+    ).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
+    if key:
+        headers["Authorization"] = "Bearer " + key
+    try:
+        with urllib.request.urlopen(
+                urllib.request.Request(base.rstrip("/") + "/chat/completions",
+                                       data=payload, headers=headers),
+                timeout=SUGGEST_TIMEOUT) as r:
+            d = json.loads(r.read().decode("utf-8", "replace"))
+        raw = d["choices"][0]["message"]["content"]
+    except (OSError, ValueError, KeyError, IndexError):
+        return None
+    out = clean_suggestions(raw)
+    return out or None
+
+
 def last_session(cwd):
     """La sesion guardada de esta carpeta, si sigue viva en su sitio."""
     p = read_state().get("session") or ""
@@ -2801,6 +2905,9 @@ class Bridge:
             "alive": True, "cwd": "", "waiting": False, "recent": [],
             "compactAt": None,
             "sessionFile": None, "summarizing": False,
+            # sugerencias: aro de carga y si el proveedor tiene URL propia a
+            # la que pedirlas; el cliente apaga el interruptor con False
+            "suggesting": False, "canSuggest": False,
             # proyecto abierto y su historial aun en camino: el telon de
             # /restart espera a que sea False para no ensenar la vista a medias
             "loading": False,
@@ -2831,6 +2938,9 @@ class Bridge:
         self.cur = None                      # assistant item being streamed
         self.summary_pending = False         # tras el abort, toca pedir el resumen
         self.summary_ctx = ""                # lo que hacia, para realimentarlo
+        self.suggest_wanted = False          # el turno pide sugerencias
+        self.suggest_seq = 0                 # cada turno, el suyo: descarta lo viejo
+        self.last_answer_text = ""           # la ultima respuesta del turno
         self.restart_pending = False         # /restart mientras corre un turno
         self.tool_t0 = None                  # cuando empezo la herramienta viva
         self.bash_rows = deque()             # /bash del usuario en curso (FIFO)
@@ -3087,6 +3197,11 @@ class Bridge:
                           "args": args, "text": text})
 
     def push_state(self):
+        # sin baseUrl no hay a quien pedirle las sugerencias (el canal es
+        # OpenAI-compatible, como el resumen al parar): el cliente apaga el
+        # interruptor y dice por que, en vez de fallar en silencio
+        self.state["canSuggest"] = bool(
+            model_endpoint(self.state.get("modelProvider"))[0])
         self.emit({"type": "state", "state": dict(self.state)})
 
     def snapshot(self):
@@ -3222,6 +3337,11 @@ class Bridge:
             u = grab_usage(ev) or self.cur_usage
             stats = self.build_stats(u)
             self.assistant_open = False
+            if text.strip():
+                # la respuesta que el usuario acaba de leer: base de las
+                # sugerencias, que se piden al asentar (self.cur ya esta
+                # cerrado y ahi no hay texto que leer)
+                self.last_answer_text = text
             if self.cur:
                 self._dbg({"id": self.cur["id"], "final": text})
                 self.patch(self.cur, text=text, streaming=False, stats=stats)
@@ -3287,6 +3407,19 @@ class Bridge:
                 # el turno asento: la ultima respuesta ya esta en disco
                 self.restart_pending = False
                 self.begin_restart()
+            if self.suggest_wanted and not self.summary_pending \
+                    and self.last_answer_text.strip() \
+                    and model_endpoint(self.state.get("modelProvider"))[0]:
+                # se pide al modelo aparte: ni prompt inyectado, ni parseo de
+                # la respuesta, ni basura en el .jsonl. El aro fino lo guia
+                # state["suggesting"] hasta que llegan las filas.
+                self.suggest_wanted = False
+                self.suggest_seq += 1
+                self.state["suggesting"] = True
+                threading.Thread(
+                    target=self._emit_suggest,
+                    args=(self.suggest_seq, self.last_answer_text,
+                          self.last_activity()), daemon=True).start()
             self.push_state()
             self.send_pi({"type": "get_session_stats"})
 
@@ -3427,6 +3560,32 @@ class Bridge:
             self.push({"kind": "assistant", "text": txt, "streaming": False})
         self.push_state()
 
+    def _emit_suggest(self, seq, answer, ctx):
+        """Pide las sugerencias al modelo (thinking off) y las cuelga como
+        item propio, bajo la respuesta que las genero. Hilo daemon: urlopen
+        bloquea el loop. Sin resumen y sin aviso: si el modelo no contesta,
+        no hay filas y el aro se apaga."""
+        items = suggest_lines(answer, self.last_user_text, ctx, self.lang,
+                              self.state.get("modelProvider"),
+                              self.state.get("modelId"))
+        if seq != self.suggest_seq:
+            # otro prompt, otra sesion o un abort: ese turno ya no existe y
+            # el estado lo maneja el nuevo, no lo pise aqui
+            return
+        self.state["suggesting"] = False
+        if items:
+            self.push({"kind": "suggest", "items": items, "turn": seq})
+        self.push_state()
+
+    def drop_suggest(self):
+        """Turno nuevo, sesion nueva o un stop: lo que este en vuelo ya no
+        tiene donde caerse. El seq descarta la respuesta del hilo."""
+        self.suggest_seq += 1
+        self.suggest_wanted = False
+        if self.state.get("suggesting"):
+            self.state["suggesting"] = False
+            self.push_state()
+
     def on_response(self, ev):
         cmd, data = ev.get("command"), ev.get("data") or {}
 
@@ -3478,6 +3637,7 @@ class Bridge:
         elif cmd in ("switch_session", "new_session"):
             if not data.get("cancelled"):
                 self.autoname_done = False   # sesion nueva: puede autonombrarse
+                self.drop_suggest()          # y sus sugerencias, caducan
                 self.log.clear()
                 self.cur = None
                 self.emit({"type": "cleared"})
@@ -3825,10 +3985,14 @@ class Bridge:
             if images:
                 item["images"] = images
             self.push(item)
-            send_text = text
-            if msg.get("suggest") and text:   # sugerencias: instruccion oculta
-                send_text = text + SUGGEST_HINT
-            cmd = {"type": "prompt", "message": send_text}
+            # sugerencias: el diseno viejo pegaba la instruccion al prompt y
+            # el modelo tenia que cerrar el turno con marcadores; se rompía
+            # con la estructura y ensuciaba el .jsonl. Ahora solo se
+            # recuerda el flag y se piden al asentar, al modelo directo.
+            self.drop_suggest()
+            self.last_answer_text = ""       # turno fresco, sin respuesta
+            self.suggest_wanted = bool(msg.get("suggest")) and bool(text)
+            cmd = {"type": "prompt", "message": text}
             if images:
                 cmd["images"] = images       # pi acepta images en el prompt
             if self.state["running"]:
@@ -3911,6 +4075,7 @@ class Bridge:
             return
 
         if t == "abort":
+            self.drop_suggest()        # un stop: las suyas ya no pintan
             if msg.get("aggressive"):
                 self.arm_aggressive()
             # matar primero el comando shell en curso: sin esto el abort queda
