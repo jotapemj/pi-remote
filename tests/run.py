@@ -22,7 +22,8 @@ HERE = Path(__file__).resolve().parent
 # las de navegador van solas dentro de su worker: cada una levanta su Chrome
 ORDER = ["static_check", "theme_check", "label_check", "notes_check",
          "trash_test",
-         "history_probe", "projects_probe", "sec_probe", "browser_probe",
+         "history_probe", "looseargs_probe", "projects_probe", "sec_probe",
+         "browser_probe",
          "anim_probe",
          "plate_probe", "slash_probe", "cmdfeedback_probe", "confirm_probe", "rail_probe",
          "marquee_probe", "compose_probe", "paste_probe", "camera_probe",

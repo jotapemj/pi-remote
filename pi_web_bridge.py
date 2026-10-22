@@ -621,6 +621,55 @@ def search_sessions(cwds, q, cap=30):
     return out
 
 
+def args_dict(a):
+    """Los argumentos de una llamada a herramienta, siempre en dict.
+
+    En las sesiones grabadas `arguments` sale a veces como string JSON
+    (medido en bridge.log: un `edit` con `edits` en string) y ahi reventaba
+    `load_history` con `'str' object has no attribute 'get'`, dejando el
+    transcripto pintado a medias. Se aceptan las dos formas.
+    """
+    if isinstance(a, dict):
+        return a
+    if isinstance(a, str):
+        try:
+            d = json.loads(a)
+        except (ValueError, TypeError):
+            return {}
+        return d if isinstance(d, dict) else {}
+    return {}
+
+
+def edit_edits(args):
+    """La lista de ediciones de un `edit`, en dicts, pase lo que pase.
+
+    Pi graba los cortes en objetos, pero hay sesiones con cada edicion como
+    string JSON. Sin `edits` y con `oldText`/`newText` arriba se sintetiza
+    una edicion: es la forma corta que traen algunas versiones.
+    """
+    a = args_dict(args)
+    ed = a.get("edits")
+    if isinstance(ed, str):
+        try:
+            ed = json.loads(ed)
+        except (ValueError, TypeError):
+            ed = None
+    if isinstance(ed, dict):        # una sola edicion, sin la lista
+        ed = [ed]
+    if not isinstance(ed, list):
+        ed = [a] if ("oldText" in a or "newText" in a) else []
+    out = []
+    for e in ed:
+        if isinstance(e, str):
+            try:
+                e = json.loads(e)
+            except (ValueError, TypeError):
+                continue
+        if isinstance(e, dict):
+            out.append(e)
+    return out
+
+
 def edit_diff(args):
     """Las lineas que cambia una llamada a `edit`.
 
@@ -629,7 +678,7 @@ def edit_diff(args):
     documentada y las extensiones la cambian; esto no depende de eso.
     """
     lines, added, removed = [], 0, 0
-    for e in args.get("edits") or []:
+    for e in edit_edits(args):
         old = (e.get("oldText") or "").splitlines()
         new = (e.get("newText") or "").splitlines()
         for ln in difflib.unified_diff(old, new, lineterm="", n=2):
@@ -677,13 +726,14 @@ def grab_usage(ev):
 
 def tool_gist(args):
     """Lo que de verdad va a ejecutarse, sacado de los argumentos."""
+    a = args_dict(args)          # en sesiones viejas esto llega en string
     for key in ("command", "code", "path", "filePath", "file_path",
                 "pattern", "url", "query"):
-        v = (args or {}).get(key)
+        v = a.get(key)
         if isinstance(v, str) and v.strip():
             return v.strip()
-    if args:
-        return json.dumps(args, ensure_ascii=False)
+    if a:
+        return json.dumps(a, ensure_ascii=False)
     return ""
 
 
@@ -3370,9 +3420,9 @@ class Bridge:
                 return
             self.track_tool()
             item = {"kind": "tool", "name": ev.get("toolName"),
-                    "args": ev.get("args"), "status": "running",
+                    "args": args_dict(ev.get("args")), "status": "running",
                     "callId": ev.get("toolCallId")}
-            diff = edit_diff(ev.get("args") or {})
+            diff = edit_diff(args_dict(ev.get("args")))
             if diff:
                 item.update(diff)
             self.push(item)
@@ -3797,7 +3847,8 @@ class Bridge:
                         add({"kind": "assistant", "text": b["text"],
                              "streaming": False, "t": stamp})
                     elif kind == "toolCall" and b.get("name") == "ask_user":
-                        quiz = quiz_questions(json.dumps(b.get("arguments") or {}))
+                        quiz = quiz_questions(
+                            json.dumps(args_dict(b.get("arguments"))))
                         if quiz:
                             asks[b.get("id")] = add({
                                 "kind": "ask", "rid": "h-%s" % b.get("id"),
@@ -3807,10 +3858,10 @@ class Bridge:
                                 "detail": "", "answered": None, "t": stamp})
                     elif kind == "toolCall":
                         item = {"kind": "tool", "name": b.get("name"),
-                                "args": b.get("arguments"),
+                                "args": args_dict(b.get("arguments")),
                                 "status": "running",
                                 "callId": b.get("id"), "t": stamp}
-                        diff = edit_diff(b.get("arguments") or {})
+                        diff = edit_diff(args_dict(b.get("arguments")))
                         if diff:
                             item.update(diff)
                         calls[b.get("id")] = add(item)

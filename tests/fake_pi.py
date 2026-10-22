@@ -507,6 +507,39 @@ MESSAGES = [
                  "AAAADUlEQVR4nGNgYPj/PwAG9wJhQAAAAABJRU5ErkJggg=="}]},
 ]
 
+# Sesiones grabadas por pi traen `arguments` a veces como string JSON (y
+# cada `edits` tambien). El puente con `args.get("edits")` reventaba ahi
+# `load_history` ('str' object has no attribute 'get') y el transcripto salia
+# pintado a medias. Este bloque es ese caso, y solo lo ve el probe que pone
+# PI_FAKE_LOOSE_ARGS=1 en el entorno del puente.
+LOOSE = [
+    {"role": "assistant", "timestamp": 1756000010000, "content": [
+        {"type": "toolCall", "id": "l1", "name": "edit",
+         "arguments": json.dumps(
+             {"path": "app/board.py",
+              "edits": [json.dumps({"oldText": "V = 12\nI = 3",
+                                    "newText": "V = 24\nI = 5\nK = 1"})]})}]},
+    {"role": "toolResult", "toolCallId": "l1", "toolName": "edit",
+     "isError": False, "timestamp": 1756000010500,
+     "content": [{"type": "text", "text": "3 edits applied"}]},
+    # ask_user con `arguments` en string: su tarjeta debe salir igual (antes
+    # se iba al garete en silencio: json.loads de un string no trae questions)
+    {"role": "assistant", "timestamp": 1756000011000, "content": [
+        {"type": "toolCall", "id": "l2", "name": "ask_user",
+         "arguments": json.dumps({"questions": [
+             {"question": "\u00bfQue rama uso?", "header": "Rama",
+              "options": [{"label": "main"}, {"label": "develop"}]}]})}]},
+    {"role": "toolResult", "toolCallId": "l2", "toolName": "ask_user",
+     "isError": False, "timestamp": 1756000011500,
+     "content": [{"type": "text", "text": "main"}]},
+    # lo que sigue tiene que pintarse: aqui se cortaba el historial
+    {"role": "assistant", "timestamp": 1756000012000, "content": [
+        {"type": "text", "text": "sigue el hilo despues de lo suelto"}]},
+]
+
+if os.environ.get("PI_FAKE_LOOSE_ARGS") == "1":
+    MESSAGES = MESSAGES + LOOSE
+
 TOKENS = 9000
 
 MODELS = [
