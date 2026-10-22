@@ -153,16 +153,29 @@ async def phase_with_endpoint(p, js, checks, proj, log):
              " window.__copied = t; return Promise.resolve(); };")
     await send_turn(js, "hola")
     await settle(js)
-    got_ring = await until(js, "!!document.querySelector('.suggests.skel')", 2)
+    got_ring = await until(js, "!!document.querySelector('.suggests.sugskel')", 2)
     ring = await js("(() => {"
-                    " const w = document.querySelector('.suggests.skel');"
+                    " const w = document.querySelector('.suggests.sugskel');"
                     " if(!w) return null;"
                     " const b = [...w.querySelectorAll('.stext')];"
+                    " const cs = getComputedStyle(b[0], '::after');"
+                    " const a = getComputedStyle("
+                    "  w.querySelector('.sarrow .i')).fill;"
+                    " const R = w.getBoundingClientRect();"
                     " return {n: b.length,"
                     " bars: b.every(x => getComputedStyle(x).display !== 'none'"
                     "  && x.getBoundingClientRect().width > 10),"
                     " dead: [...w.querySelectorAll('.sug')].every(x =>"
-                    "  getComputedStyle(x).pointerEvents === 'none')};})()")
+                    "  getComputedStyle(x).pointerEvents === 'none'),"
+                    " cls: w.className,"
+                    " sweep: cs.animationName + ' ' + cs.animationDuration,"
+                    " vars: ['--bw','--p0'].map(v => w.style"
+                    "  .getPropertyValue(v)).join(' '),"
+                    " w: Math.round(R.width), h: Math.round(R.height),"
+                    " bh: Math.round(b[0].getBoundingClientRect().height),"
+                    " bw: b.map(x => Math.round(x.getBoundingClientRect().width)),"
+                    " left: Math.round(b[0].getBoundingClientRect().left),"
+                    " alpha: +((a.match(/\/\s*([0-9.]+)\)$/) || [0,1])[1])};})()")
     print("  carga:", json.dumps(ring, ensure_ascii=True))
     checks.append(("mientras se piden: aro de carga en el sitio de las filas",
                    got_ring and ring and ring["n"] == 3 and ring["bars"] is True
@@ -183,6 +196,18 @@ async def phase_with_endpoint(p, js, checks, proj, log):
                     "   .getPropertyValue('--faint').trim()};})()")
     print("  aspecto:", json.dumps(look, ensure_ascii=True))
     print("  filas:", json.dumps(rows, ensure_ascii=True))
+    # geometria de las filas ya pintadas: se compara con la carga (ring)
+    geo = await js("(() => {"
+                   " const w = document.querySelector('.suggests.src');"
+                   " if(!w) return null;"
+                   " const b = w.querySelector('.stext');"
+                   " return {h: Math.round(w.getBoundingClientRect().height),"
+                   "  bw: [...w.querySelectorAll('.stext')].map(x =>"
+                   "   Math.round(x.getBoundingClientRect().width)),"
+                   "  left: Math.round(b.getBoundingClientRect().left),"
+                   "  arrow: getComputedStyle("
+                   "   w.querySelector('.sarrow .i')).fill};})()")
+    print("  filas geo:", json.dumps(geo, ensure_ascii=True))
     checks += [
         ("ON: pintan tres filas", got is True),
         ("limpias: cae numero, vineta, negrita y el marcador viejo",
@@ -192,7 +217,24 @@ async def phase_with_endpoint(p, js, checks, proj, log):
          look["op"] == 1 and look["rop"] == 1),
         ("la tanda activa se puede pulsar", look["pe"] != "none"),
         ("al llegar las filas se apaga el aro de carga",
-         await js("document.querySelectorAll('.suggests.skel').length") == 0),
+         await js("document.querySelectorAll('.suggests.sugskel').length") == 0),
+        # la carga es el idioma del puente: la onda continua (.skel + skelSync),
+        # la caja de linea real y el ancho de la columna, sin salto al llegar
+        ("la carga usa la onda del proyecto (.skel, skw y caja sincronizada)",
+         bool(ring) and ring["cls"].find("skel") >= 0
+         and ring["sweep"] == "skw 2.2s" and ring["vars"].find("px") > 0),
+        ("la carga ocupa la columna y la escalera se ve",
+         bool(ring) and ring["w"] > 300 and ring["bw"][0] > 200
+         and ring["bw"][0] > ring["bw"][1] > ring["bw"][2]),
+        ("la barra mide la caja de linea de la fila real",
+         bool(ring) and 20 <= ring["bh"] <= 24),
+        ("la flecha de la carga es fantasma y la de la fila no",
+         bool(ring) and bool(geo) and ring["alpha"] < 0.3
+         and geo["arrow"].startswith("rgb(")),
+        ("al llegar las filas el chat no salta",
+         bool(ring) and bool(geo) and abs(geo["h"] - ring["h"]) <= 2),
+        ("el texto arranca en la x de la barra",
+         bool(ring) and bool(geo) and abs(geo["left"] - ring["left"]) <= 2),
         ("el puente dice que ya no esta pidiendo",
          await js("state.suggesting") is False),
     ]
@@ -337,7 +379,7 @@ async def phase_with_endpoint(p, js, checks, proj, log):
                     " src: document.querySelectorAll('.suggests.src').length,"
                     " derived: document.querySelectorAll"
                     "('.suggests.derived').length,"
-                    " skel: document.querySelectorAll('.suggests.skel').length};})()")
+                    " skel: document.querySelectorAll('.suggests.sugskel').length};})()")
     print("  tras recargar:", json.dumps(back, ensure_ascii=True))
     checks += [
         ("recargando, el transcripto se pinta",
@@ -393,7 +435,7 @@ async def phase_sin_endpoint(p, js, checks, proj, log, before):
     checks += [
         ("sin endpoint: no sale aro de carga",
          await js("state.suggesting") is False
-         and await js("document.querySelectorAll('.suggests.skel').length") == 0),
+         and await js("document.querySelectorAll('.suggests.sugskel').length") == 0),
         ("sin endpoint: ni una llamada extra al modelo",
          len(calls(log)) == before),
         ("sin endpoint: no salen filas",

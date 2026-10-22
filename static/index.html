@@ -1227,17 +1227,17 @@ footer > *{position:relative; z-index:1}
 .sug:active{ opacity:.7 }
 /* las filas NO sobreviven al envio: son ayuda transitoria para el siguiente
    mensaje (ver submit y el mensaje suggest_clear del puente) */
-/* carga: tres barras en el sitio exacto donde salen las filas reales */
-.suggests.skel{ gap:12px }
-.suggests.skel .sug{ pointer-events:none; cursor:default }
-.suggests.skel .stext{
-  height:13px; border-radius:5px; background:var(--rule);
-  animation:sugbreathe 1.7s ease-in-out infinite;
-}
-@keyframes sugbreathe{ 0%,100%{opacity:.35} 50%{opacity:.8} }
-@media (prefers-reduced-motion: reduce){
-  .suggests.skel .stext{ animation:none; opacity:.55 }
-}
+/* carga: el idioma del puente (la onda de .skel; caja y recorrido los calcula
+   skelSync, asi la diagonal sigue continua de barra en barra) y la caja de
+   linea real (15/1.45 = 22) con el gap de las filas: al llegar las filas el
+   chat no salta (medido en el puente vivo: -1 px; con barra de 13 y gap de
+   12 saltaba +30 px). La escalera es max-width: con width y flex:1 las tres
+   barras salen del mismo ancho. Reduced-motion lo cubre .skel::after. */
+.suggests.sugskel{ gap:14px }
+.suggests.sugskel .sug{ pointer-events:none; cursor:default }
+.suggests.sugskel .stext{ height:22px; border-radius:4px }
+.suggests.sugskel .sarrow .i{
+  fill:color-mix(in srgb, var(--ink) 16%, transparent) }
 #box[contenteditable="false"]{opacity:.6; cursor:default}
 /* bloque de texto pegado: acento del tema en negrita, se borra como unidad */
 .chip{
@@ -3730,12 +3730,13 @@ function placeSuggests(last){
   // carga en el sitio exacto donde van a salir (sin salto al llegar)
   if(state.suggesting && !feed.querySelector(".suggests.src")){
     const wrap = document.createElement("div");
-    wrap.className = "suggests derived skel";
+    wrap.className = "suggests derived sugskel";   // 'derived': render() la limpia
     wrap.setAttribute("aria-hidden", "true");
     wrap.innerHTML = [100, 74, 58].map(w =>
       `<button class="sug" tabindex="-1"><span class="sarrow">${ico("subdir")}</span>`
-      + `<span class="stext" style="max-width:${w}%"></span></button>`).join("");
+      + `<span class="stext skel" style="max-width:${w}%"></span></button>`).join("");
     last.appendChild(wrap);
+    skelSync(wrap);              // caja y recorrido de la onda comun
   }
 }
 
@@ -10264,7 +10265,10 @@ function detailHtml(d){
    el recorrido la lleva de fuera a la izquierda a fuera a la derecha */
 const SKEL_TAN = Math.tan(20 * Math.PI / 180), SKEL_PAD = 80;
 function skelSync(root){
-  const box = root && root.querySelector(".pdskel");
+  // la caja puede venir dada (la tanda de sugerencias) o buscarse dentro
+  // del cuerpo del dialogo de paquete
+  const box = root && root.classList && root.classList.contains("sugskel")
+    ? root : root && root.querySelector(".pdskel");
   if(!box || !box.offsetWidth) return;
   const R = box.getBoundingClientRect(), k = R.width / box.offsetWidth || 1;
   const W = box.offsetWidth, H = box.offsetHeight;
