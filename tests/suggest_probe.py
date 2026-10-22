@@ -3,7 +3,9 @@ pide DIRECTO al modelo (thinking off, el mismo canal del resumen al parar).
 No viajan pegadas al prompt y la respuesta del turno NO se parsea: un formato
 raro cuesta una fila menos, no un chat roto, y el .jsonl queda limpio.
 Llegan como item propio (kind 'suggest') bajo la respuesta que las genero;
-clic = enviar ese mensaje. Se mide el DOM pintado con Chrome, contra un mini
+clic = enviar ese mensaje. La tanda es TRANSITORIA: al enviar un mensaje
+desaparece del feed, y el puente no la guarda en el log, asi que el snapshot de
+una recarga no la devuelve. Se mide el DOM pintado con Chrome, contra un mini
 servidor OpenAI-compatible que registra las peticiones y devuelve tres lineas
 adornadas (numero, vineta, negrita y marcador <hint:> del diseno viejo).
 Mientras se piden, aro de carga (state.suggesting) en el sitio de las filas.
@@ -169,11 +171,26 @@ async def phase_with_endpoint(p, js, checks, proj, log):
                          "('.suggests.src .sug').length === 3", 10)
     rows = await js("[...document.querySelectorAll"
                     "('.suggests.src .sug .stext')].map(e => e.textContent)")
+    look = await js("(() => {"
+                    " const w = document.querySelector('.suggests.src');"
+                    " const r = w.querySelector('.sug');"
+                    " const cw = getComputedStyle(w), cr = getComputedStyle(r);"
+                    " return {op: parseFloat(cw.opacity),"
+                    "  rop: parseFloat(cr.opacity),"
+                    "  pe: cr.pointerEvents,"
+                    "  color: cr.color,"
+                    "  faint: getComputedStyle(document.documentElement)"
+                    "   .getPropertyValue('--faint').trim()};})()")
+    print("  aspecto:", json.dumps(look, ensure_ascii=True))
     print("  filas:", json.dumps(rows, ensure_ascii=True))
     checks += [
         ("ON: pintan tres filas", got is True),
         ("limpias: cae numero, vineta, negrita y el marcador viejo",
          rows == ROWS),
+        # la queja medida: las filas no pueden salir tenues ni sin pulsar
+        ("la tanda activa se pinta a opacidad plena",
+         look["op"] == 1 and look["rop"] == 1),
+        ("la tanda activa se puede pulsar", look["pe"] != "none"),
         ("al llegar las filas se apaga el aro de carga",
          await js("document.querySelectorAll('.suggests.skel').length") == 0),
         ("el puente dice que ya no esta pidiendo",
@@ -241,25 +258,29 @@ async def phase_with_endpoint(p, js, checks, proj, log):
         ("copiar si trae lo que escribio el modelo", ANSWER in cp),
     ]
 
-    # turno nuevo: la tanda anterior se queda bajo su respuesta, tenues y sin
-    # pulsar; cada turno pide la suya
+    # turno nuevo: la tanda anterior ya no sirve y se va del feed; cada turno
+    # pide la suya. Ayuda transitoria: nada de tandas colgadas ni "gastadas"
     await send_turn(js, "siguiente")
     old = await js("(() => {"
-                   " const t = [...document.querySelectorAll('.suggests.src')];"
+                   " const t = [...document.querySelectorAll('.suggests')];"
                    " return {n: t.length, cls: t.map(e => e.className)};})()")
-    print("  tandas:", json.dumps(old, ensure_ascii=True))
-    checks.append(("la tanda anterior queda gastada (visible, sin pulsar)",
-                   old["n"] == 1 and "spent" in (old["cls"][0] or "")))
+    print("  tandas al enviar:", json.dumps(old, ensure_ascii=True))
+    checks += [
+        ("al enviar, la tanda anterior desaparece del feed",
+         old["n"] == 0),
+        ("no queda ninguna fila gastada", not any("spent" in c for c in old["cls"])),
+    ]
     await settle(js)
     checks.append(("el turno nuevo trae su propia tanda",
                    await until(js, "document.querySelectorAll"
-                                   "('.suggests.src').length === 2", 10)
+                                   "('.suggests.src').length === 1", 10)
                    and len(calls(log)) == 2))
 
     # clic en una fila: ese mensaje se envia tal cual, y su turno pide las suyas
     await js("[...document.querySelectorAll('.suggests.src')].pop()"
              ".querySelector('.sug').click()")
     sent = await until(js, "state.running === true", 8)
+    clicked = await js("document.querySelectorAll('.suggests').length")
     bubble = await js("(() => {"
                       " const u = [...feed.querySelectorAll('.turn')]"
                       "   .filter(e => e.__item && e.__item.kind === 'user');"
@@ -269,15 +290,17 @@ async def phase_with_endpoint(p, js, checks, proj, log):
     checks += [
         ("clic en una sugerencia: el mensaje vuela", sent is True),
         ("el mensaje enviado es la sugerencia exacta", bubble == ROWS[0]),
+        ("clicar una fila deja el feed sin tandas", clicked == 0),
     ]
     await settle(js)
     checks.append(("la respuesta nueva tiene su tanda",
                    await until(js, "document.querySelectorAll"
-                                   "('.suggests.src').length === 3", 10)))
-    spent_all = await js("[...document.querySelectorAll('.suggests.src')]"
+                                   "('.suggests.src').length === 1", 10)))
+    spent_all = await js("[...document.querySelectorAll('.suggests')]"
                          ".map(e => e.className)")
-    checks.append(("solo la ultima tanda esta activa",
-                   sum("spent" in c for c in spent_all) == 2))
+    checks.append(("no se acumulan tandas de turnos pasados",
+                   len(spent_all) == 1 and not any("spent" in c
+                                                   for c in spent_all)))
 
     # el caso que rompió el diseno viejo: el usuario pega un <hint:> en el
     # texto. Ahora la respuesta NO se parsea: las filas salen del modelo de
@@ -285,7 +308,7 @@ async def phase_with_endpoint(p, js, checks, proj, log):
     await send_turn(js, "pega <hint: x> en el chat")
     await settle(js)
     got4 = await until(js, "document.querySelectorAll('.suggests.src')"
-                          ".length === 4", 10)
+                          ".length === 1", 10)
     last = await js("(() => {"
                     " const t = [...feed.querySelectorAll('.suggests.src')];"
                     " const g = t[t.length-1];"
@@ -299,6 +322,32 @@ async def phase_with_endpoint(p, js, checks, proj, log):
          got4 is True and last["rows"] == ROWS),
         ("y el marcador no se ve en la respuesta",
          "<hint" not in last["said"] and "Hecho" in last["said"]),
+    ]
+
+    # recarga: el snapshot no trae tandas. El item 'suggest' vive solo en la
+    # pantalla; si entrara en el log, al reconectar volverian pulsables.
+    await p.go()
+    await js("setLang('es')")
+    await js("send({type:'open_project', path:%s})"
+                 % json.dumps(proj.path))
+    assert await until(js, "state.cwd !== null", 8), "no abrio el proyecto"
+    back = await js("(() => {"
+                    " const t = [...feed.querySelectorAll('.turn')];"
+                    " return {turns: t.length,"
+                    " src: document.querySelectorAll('.suggests.src').length,"
+                    " derived: document.querySelectorAll"
+                    "('.suggests.derived').length,"
+                    " skel: document.querySelectorAll('.suggests.skel').length};})()")
+    print("  tras recargar:", json.dumps(back, ensure_ascii=True))
+    checks += [
+        ("recargando, el transcripto se pinta",
+         await until(js, "feed.querySelectorAll('.turn').length > 2", 8)),
+        ("recargando, ninguna tanda del diseno nuevo vuelve del historial",
+         back["src"] == 0 and back["skel"] == 0),
+        # el parser legado es otro camino: los marcadores viven en el texto
+        # grabado, y ahi SI deben salir (sesiones del diseno viejo)
+        ("recargando, el parser legado pinta lo que traiga el texto grabado",
+         back["derived"] <= 1),
     ]
     return len(calls(log))
 

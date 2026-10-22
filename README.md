@@ -561,11 +561,12 @@ of optional switches, each remembered per browser.
   - **Response suggestions**: when a turn settles, the bridge makes one extra
     request of its own to the model's endpoint — reasoning off, a couple of
     hundred tokens — and shows three likely replies as plain lines under the
-    answer; a tap sends one. Nothing is added to your prompts: it asks with the
-    message you sent and the answer you just read. Needs a provider with its
-    own `baseUrl` in `models.json`; without one the switch goes grey and says
-    why. Sessions recorded earlier carry the old hidden `<hint: ...>` block,
-    and their lines still render from it.
+    answer; a tap sends one. They are a transient aid: sending a message clears
+    them, and they never come back from the session history. Nothing is added
+    to your prompts: it asks with the message you sent and the answer you just
+    read. Needs a provider with its own `baseUrl` in `models.json`; without one
+    the switch goes grey and says why. Sessions recorded earlier carry the old
+    hidden `<hint: ...>` block, and their lines still render from it.
   - **Summary on agent stop**: stopping a working turn asks the agent, in the
     background, for one line on what it was doing instead of just killing it.
   - **Aggressive abort**: some extension tools ignore stop (context-mode's

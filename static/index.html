@@ -1225,8 +1225,8 @@ footer > *{position:relative; z-index:1}
 .sug:hover{ color:var(--ink) }
 .sug:hover .sarrow .i{ fill:var(--amber) }
 .sug:active{ opacity:.7 }
-/* las filas de una respuesta pasada se quedan, tenues, y ya no se pulsan */
-.suggests.spent{ opacity:.45; pointer-events:none }
+/* las filas NO sobreviven al envio: son ayuda transitoria para el siguiente
+   mensaje (ver submit y el mensaje suggest_clear del puente) */
 /* carga: tres barras en el sitio exacto donde salen las filas reales */
 .suggests.skel{ gap:12px }
 .suggests.skel .sug{ pointer-events:none; cursor:default }
@@ -5568,6 +5568,10 @@ function connect(){
       spinner(true);
       paint();
     }
+    else if(m.type === "suggest_clear"){
+      // turno nuevo, sesion nueva o un stop: la tanda que este pintada, fuera
+      feed.querySelectorAll(".suggests").forEach(el => el.remove());
+    }
     else if(m.type === "drop"){        // envio deshecho: fuera la burbuja
       const el = nodes.get(m.id);
       if(el){ if(el.__sep) el.__sep.remove(); el.remove(); nodes.delete(m.id); }
@@ -6446,9 +6450,9 @@ function submit(){
                                          mimeType:im.mimeType}));
   if(!text && !imgs.length) return;
   box.value = ""; closePalette(); slashToggle();
-  // un turno nuevo: las sugerencias de la respuesta anterior se quedan bajo
-  // ella, tenues y sin pulsar (el item vive en el transcripto)
-  feed.querySelectorAll(".suggests").forEach(el => el.classList.add("spent"));
+  // un turno nuevo: la tanda anterior ya no sirve, fuera del feed. El puente
+  // manda el mismo aviso (suggest_clear) por si el envio vino de otra pestana
+  feed.querySelectorAll(".suggests").forEach(el => el.remove());
   clearThumbs();
   if(text.startsWith("/") && !imgs.length) return runLine(text);
   const cmd = {type:"prompt", message:text};

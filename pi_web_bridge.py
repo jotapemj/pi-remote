@@ -3169,6 +3169,17 @@ class Bridge:
         item.update(fields)
         self.emit({"type": "patch", "id": item["id"], "fields": fields})
 
+    def push_ephemeral(self, item):
+        """Item que solo vive en la pantalla: no entra en el log, asi que el
+        snapshot de una recarga no lo devuelve. Para ayudas transitorias, como
+        las sugerencias: si entraran en el log, al reconectar volverian.
+        El id se numera igual: el cliente engancha sus eventos por id."""
+        self.seq += 1
+        item["id"] = self.seq
+        item["t"] = int(time.time() * 1000)
+        self.emit({"type": "item", "item": dict(item)})
+        return item
+
     def drop_last_user(self):
         """Quita del log la ultima burbuja de usuario: un envio deshecho."""
         for i in range(len(self.log) - 1, -1, -1):
@@ -3574,14 +3585,18 @@ class Bridge:
             return
         self.state["suggesting"] = False
         if items:
-            self.push({"kind": "suggest", "items": items, "turn": seq})
+            # transitorias: se pintan y se van, no quedan en el transcripto
+            self.push_ephemeral({"kind": "suggest", "items": items,
+                                 "turn": seq})
         self.push_state()
 
     def drop_suggest(self):
         """Turno nuevo, sesion nueva o un stop: lo que este en vuelo ya no
-        tiene donde caerse. El seq descarta la respuesta del hilo."""
+        tiene donde caerse. El seq descarta la respuesta del hilo y se avisa
+        al cliente de que borre las filas que tenga pintadas."""
         self.suggest_seq += 1
         self.suggest_wanted = False
+        self.emit({"type": "suggest_clear"})
         if self.state.get("suggesting"):
             self.state["suggesting"] = False
             self.push_state()
