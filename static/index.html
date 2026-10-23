@@ -687,7 +687,7 @@ main{flex:1; overflow-y:auto; overflow-x:hidden; padding:16px var(--gut) 8px; po
   border-radius:50%; background:#fff; box-shadow:0 1px 3px #0006;
   transition:transform .2s ease;
 }
- .sw[aria-checked="true"] .knob{transform:translateX(18px)}
+.sw[aria-checked="true"] .knob{transform:translateX(18px)}
 .sw[disabled]{opacity:.4;cursor:default}
 .sw:focus-visible{outline:2px solid var(--amber); outline-offset:2px}
 /* el interruptor apagado esconde el razonamiento */
@@ -6556,7 +6556,7 @@ const STR = {
       suggest:"Response suggestions",
       stopsum:"Summary on agent stop",
       stopsumWarn:"Asks the agent, in the background, for a one-line summary of what it was doing until the user stopped it. It increases the context.",
-      suggestWarn:"When a turn settles, the bridge asks the model, in the background and with reasoning off, for three replies you might send next. It costs one extra call per turn and needs a provider with its own base URL.",
+      suggestWarn:"When a turn settles, the bridge asks the model, in the background and with reasoning off, for three likely follow-up replies. It costs one extra call per turn and needs a provider with its own base URL.",
       suggestNoModel:"Needs a provider with its own base URL",
       notify:"Notifications",
       notifDone:"Response ready",
@@ -6716,7 +6716,7 @@ const STR = {
       suggest:"Sugerencias de respuesta",
       stopsum:"Resumen al detener agente",
       stopsumWarn:"Pide en segundo plano un resumen en una línea de lo que el agente estaba haciendo hasta que el usuario lo detuvo. Aumenta el contexto.",
-      suggestWarn:"Cuando un turno termina, el puente pide al modelo, en segundo plano y sin razonar, tres respuestas que quizá quieras enviar. Cuesta una llamada extra por turno y necesita un proveedor con URL propia.",
+      suggestWarn:"Cuando un turno termina, el puente pide al modelo, en segundo plano y sin razonar, tres respuestas probables. Cuesta una llamada extra por turno y necesita un proveedor con URL propia.",
       suggestNoModel:"Requiere un proveedor con URL propia",
       notify:"Notificaciones",
       notifDone:"Respuesta lista",

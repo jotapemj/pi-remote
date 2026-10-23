@@ -102,7 +102,7 @@ the fonts, all served locally so the page never calls out to anyone.
 | `PI_SESSION` | none | sessions start unnamed; set to name fresh ones |
 | `PI_AGENT_DIR` | `~/.pi/agent` | agent directory, for auto-naming (reads `models.json`) |
 | `PI_AUTONAME_TIMEOUT` | `8` | seconds to wait on the local model when naming a session |
-| `PI_SUGGEST_TIMEOUT` | `8` | seconds to wait on the model when asking for response suggestions |
+| `PI_SUGGEST_TIMEOUT` | `12` | seconds to wait on the model when asking for response suggestions |
 | `PI_MODELS_JSON` | none | explicit path to `models.json`, overriding `PI_AGENT_DIR` |
 | `PI_WEB_HOST` | `0.0.0.0` | bind address |
 | `PI_WEB_PORT` | `8770` | port |
