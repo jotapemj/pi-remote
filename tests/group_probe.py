@@ -2,8 +2,12 @@
 edito x.py'. En vivo tambien: desde la segunda herramienta el tramo es un
 grupo que absorbe lo que llega y ensena solo el paso en curso.
 
+Desde 0.107.0 una sola herramienta, o un razonamiento suelto, salen con la
+misma fila (una forma para todo), en prosa gris y sin barra: mono solo
+para el fichero. El /bash del usuario no se pliega.
+
 Se cubren los dos ordenes: herramientas y luego texto (inyectado en el
-DOM), y el turno real de fake_pi. Y que una sola no se agrupa. Sin tocar
+DOM), y el turno real de fake_pi. Y que una sola tambien es fila. Sin tocar
 al agente de verdad.
 """
 import asyncio
@@ -34,7 +38,9 @@ paint();
 """
 
 STATE = """(() => {
-  const g = document.querySelector('.toolgroup');
+  // el primer grupo con herramientas: un razonamiento suelto ya es grupo
+  const g = [...document.querySelectorAll('.toolgroup')]
+    .find(x => x.querySelector('.gbody .tool'));
   if(!g) return null;
   return [g.classList.contains('collapsed'),
           g.querySelectorAll('.gbody .tool').length,
@@ -140,14 +146,71 @@ async def main():
                  con[6] not in ("0px", "", None)),
             ]
 
-            # --- una sola no se agrupa
+            # --- una sola tambien es fila, con el mismo aspecto
             await js(SOLO)
             await asyncio.sleep(0.25)
-            solo = await js("[!!document.querySelector('.toolgroup'),"
-                            " document.querySelectorAll('.tool').length]")
-            print("  una sola: grupo=%s tools=%s" % (solo[0], solo[1]))
-            checks.append(("una sola herramienta no se agrupa",
-                           solo[0] is False and solo[1] == 1))
+            solo = await js("(() => { const g = document.querySelector('.toolgroup');"
+                            " const h = g && g.querySelector('.ghead');"
+                            " const cs = h && getComputedStyle(h);"
+                            " return [!!g, document.querySelectorAll('.gbody .tool').length,"
+                            "  g && g.querySelector('.gn').textContent,"
+                            "  cs && cs.fontFamily, g && getComputedStyle(g).borderLeftWidth,"
+                            "  h && h.querySelectorAll('.i').length]; })()")
+            print("  una sola: %s" % (solo,))
+            checks += [
+                ("una sola herramienta tambien es fila plegada",
+                 solo[0] and solo[1] == 1 and solo[2] == "Ejecutó 1 comando"),
+                ("la fila es prosa, no mono",
+                 "Jakarta" in (solo[3] or "") or "sans" in (solo[3] or "")),
+                ("sin barra a la izquierda ni icono, solo el chevron",
+                 solo[4] == "0px" and solo[5] == 1),
+            ]
+
+            # el fichero va en mono dentro de la fila de prosa
+            await js("feed.innerHTML=''; nodes.clear();"
+                     " render({id:1, kind:'tool', name:'edit', status:'done',"
+                     "  args:{path:'src/app.py'}, output:'ok', added:4, removed:2});"
+                     " render({id:2, kind:'assistant', streaming:false, text:'ya'});"
+                     " paint()")
+            await asyncio.sleep(0.25)
+            gf = await js("(() => { const f = document.querySelector('.ghead .gf');"
+                          " return f && [f.textContent, getComputedStyle(f).fontFamily,"
+                          "  document.querySelector('.gn').textContent]; })()")
+            print("  fichero: %s" % (gf,))
+            checks.append(("el fichero en mono y el recuento en la fila suelta",
+                           gf is not None and gf[0] == "app.py" and "Plex Mono" in gf[1]
+                           and gf[2] == "Editó app.py+4-2"))
+
+            # razonamiento suelto: fila 'Penso durante'; oculto, la fila sobra
+            await js("feed.innerHTML=''; nodes.clear();"
+                     " render({id:1, kind:'thinking', text:'mmm', streaming:false, secs:4});"
+                     " render({id:2, kind:'assistant', streaming:false, text:'ya'});"
+                     " paint()")
+            await asyncio.sleep(0.25)
+            th = await js("(() => { const g = document.querySelector('.toolgroup');"
+                          " return g && [g.querySelector('.gn').textContent, g.hidden]; })()")
+            await js("setThinking(false)")
+            th_off = await js("document.querySelector('.toolgroup').hidden")
+            await js("setThinking(true)")
+            print("  razonamiento suelto: %s oculto=%s" % (th, th_off))
+            checks += [
+                ("el razonamiento suelto es la misma fila",
+                 th is not None and th[0] == "Pensó durante 4 s" and th[1] is False),
+                ("con el razonamiento oculto, su fila no se ve", th_off is True),
+            ]
+
+            # el /bash del usuario es su mano: se ve entero, no se pliega
+            await js("feed.innerHTML=''; nodes.clear();"
+                     " render({id:1, kind:'tool', name:'bash (direct)', status:'done',"
+                     "  args:{command:'ls'}, output:'a'});"
+                     " render({id:2, kind:'assistant', streaming:false, text:'ya'});"
+                     " paint()")
+            await asyncio.sleep(0.25)
+            direct = await js("[!!document.querySelector('.toolgroup'),"
+                              " document.querySelectorAll('#feed > .turn > .tool').length]")
+            print("  /bash directo: %s" % (direct,))
+            checks.append(("el /bash del usuario no se pliega",
+                           direct[0] is False and direct[1] == 1))
 
             # --- razonamiento oculto intercalado no rompe el tramo
             # (Qwen mete thinking entre tool calls; oculto seguia en el DOM
@@ -183,7 +246,7 @@ async def main():
                  mix is not None and mix[2] == 4),
             ]
 
-            # --- en vivo: desde la segunda herramienta, una sola fila
+            # --- en vivo: desde la primera herramienta, una sola fila
             await js("feed.innerHTML=''; nodes.clear(); state.running = true;"
                      " render({id:1, kind:'user', text:'mira'});"
                      " render({id:2, kind:'thinking', text:'a', streaming:false,"
@@ -225,9 +288,9 @@ async def main():
             print("  vivo: pensando=%s" % (think,))
             print("  vivo: patch=%s cerrado=%s" % (patched, closed))
             checks += [
-                ("en vivo, una sola herramienta sigue suelta",
-                 one[0] is False and one[1] == 3),
-                ("la segunda herramienta pliega el tramo ya, en vivo",
+                ("en vivo, la primera herramienta ya es fila",
+                 one[0] is True and one[1] == 2),
+                ("la segunda entra en el mismo tramo, en vivo",
                  two is not None and two["live"] and two["collapsed"]
                  and two["turns"] == 2),
                 ("la fila en vivo ensena el paso en curso",

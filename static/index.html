@@ -491,10 +491,10 @@ main{flex:1; overflow-y:auto; overflow-x:hidden; padding:16px var(--gut) 8px; po
 .foldable.folded .ufold .i{transform:rotate(90deg)}       /* v: desplegar */
 .foldable:not(.folded) .ufold .i{transform:rotate(-90deg)} /* ^: comprimir */
 
-.said{word-break:break-word; font-size:var(--chat-size,15px);
-  font-family:var(--chat-font,var(--sans))}
+.said{word-break:break-word; font-size:var(--chat-size,14px);
+  font-family:var(--chat-font,var(--sans)); line-height:1.45}
 .blk-you{font-family:var(--chat-font,var(--sans))}
-.blk-you{font-size:var(--chat-size,15px)}
+.blk-you{font-size:var(--chat-size,14px); line-height:1.45}
 .said p{margin:0 0 .7em}
 .said p:last-child{margin-bottom:0}
 .said h4{font:600 15px/1.4 var(--sans);margin:1.1em 0 .4em}
@@ -564,16 +564,18 @@ main{flex:1; overflow-y:auto; overflow-x:hidden; padding:16px var(--gut) 8px; po
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
 
 /* ---------- grupo de herramientas ---------- */
-/* fila gris de texto, como el rotulo del razonamiento: el tramo pesa poco */
-.toolgroup{margin:6px 0 11px; border-left:2px solid var(--rule)}
+/* fila gris de prosa, sin barra ni icono: el tramo pesa poco y no cambia
+   de registro. Mono solo para el dato (el fichero), no para el verbo */
+.toolgroup{margin:4px 0 12px}
 .ghead{
   width:100%; display:flex; align-items:center; gap:7px; cursor:pointer;
   background:none; color:var(--dim); border:0;
-  padding:5px 6px 5px 11px; font:500 12px/1.3 var(--mono);
-  letter-spacing:.02em; text-align:left;
+  padding:3px 0; font:400 13.5px/1.35 var(--sans); text-align:left;
 }
 .ghead:hover{color:var(--ink)}
-.ghead .gtx{flex:1; min-width:0; display:flex; flex-direction:column; gap:3px}
+.ghead .gtx{flex:0 1 auto; min-width:0; display:flex; flex-direction:column;
+  gap:3px}
+.ghead .gf{font:500 12.5px var(--mono); color:var(--ink); opacity:.8}
 .ghead .gn .nowrap{white-space:nowrap}
 .ghead .gn .tally{display:inline-flex; gap:5px; margin-left:6px;
   vertical-align:baseline}
@@ -603,7 +605,24 @@ main{flex:1; overflow-y:auto; overflow-x:hidden; padding:16px var(--gut) 8px; po
 .gbody{overflow:hidden; transition:height .2s cubic-bezier(.32,.72,0,1)}
 .toolgroup.collapsed .gbody{height:0}
 .gbody{padding-left:14px}
-.gbody > .turn{margin:8px 0 0}
+.gbody > .turn{margin:2px 0 0}
+/* desplegado, cada paso es una linea ligera, no una tarjeta: el comando
+   en mono (es el dato), el razonamiento en prosa; sin bordes ni iconos */
+.gbody .tool{border:none; background:none; box-shadow:none; margin:0}
+.gbody .tool>summary{background:none; padding:4px 0; color:var(--dim);
+  font:400 12px/1.35 var(--mono)}
+.gbody .tool>summary > .i{display:none}
+.gbody .tool[open]>summary, .gbody .tool>summary:hover{color:var(--ink)}
+/* comando y salida: una caja de fondo suave, sin borde ni sombra. Solo
+   lineas confundia; la tarjeta entera pesaba */
+.gbody .tool>.tbody{margin:2px 0 8px; background:var(--box);
+  border-radius:10px; overflow:hidden}
+.gbody .tool .ccmd, .gbody .tool .cout{border-top:none}
+.gbody .tool .ccmd + .cout{border-top:1px solid var(--rule)}
+.gbody .think{border-left:none; margin:0}
+.gbody .think>summary{padding:4px 0; letter-spacing:0;
+  font:400 13px/1.35 var(--sans)}
+.gbody .think>summary > .i:first-child{display:none}
 
 /* ---------- tool rows ---------- */
 .tool{
@@ -3580,9 +3599,13 @@ function render(item){
    tramo es un grupo `.live` que absorbe lo que llega y ensena debajo solo la
    accion en curso, asi la pantalla no crece con cada paso. Se cierra cuando
    el agente vuelve a escribir o el turno acaba. Solo cuentan las
-   herramientas para el minimo: un thinking oculto dejaba cada tool suelta. */
+   herramientas para el minimo: un thinking oculto dejaba cada tool suelta.
+   Desde 0.107.0 basta un paso: herramienta o razonamiento sueltos salen
+   con la misma fila que un tramo, una sola forma para todo. El /bash del
+   usuario no es un paso: es su mano y se ve entero. */
 const isStep = el => el && el.__item &&
-  (el.__item.kind === "tool" || el.__item.kind === "thinking");
+  ((el.__item.kind === "tool" && el.__item.name !== "bash (direct)")
+   || el.__item.kind === "thinking");
 function groupToolRun(live){
   const run = [];
   let el = feed.lastElementChild;
@@ -3590,10 +3613,10 @@ function groupToolRun(live){
   let group = el && el.classList.contains("toolgroup")
               && el.classList.contains("live") ? el : null;
   if(!group){
-    if(run.filter(e => e.__item.kind === "tool").length < 2) return;
+    if(!run.length) return;
     group = document.createElement("div");
     group.className = "turn toolgroup collapsed";
-    group.innerHTML = `<button class="ghead">${ico("terminal")}`
+    group.innerHTML = `<button class="ghead">`
       + `<span class="gtx"><span class="gn"></span><span class="gnow"></span></span>`
       + `${ico("chevron")}</button><div class="gbody"></div>`;
     feed.insertBefore(group, run[0]);
@@ -3606,10 +3629,10 @@ function groupToolRun(live){
 const baseName = p => String(p).split(/[\\/]/).pop();
 /* "Penso durante 1 minuto, ejecuto 8 comandos, leyo x.py, edito y.py +4 -1" */
 function groupLabel(items){
-  let secs = 0, cmds = 0, add = 0, rem = 0;
+  let secs = 0, cmds = 0, add = 0, rem = 0, thinks = 0;
   const reads = new Set(), edits = new Set();
   for(const it of items){
-    if(it.kind === "thinking"){ secs += +it.secs || 0; continue; }
+    if(it.kind === "thinking"){ secs += +it.secs || 0; if(!it.streaming) thinks++; continue; }
     const a = it.args || {}, path = a.path || a.filePath || a.file_path;
     const k = toolIcon(it.name);
     if(k === "read" && path) reads.add(baseName(path));
@@ -3618,13 +3641,17 @@ function groupLabel(items){
     else cmds++;
   }
   const parts = [];
+  // h: el mismo texto en html, con el fichero en mono (el dato, no el verbo)
   const put = (one, many, set) => {
-    const k = set.size === 1 ? one : many;
-    parts.push({t: T(k).replace("{f}", [...set][0]).replace("{n}", set.size),
+    const k = set.size === 1 ? one : many, f = [...set][0];
+    parts.push({t: T(k).replace("{f}", f).replace("{n}", set.size),
+                h: esc(T(k)).replace("{f}", `<span class="gf">${esc(f)}</span>`)
+                            .replace("{n}", set.size),
                 file: T(k).startsWith("{f}")});
   };
   // unidades cortas: el rotulo junta varias cosas y en movil no cabe
-  if(secs && !document.documentElement.classList.contains("hide-think")){
+  const showThink = thinks && !document.documentElement.classList.contains("hide-think");
+  if(showThink && secs){
     const s = Math.max(1, Math.round(secs));
     parts.push({t: T("thoughtFor").replace("{n}", s < 60 ? s : Math.round(s / 60))
                                   .replace("{u}", s < 60 ? "s" : "min")});
@@ -3633,10 +3660,27 @@ function groupLabel(items){
                                      : T("ranMany").replace("{n}", cmds)});
   if(reads.size) put("readOne", "readMany", reads);
   if(edits.size) put("editOne", "editMany", edits);
-  if(!parts.length) return {text: "", add, rem};
+  // razonamiento suelto sin segundos (historial viejo): el rotulo de siempre
+  if(showThink && !parts.length) parts.push({t: T("reasoning")});
+  if(!parts.length) return {text: "", html: "", add, rem};
   let text = parts.map(p => p.t).join(", ");
-  if(!parts[0].file) text = text.charAt(0).toLocaleUpperCase(lang()) + text.slice(1);
-  return {text, add, rem, edits: edits.size};
+  let html = parts.map(p => p.h != null ? p.h : esc(p.t)).join(", ");
+  if(!parts[0].file){
+    const up = s => s.charAt(0).toLocaleUpperCase(lang()) + s.slice(1);
+    text = up(text); html = up(html);
+  }
+  return {text, html, add, rem, edits: edits.size};
+}
+/* ultimo espacio fuera de etiquetas: el recuento va pegado a la ultima
+   palabra, y en el html hay espacios dentro de los atributos */
+function lastGap(h){
+  let inTag = false, at = -1;
+  for(let i = 0; i < h.length; i++){
+    if(h[i] === "<") inTag = true;
+    else if(h[i] === ">") inTag = false;
+    else if(h[i] === " " && !inTag) at = i;
+  }
+  return at + 1;
 }
 /* lo que hace ahora el tramo: el ultimo paso, en una linea */
 function stepNow(it){
@@ -3657,14 +3701,16 @@ function paintGroup(group){
   const tally = L.edits && (L.add || L.rem) ? `<span class="tally"><span class="plus">`
     + `+${L.add}</span><span class="minus">-${L.rem}</span></span>` : "";
   // el recuento va pegado a la ultima palabra: solo, en su linea, no se lee
-  const cut = L.text.lastIndexOf(" ") + 1;
+  const cut = lastGap(L.html);
   group.querySelector(".gn").innerHTML = tally
-    ? esc(L.text.slice(0, cut)) + `<span class="nowrap">`
-      + esc(L.text.slice(cut)) + tally + `</span>`
-    : esc(L.text);
+    ? L.html.slice(0, cut) + `<span class="nowrap">`
+      + L.html.slice(cut) + tally + `</span>`
+    : L.html;
+  const live = group.classList.contains("live");
   const last = items[items.length - 1];
-  group.querySelector(".gnow").innerHTML =
-    group.classList.contains("live") && last ? stepNow(last) : "";
+  group.querySelector(".gnow").innerHTML = live && last ? stepNow(last) : "";
+  // solo razonamiento y oculto: nada que contar, la fila sobra
+  group.hidden = !L.text && !live;
 }
 const repaintGroups = () =>
   feed.querySelectorAll(".toolgroup").forEach(paintGroup);
@@ -7925,7 +7971,7 @@ function sizeStep(){
     const v = parseInt(localStorage.getItem("pi.size"), 10);
     if(v >= 0 && v < SIZES.length) return v;
   } catch(e){}
-  return 2;                        // 15px, el de siempre
+  return 1;                        // 14px desde 0.107.0 (antes 15)
 }
 function applySize(step){
   document.documentElement.style.setProperty(

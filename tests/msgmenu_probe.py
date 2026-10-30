@@ -113,13 +113,16 @@ async def main():
 
             # scroll: la fila que lo abrio se mueve, el menu se va con ella.
             # hace falta hueco de verdad: sin desplazamiento no hay evento
-            await js("""(() => { for(let i=0;i<12;i++) render({id:900+i,
+            await js("""(() => { for(let i=0;i<30;i++) render({id:900+i,
               kind:'assistant', streaming:false, text:'relleno ' + i});
               paint(); })()""")
             await asyncio.sleep(0.4)
             # a cero: si ya esta abajo, += no se mueve y no hay evento
-            await js("document.querySelector('main').scrollTop = 0")
-            await asyncio.sleep(0.3)
+            # instant: con mucho relleno el scroll suave sigue moviendose y
+            # cierra el menu nada mas abrirlo
+            await js("document.querySelector('main').scrollTo({top:0,"
+                     " behavior:'instant'})")
+            await asyncio.sleep(0.6)
             await js(RIGHT % ".mine")
             await asyncio.sleep(0.25)
             open_b = await js(ROWS)
