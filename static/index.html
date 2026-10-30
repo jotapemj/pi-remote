@@ -613,6 +613,7 @@ main{flex:1; overflow-y:auto; overflow-x:hidden; padding:16px var(--gut) 8px; po
   font:400 13px/1.35 var(--sans)}
 .gbody .tool>summary > .i:not(.tw){display:none}
 .gbody .tool>summary .ga{font:400 12px var(--mono)}
+.tool>summary .gsep{color:var(--faint); white-space:pre}
 .gbody .tool>summary .gf{font:500 12px var(--mono)}
 /* chevron solo dentro del tramo: fuera (el /bash propio) no hay a donde ir */
 .tool>summary .tw{display:none}
@@ -3944,7 +3945,8 @@ function html(it){
                                    + `${esc(baseName(p))}</span>`);
       if(!tpl.startsWith("{f}"))
         nm = nm.charAt(0).toLocaleUpperCase(lang()) + nm.slice(1);
-    } else nm = `${esc(it.name||T("tools"))}${arg ? `<span class="ga">${arg}</span>` : ""}`;
+    } else nm = `${esc(it.name||T("tools"))}`   // herramienta | comando
+      + (arg ? `<span class="gsep"> | </span><span class="ga">${arg.trim()}</span>` : "");
     return `<details class="tool" data-s="${it.status||"running"}"${open}>
       <summary><span class="dot"></span>${ico(toolIcon(it.name))}`
     + `<span class="nm">${nm}</span>${tally}${ico("chevron", "tw")}`

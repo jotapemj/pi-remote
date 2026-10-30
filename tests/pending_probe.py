@@ -104,7 +104,7 @@ async def main():
                     print("  la fila dice: %r" % row)
                     checks.append(
                         ("la fila ensena el comando, no el json",
-                         "bash rm -rf ./build 2>/dev/null" in row
+                         "bash | rm -rf ./build 2>/dev/null" in row
                          and not any("{" in r for r in row)))
                     checks += [
                         ("al abrir la pagina la tarjeta esta ahi",
