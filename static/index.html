@@ -605,13 +605,20 @@ main{flex:1; overflow-y:auto; overflow-x:hidden; padding:16px var(--gut) 8px; po
 .gbody{overflow:hidden; transition:height .2s cubic-bezier(.32,.72,0,1)}
 .toolgroup.collapsed .gbody{height:0}
 .gbody{padding-left:14px}
-.gbody > .turn{margin:2px 0 0}
+.gbody > .turn{margin:0}
 /* desplegado, cada paso es una linea ligera, no una tarjeta: el comando
    en mono (es el dato), el razonamiento en prosa; sin bordes ni iconos */
 .gbody .tool{border:none; background:none; box-shadow:none; margin:0}
-.gbody .tool>summary{background:none; padding:4px 0; color:var(--dim);
-  font:400 12px/1.35 var(--mono)}
-.gbody .tool>summary > .i{display:none}
+.gbody .tool>summary{background:none; padding:7px 0; color:var(--dim);
+  font:400 13px/1.35 var(--sans)}
+.gbody .tool>summary > .i:not(.tw){display:none}
+.gbody .tool>summary .ga{font:400 12px var(--mono)}
+.gbody .tool>summary .gf{font:500 12px var(--mono)}
+/* chevron solo dentro del tramo: fuera (el /bash propio) no hay a donde ir */
+.tool>summary .tw{display:none}
+.gbody .tool>summary .tw{display:block; width:16px; height:16px; opacity:.7;
+  flex:none; margin-left:auto; transition:transform .2s ease}
+.gbody .tool[open]>summary .tw{transform:rotate(90deg)}
 .gbody .tool[open]>summary, .gbody .tool>summary:hover{color:var(--ink)}
 /* comando y salida: una caja de fondo suave, sin borde ni sombra. Solo
    lineas confundia; la tarjeta entera pesaba */
@@ -620,7 +627,7 @@ main{flex:1; overflow-y:auto; overflow-x:hidden; padding:16px var(--gut) 8px; po
 .gbody .tool .ccmd, .gbody .tool .cout{border-top:none}
 .gbody .tool .ccmd + .cout{border-top:1px solid var(--rule)}
 .gbody .think{border-left:none; margin:0}
-.gbody .think>summary{padding:4px 0; letter-spacing:0;
+.gbody .think>summary{padding:7px 0; letter-spacing:0;
   font:400 13px/1.35 var(--sans)}
 .gbody .think>summary > .i:first-child{display:none}
 
@@ -3926,9 +3933,21 @@ function html(it){
         + `</div></div>`
       : "";
     const open = !done ? " open" : "";  // hechos y fallidos nacen plegados
+    // leer y editar se dicen con verbo y el fichero corto, como el rotulo
+    // del tramo; la ruta entera queda en el title. El resto: nombre y comando
+    const k = toolIcon(it.name), a = it.args || {};
+    const p = a.path || a.filePath || a.file_path;
+    let nm;
+    if((k === "read" || k === "edit") && p && typeof p === "string"){
+      const tpl = T(k === "read" ? "readOne" : "editOne");
+      nm = esc(tpl).replace("{f}", `<span class="gf" title="${esc(p)}">`
+                                   + `${esc(baseName(p))}</span>`);
+      if(!tpl.startsWith("{f}"))
+        nm = nm.charAt(0).toLocaleUpperCase(lang()) + nm.slice(1);
+    } else nm = `${esc(it.name||T("tools"))}${arg ? `<span class="ga">${arg}</span>` : ""}`;
     return `<details class="tool" data-s="${it.status||"running"}"${open}>
       <summary><span class="dot"></span>${ico(toolIcon(it.name))}`
-    + `<span class="nm">${esc(it.name||T("tools"))}${arg}</span>${tally}`
+    + `<span class="nm">${nm}</span>${tally}${ico("chevron", "tw")}`
     + `</summary><div class="tbody">${cmd}${out}${timg}</div></details>`;
   }
   if(it.kind === "suggest")

@@ -276,8 +276,9 @@ async def main():
                  r[1] == "+3" and r[2] == "-2"),
                 ("las lineas salen coloreadas",
                  r[3] == 3 and r[4] == 2 and r[5] == 1),
+                # desde 0.107.0: verbo y nombre corto; la ruta, en el title
                 ("la fila muestra el fichero, no el json",
-                 "app/main.py" in (r[6] or "")),
+                 "main.py" in (r[6] or "") and "{" not in (r[6] or "")),
                 ("verde y rojo con su fondo",
                  col[1] is True and col[3] is True and col[0] != col[2]),
             ]
