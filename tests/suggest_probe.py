@@ -443,8 +443,49 @@ async def phase_sin_endpoint(p, js, checks, proj, log, before):
     ]
 
 
+def retry_unit():
+    """Medido con Strata: a veces contesta una sola linea. El puente reintenta
+    una vez, solo entonces, y junta sin repetir."""
+    import pi_web_bridge as B
+    replies, sent = [], []
+
+    class R:
+        def __init__(self, text):
+            self.body = json.dumps({"choices": [{"message": {
+                "content": text}}]}).encode()
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            return False
+        def read(self):
+            return self.body
+
+    def fake(req, timeout=None):
+        sent.append(req)
+        return R(replies.pop(0))
+
+    old_ep, old_open = B.model_endpoint, B.urllib.request.urlopen
+    B.model_endpoint = lambda prov: ("http://x/v1", None)
+    B.urllib.request.urlopen = fake
+    try:
+        replies[:] = ["siguiente feature",
+                      "Siguiente feature\nver docs\nver CI"]
+        two = B.suggest_lines("a", "u", "", "es", "p", "m")
+        n_two = len(sent)
+        sent.clear()
+        replies[:] = ["uno\ndos\ntres"]
+        one = B.suggest_lines("a", "u", "", "es", "p", "m")
+    finally:
+        B.model_endpoint, B.urllib.request.urlopen = old_ep, old_open
+    return [
+        ("una linea: reintenta y junta sin repetir",
+         n_two == 2 and two == ["siguiente feature", "ver docs", "ver CI"]),
+        ("tres lineas: una sola llamada", len(sent) == 1 and len(one) == 3),
+    ]
+
+
 async def main():
-    checks = []
+    checks = retry_unit()
     tmp = Path(os.environ.get("TEMP", "."))
     log = tmp / "pi-suggest-calls.jsonl"
     if log.exists():

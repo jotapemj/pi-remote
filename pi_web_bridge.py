@@ -2876,16 +2876,34 @@ def suggest_lines(answer, user_text, ctx, lang, provider, model_id):
     headers = {"Content-Type": "application/json"}
     if key:
         headers["Authorization"] = "Bearer " + key
-    try:
-        with urllib.request.urlopen(
-                urllib.request.Request(base.rstrip("/") + "/chat/completions",
-                                       data=payload, headers=headers),
-                timeout=SUGGEST_TIMEOUT) as r:
-            d = json.loads(r.read().decode("utf-8", "replace"))
-        raw = d["choices"][0]["message"]["content"]
-    except (OSError, ValueError, KeyError, IndexError):
+
+    def ask():
+        try:
+            with urllib.request.urlopen(
+                    urllib.request.Request(
+                        base.rstrip("/") + "/chat/completions",
+                        data=payload, headers=headers),
+                    timeout=SUGGEST_TIMEOUT) as r:
+                d = json.loads(r.read().decode("utf-8", "replace"))
+            return d["choices"][0]["message"]["content"]
+        except (OSError, ValueError, KeyError, IndexError):
+            return None
+
+    raw = ask()
+    if raw is None:
         return None
     out = clean_suggestions(raw)
+    # medido con Strata: a veces devuelve una sola linea pese a pedir tres.
+    # Un reintento, solo entonces, y se juntan sin repetir
+    if len(out) < SUGGEST_MAX:
+        more = clean_suggestions(ask() or "")
+        seen = {x.casefold() for x in out}
+        for x in more:
+            if len(out) >= SUGGEST_MAX:
+                break
+            if x.casefold() not in seen:
+                seen.add(x.casefold())
+                out.append(x)
     return out or None
 
 
