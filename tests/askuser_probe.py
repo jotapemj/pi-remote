@@ -48,6 +48,7 @@ def history():
         state, log, seq, cur = {}, deque(), 0, None
         emit = staticmethod(lambda p: None)
         snapshot = staticmethod(lambda: {})
+        release_held = staticmethod(lambda: None)
         load_history = B.Bridge.load_history
     b = Stub()
     call = lambda i: {"role": "assistant", "content": [

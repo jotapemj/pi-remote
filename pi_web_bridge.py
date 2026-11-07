@@ -3000,6 +3000,11 @@ class Bridge:
         self.fork_from = None                # sesion origen, por si toca papelearla
         self.fork_trash = False              # el usuario pidio borrar la original
         self.trash_after_new = None          # borrar la abierta = salir y papelear
+        # cambio de sesion en vuelo: el log se borra al llegar el historial,
+        # asi que un prompt enviado entretanto se guarda y sale despues (si
+        # no, su burbuja se perdia y pi contestaba igual)
+        self.switching = 0.0                 # monotonic del inicio, 0 = nada
+        self.held = []                       # prompts en espera de la carga
 
         self.proc = None                     # no project, no agent
         self.cwd = ""
@@ -3071,6 +3076,8 @@ class Bridge:
 
         self.cwd = cwd
         self.gen += 1
+        self.switching = time.monotonic()    # hasta que llegue el historial
+        self.held = []
         self.state.update(alive=True, running=False, tool=None, cwd=cwd,
                           context=None, sessionName=None, waiting=False,
                           recent=remember(cwd), loading=True,
@@ -3112,6 +3119,8 @@ class Bridge:
             self.note("warn", "no_project",
                       "no project open. pick a folder first.")
             return
+        if cmd.get("type") in ("new_session", "switch_session", "fork"):
+            self.switching = time.monotonic()
         with self.lock:
             try:
                 self.proc.stdin.write(json.dumps(cmd) + "\n")
@@ -3651,6 +3660,14 @@ class Bridge:
             self.state["suggesting"] = False
             self.push_state()
 
+    def release_held(self):
+        """Historial cargado (o el cambio no fue): los prompts que llegaron
+        durante la carga salen ahora, sobre la sesion ya pintada."""
+        self.switching = 0.0
+        held, self.held = self.held, []
+        for msg in held:
+            self.command(msg)
+
     def on_response(self, ev):
         cmd, data = ev.get("command"), ev.get("data") or {}
 
@@ -3668,6 +3685,9 @@ class Bridge:
                     and self.state.get("loading")):
                 self.state["loading"] = False
                 self.emit(self.snapshot())
+            if cmd in ("switch_session", "new_session", "fork",
+                       "get_messages"):
+                self.release_held()
             return
 
         if cmd == "get_state":
@@ -3721,6 +3741,8 @@ class Bridge:
                     self.emit({"type": "rpc", "command": "delete_session",
                                "data": {"error": why,
                                         "path": self.trash_after_new}})
+            else:
+                self.release_held()          # se quedo donde estaba
             self.trash_after_new = None
 
         elif cmd == "fork":
@@ -3739,6 +3761,8 @@ class Bridge:
                     trash_session(old, None)
                 stamp = time.strftime("%Y-%m-%d %H:%M")
                 self.note("info", "forked", f"forked to {stamp}", date=stamp)
+            else:
+                self.release_held()
             self.fork_from = None
             self.fork_trash = False
 
@@ -3809,6 +3833,7 @@ class Bridge:
         self.state["loading"] = False      # viaja en el snapshot de abajo
         if messages is None:        # command unsupported: keep what we have
             self.emit(self.snapshot())
+            self.release_held()
             return
         notes = [i for i in self.log if i.get("kind") == "note"][-4:]
         waiting = [i for i in self.log
@@ -3912,6 +3937,7 @@ class Bridge:
             if item.get("kind") == "tool" and item.get("status") == "running":
                 item["status"] = "stale"
         self.emit(self.snapshot())
+        self.release_held()                 # lo que llego durante la carga
 
     # ---- guardrails dialogs
 
@@ -4040,6 +4066,9 @@ class Bridge:
             text = (msg.get("message") or "").strip()
             images = msg.get("images") or []
             if not text and not images:
+                return
+            if self.switching and time.monotonic() - self.switching < 30:
+                self.held.append(msg)        # sale al cargar el historial
                 return
             if msg.get("lang"):
                 self.lang = msg.get("lang")   # respaldo de idioma del resumen

@@ -620,6 +620,9 @@ for line in sys.stdin:
              "success": True})
     elif t == "new_session":
         # una sesion nueva nace sin nombre (el puente la autonombra o no)
+        # FAKE_NEW_SESSION_DELAY: pi tarda en crearla; lo que llegue mientras
+        # espera en stdin, como en el real (el probe del prompt temprano)
+        time.sleep(float(os.environ.get("FAKE_NEW_SESSION_DELAY") or 0))
         STATE["sessionName"] = None
         out({"type": "response", "command": "new_session", "success": True,
              "data": {}})
