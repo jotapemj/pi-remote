@@ -1,7 +1,8 @@
 """Prompt temprano: el usuario abre una sesion nueva y escribe antes de que
 termine de cargar. Antes el puente mandaba el prompt a pi, pintaba la burbuja
 y al llegar el historial borraba el log: la burbuja se perdia y solo quedaba
-la respuesta. Ahora el prompt espera a la carga y sale despues.
+la respuesta. Ahora el prompt espera a la carga y sale despues. Y la
+carga de una sesion nueva termina con su historial, no a los 4 s de gracia.
 FAKE_NEW_SESSION_DELAY hace que pi tarde en crear la sesion."""
 import asyncio
 import json
@@ -51,6 +52,16 @@ async def main():
             checks.append(("sigue ahi al acabar el turno",
                            await js(USER) == 1))
             checks.append(("pi contesto", await js(ANSWER)))
+
+            # sesion nueva sin nombre: la carga acaba con el historial, no
+            # con la gracia de 4 s esperando un nombre que no llega
+            await js("send({type:'new_session'})")
+            await until(p, "sessLoading === true", timeout=3)
+            t0 = asyncio.get_running_loop().time()
+            await until(p, "sessLoading === false", timeout=8)
+            took = asyncio.get_running_loop().time() - t0
+            checks.append(("sesion nueva lista sin la gracia (%.1f s)" % took,
+                           took < 3.0))
     return checks
 
 

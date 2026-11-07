@@ -76,24 +76,28 @@ async def main():
             ]
 
             # ---- todo de vuelta: historial Y titulo Y modelo ----
-            # con el historial listo pero el titulo aun en skeleton, sigue
-            # (como en un reinicio real: el snapshot llega sin nombre y el
-            # nombre llega despues, con el get_state)
-            noname = await js("""JSON.stringify({type:'snapshot', items:[],
+            # pi contesta get_state antes que get_messages: el historial trae
+            # ya el nombre y el titulo se resuelve con el (v0.107.5; antes
+            # esperaba un nombre aparte y una sesion nueva cargaba 4 s). Lo
+            # que aun puede faltar es el modelo: sin el, el telon sigue
+            nomodel = await js("""JSON.stringify({type:'snapshot', items:[],
               cwd: CWD, state: Object.assign({}, state,
-                {loading:false, sessionName:null})})""")
+                {loading:false, sessionName:'vuelta', model:null})})""")
             await js("beginRestartOverlay(); showRestartCurtain();"
                      " sessLoading = true")
-            await js("ws.onmessage({data: %s})" % json.dumps(noname))
+            await js("ws.onmessage({data: %s})" % json.dumps(nomodel))
             await asyncio.sleep(0.5)
-            wait_title = await js("$('#curtain').classList.contains('restarting')")
+            wait_model = await js("$('#curtain').classList.contains('restarting')")
+            title_ok = await js("!sessLoading && $('#title').textContent"
+                                ".includes('vuelta')")
             await js("""ws.onmessage({data: JSON.stringify({type:'state',
-              state: Object.assign({}, state, {sessionName:'vuelta'})})})""")
+              state: Object.assign({}, state, {model:'qwen'})})})""")
             await asyncio.sleep(0.5)
-            after_title = await js("$('#curtain').classList.contains('gone')")
+            after_model = await js("$('#curtain').classList.contains('gone')")
             checks += [
-                ("con el titulo sin resolver, el telon espera", wait_title),
-                ("resuelto el titulo, se retira", after_title),
+                ("el titulo se resuelve con el historial", title_ok),
+                ("sin modelo aun, el telon espera", wait_model),
+                ("llegado el modelo, se retira", after_model),
             ]
 
             # ---- bloqueo desde que se confirma /restart ----

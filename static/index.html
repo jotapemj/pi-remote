@@ -5527,8 +5527,9 @@ function connect(){
   ws.onmessage = e => {
     const m = JSON.parse(e.data);
     if(m.type === "snapshot"){
-      // no forzamos fuera el skeleton: paint() lo funde cuando llega el nombre
-      // (o la espera de gracia lo resuelve), evitando el flash de "sin titulo"
+      // el skeleton del titulo se va con el historial: get_state sale antes
+      // que get_messages, asi que el nombre (si lo hay) ya esta en el state.
+      // Esperar a un nombre dejaba una sesion nueva 4 s cargando (no tiene)
       // al reconectar se conserva donde estabas leyendo
       const stay = main.scrollTop, wasDown = atBottom();
       feed.classList.add("nofx");
@@ -5540,6 +5541,7 @@ function connect(){
       const goEnd = firstSnap || wasDown;
       firstSnap = false;
       m.items.forEach(render); state = m.state; paint();
+      if(sessLoading && !state.loading) resolveTitle();
       groupToolRun(!!state.running);   // a mitad de turno, el tramo en vivo
       placeActions();
       requestAnimationFrame(()=>{
