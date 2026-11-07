@@ -1776,6 +1776,18 @@ footer > *{position:relative; z-index:1}
   color:var(--ink); font:400 13.5px/1.4 var(--sans);
 }
 .forkopt input{width:18px; height:18px; accent-color:var(--amber); flex:none}
+/* abrir un enlace del chat: dominio grande, direccion entera en mono */
+.lkto,.lklbl{color:var(--dim); font:400 13px/1.4 var(--sans)}
+.lkhost{color:var(--ink); font:600 17px/1.3 var(--sans); margin:4px 0 16px;
+  word-break:break-all}
+.lklbl{margin-bottom:6px}
+.lkurl{font:400 12.5px/1.5 var(--mono); word-break:break-all;
+  white-space:normal; max-height:30vh; position:relative; cursor:pointer;
+  padding-right:38px}
+.lkurl .lkcp{position:absolute; right:11px; top:11px; color:var(--dim);
+  display:flex}
+.lkurl .lkcp svg{width:16px; height:16px}
+.lkurl .lkcp.done{color:var(--mint)}
 /* cargar sesion: el titulo respira mientras llega el historial */
 .spin{
   position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
@@ -6599,6 +6611,7 @@ const STR = {
       forkFrom:"Fork from a message",
       forkTitle:"A copy of the conversation up to this message will be created:",
       forkTrash:"Send the original conversation to trash", forkDo:"Fork",
+      linkTitle:"Open this website?", linkTo:"This link goes to:", linkFull:"Full address", linkTrust:"Don't ask again for this site", linkOpen:"Open",
       trashTitle:"Trash", restoreQ:"Restore {name}?", restore:"Restore",
       loadError:"Could not load",
       noTrash:"Trash is empty", restoreFail:"could not restore the session",
@@ -6758,6 +6771,7 @@ const STR = {
       forkFrom:"Ramificar desde un mensaje",
       forkTitle:"Se crear\u00e1 una copia de la conversaci\u00f3n hasta este mensaje:",
       forkTrash:"Enviar conversaci\u00f3n original a la papelera", forkDo:"Ramificar",
+      linkTitle:"\u00bfAbrir este sitio web?", linkTo:"Este enlace lleva a:", linkFull:"Direcci\u00f3n completa", linkTrust:"No volver a preguntar para este sitio", linkOpen:"Abrir",
       trashTitle:"Papelera", restoreQ:"\u00bfRestaurar {name}?", restore:"Restaurar",
       loadError:"No se pudo cargar",
       noTrash:"Papelera vac\u00eda", restoreFail:"no se pudo restaurar la sesi\u00f3n",
@@ -6917,6 +6931,7 @@ const STR = {
       menu:"Menü",
       forkTitle:"Es wird eine Kopie des Gespr\u00e4chs bis zu dieser Nachricht erstellt:",
       forkTrash:"Urspr\u00fcngliches Gespr\u00e4ch in den Papierkorb verschieben", forkDo:"Abzweigen",
+      linkTitle:"Diese Website \u00f6ffnen?", linkTo:"Dieser Link f\u00fchrt zu:", linkFull:"Vollst\u00e4ndige Adresse", linkTrust:"F\u00fcr diese Website nicht mehr fragen", linkOpen:"\u00d6ffnen",
       trashTitle:"Papierkorb", restoreQ:"{name} wiederherstellen?", restore:"Wiederherstellen",
       loadError:"Konnte nicht geladen werden",
       noTrash:"Papierkorb ist leer", restoreFail:"Sitzung konnte nicht wiederhergestellt werden",
@@ -7077,6 +7092,7 @@ const STR = {
       forkFrom:"Bifurquer depuis un message",
       forkTitle:"Une copie de la conversation jusqu'à ce message sera créée :",
       forkTrash:"Envoyer la conversation d'origine à la corbeille", forkDo:"Bifurquer",
+      linkTitle:"Ouvrir ce site web ?", linkTo:"Ce lien m\u00e8ne \u00e0 :", linkFull:"Adresse compl\u00e8te", linkTrust:"Ne plus demander pour ce site", linkOpen:"Ouvrir",
       trashTitle:"Corbeille", restoreQ:"Restaurer {name} ?", restore:"Restaurer",
       loadError:"Chargement impossible",
       noTrash:"Corbeille vide", restoreFail:"impossible de restaurer la session",
@@ -7236,6 +7252,7 @@ const STR = {
       forkFrom:"Ramificar a partir de uma mensagem",
       forkTitle:"Ser\u00e1 criada uma c\u00f3pia da conversa at\u00e9 esta mensagem:",
       forkTrash:"Enviar a conversa original para o lixo", forkDo:"Ramificar",
+      linkTitle:"Abrir este site?", linkTo:"Este link leva a:", linkFull:"Endere\u00e7o completo", linkTrust:"N\u00e3o perguntar de novo para este site", linkOpen:"Abrir",
       trashTitle:"Lixo", restoreQ:"Restaurar {name}?", restore:"Restaurar",
       loadError:"Não foi possível carregar",
       noTrash:"Lixo vazio", restoreFail:"não foi possível restaurar a sessão",
@@ -7390,6 +7407,7 @@ const STR = {
       forkFrom:"从某条消息分叉",
       forkTitle:"将创建到此消息为止的对话副本：",
       forkTrash:"将原始对话移入回收站", forkDo:"分叉",
+      linkTitle:"打开此网站？", linkTo:"此链接指向：", linkFull:"完整地址", linkTrust:"此网站不再询问", linkOpen:"打开",
       trashTitle:"回收站", restoreQ:"恢复 {name}？", restore:"恢复",
       loadError:"加载失败",
       noTrash:"回收站为空", restoreFail:"无法恢复会话",
@@ -11569,6 +11587,52 @@ function forkConfirm(x){
   }, {plain:true});
   $("#modalOk").textContent = T("forkDo");
 }
+
+/* enlaces del chat: antes de abrir, el dominio y la direccion entera (el
+   texto de un enlace puede decir otra cosa que su destino). "No volver a
+   preguntar" guarda el host en pi.linkHosts, por navegador */
+const TRUST_KEY = "pi.linkHosts";
+function trustedHosts(){
+  try{ const v = JSON.parse(localStorage.getItem(TRUST_KEY) || "[]");
+       return Array.isArray(v) ? v : []; }catch(e){ return []; }
+}
+function openLink(url){ window.open(url, "_blank", "noopener,noreferrer"); }
+function linkConfirm(url){
+  let host;
+  try{ host = new URL(url).hostname; }catch(e){ return; }
+  if(trustedHosts().includes(host)) return openLink(url);
+  const body = `<div class="lkto">${esc(T("linkTo"))}</div>`
+    + `<div class="lkhost">${esc(host)}</div>`
+    + `<div class="lklbl">${esc(T("linkFull"))}</div>`
+    + `<div class="forkmsg lkurl" role="button" title="${esc(T("copy"))}">`
+    + `${esc(url)}<span class="lkcp">${ico("copy")}</span></div>`
+    + `<label class="forkopt"><input type="checkbox" id="linkTrustCb">`
+    + `<span>${esc(T("linkTrust"))}</span></label>`;
+  openModal(T("linkTitle"), body, () => {
+    const cb = document.getElementById("linkTrustCb");
+    if(cb && cb.checked){
+      const h = trustedHosts();
+      if(!h.includes(host)) h.push(host);
+      try{ localStorage.setItem(TRUST_KEY, JSON.stringify(h)); }catch(e){}
+    }
+    openLink(url);
+  }, {plain:true, ok:T("linkOpen")});
+  // tocar la direccion la copia (como el dialogo de Claude); el icono
+  // pasa a check un momento
+  const box = $("#modalBody .lkurl"), cp = box.querySelector(".lkcp");
+  box.onclick = () => copyText(url).then(ok => {
+    if(!ok){ note(T("copyFailed")); return; }
+    cp.innerHTML = ico("check"); cp.classList.add("done");
+    setTimeout(() => { cp.innerHTML = ico("copy");
+                       cp.classList.remove("done"); }, 1500);
+  });
+}
+feed.addEventListener("click", e => {
+  const a = e.target.closest("a[href]");
+  if(!a || !/^https?:/i.test(a.href)) return;
+  e.preventDefault();
+  linkConfirm(a.href);
+});
 
 applyLang();
 // recarga sin telon: hasta el snapshot, el breathe de carga; sin el, se
