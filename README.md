@@ -14,7 +14,7 @@ no third party: your browser talks to your own machine.
 
 <p align="center">
   <img src="docs/hero.png" width="860"
-       alt="A full turn on desktop and phone: the projects rail, the transcript, a code block, a tool row, and an amber permission card">
+       alt="A full turn on desktop and phone: the projects rail, the transcript, tool runs folded into one line each, a code block, and an amber permission card">
 </p>
 
 > [!CAUTION]
@@ -90,6 +90,9 @@ cd pi-remote
 pip install -r requirements.txt
 python pi_web_bridge.py
 ```
+
+It needs [pi](https://pi.dev) installed on the same machine. Tested with pi
+0.84 and 1.5 (see [Testing](#testing-without-a-model)).
 
 Open `http://<your-machine>:8770`. Over Tailscale, use the tailnet name.
 Keep the `static/` folder next to the script: it holds the page, the icons and
@@ -318,6 +321,31 @@ When you come back to a conversation after a break (three hours since the last
 message, or a new day after at least thirty minutes), a wavy line with the date
 separates your new message from what came before, live and in the history.
 
+## The transcript
+
+Replies stream token by token. What the agent does between them is kept out
+of the way: a run of tool calls folds into one line while it happens, labelled
+by what it did ("Read 2 files", "Ran 1 command, edited auth.py"), and shows
+only the step in progress. Reasoning joins that line as "Thought for N s"
+when *Show reasoning* is on. Tap the line to open every step with its
+arguments and output.
+
+<p align="center">
+  <img src="docs/transcript.png" width="300"
+       alt="A finished turn on the phone: the question, one folded line for the reasoning and three tool calls, the answer, and three suggested replies under it">
+</p>
+
+- **Code blocks** have a copy button, and long lines scroll inside the block,
+  never the page.
+- **Long-press your own message** (right-click on desktop) to copy it or
+  select part of its text.
+- **Links ask before opening.** The dialog shows the real domain and the full
+  address, since a link's text can say something other than where it goes.
+  Tap the address to copy it; tick *don't ask again* to trust that site in
+  this browser.
+- **Suggested replies** can appear under the answer (see
+  [Functions](#settings-and-functions)); a tap sends one.
+
 ## Permission dialogs
 
 This is the part worth understanding, because it is where a remote agent
@@ -334,7 +362,7 @@ sets no timeout.
        alt="Permission cards on desktop and phone: the plain-words explanation over the raw command with the real options, and a second one already answered, folded into one line with a green check">
 </p>
 
-Four things that are easy to get wrong, and that this bridge handles:
+Things that are easy to get wrong, and that this bridge handles:
 
 - **A permission is not yes or no.** A `select` dialog carries the extension's
   real options (allow once, allow for the session, deny) and they are shown
@@ -348,6 +376,8 @@ Four things that are easy to get wrong, and that this bridge handles:
 - **While pi waits for you it is not working.** The readout bar disappears and
   leaves the screen to the approval card, so a blocked turn never looks like a
   busy one.
+- **An answered card folds into one line** with what was chosen, marked green
+  when allowed, coral when denied and grey when dismissed.
 - **`notify` and `setStatus` need no answer** and are shown as plain notes.
 - **A dialog pi closes on its own is closed here too.** An extension can give
   a dialog a timeout, or tie it to a signal that aborts it; pi then resolves it
@@ -422,9 +452,10 @@ keyboard navigation on a desktop browser. A `/` typed in front of text
 already written opens the list too, and that text becomes the command's
 argument: write a session name, then put `/name` before it. On a phone, a
 command that opens a dialog or a sheet hides the keyboard first, so it is
-never covered. The same **+** menu attaches an image (paste one, or pick it
-from the device) for a model that can see; it rides along with your next
-message.
+never covered. The same **+** menu attaches an image (paste one, pick it
+from the device, or take a photo with the phone's camera) for a model that
+can see; it rides along with your next message. Images over 2048 px are
+scaled down before they are sent.
 
 <p align="center">
   <img src="docs/commands.png" width="860"
@@ -552,6 +583,16 @@ of optional switches, each remembered per browser.
        alt="The context page: auto compact, presets, the reserve and recent-context sliders, and the window split bar">
 </p>
 
+- **Appearance**: four theme families, each light, dark or following the
+  system; the reading font (Plus Jakarta Sans, Inter, Source Serif 4 or IBM
+  Plex Mono, all served by the bridge) and the text size. **Language**: six
+  (English, Spanish, German, French, Portuguese, Chinese). Both remembered per
+  browser.
+- **Restart now**: every dialog whose change only applies after a restart
+  (providers, instructions, packages, the *Ask the user* switch…) offers a
+  third button that saves and restarts in one go. If the agent is busy, it
+  gets the same choice
+  as `/restart`.
 - **Functions** page:
   - **Auto-name sessions** (experimental): on the first prompt of an unnamed
     session the local model is asked for a short title in the app's language.
@@ -672,14 +713,33 @@ streaming, tool calls, a permission dialog that blocks until answered, and
 `get_messages` for history. No API key and no model needed.
 
 ```bash
-python tests/run.py            # everything, about four minutes
+python tests/run.py            # everything, about six minutes
 python tests/run.py rail       # just the ones matching "rail"
 ```
 
-Seventy-six probes: the page is driven in a real headless Chrome through the
-DevTools protocol, which is how the animation, contrast, layout and security
-checks are measured rather than assumed. Chrome or Edge is found
-automatically; point `CHROME` at it otherwise.
+Eighty-two probes, three at a time: the page is driven in a real headless
+Chrome through the DevTools protocol, which is how the animation, contrast,
+layout and security checks are measured rather than assumed. Chrome or Edge is
+found automatically; point `CHROME` at it otherwise.
+
+### Against the real pi
+
+A fake cannot tell you whether a new pi release still behaves the same, so
+there is one more check, outside the suite, that drives the **real** pi with a
+real model:
+
+```bash
+python tests/realpi_smoke.py --out before.json
+# upgrade pi, then
+python tests/realpi_smoke.py --out after.json
+```
+
+It works in a throwaway folder and covers startup, extensions loading without
+errors, `/bash`, opening a recorded session (a copy of it), a normal turn,
+a permission prompt on `rm` (denied, then the folder is checked to still be
+there), `ask_user`, and stopping mid-reply. Set `SMOKE_MODEL=provider/id` if
+your default model is not being served. It takes a few minutes and leaves no
+sessions behind.
 
 ## License
 
