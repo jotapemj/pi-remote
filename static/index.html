@@ -1054,7 +1054,10 @@ html.hide-think .think-turn{display:none}
   gap:10px; margin:0 0 9px; font:500 12px/1 var(--mono);
 }
 /* izquierda: la palabra cede (se recorta); segundos y tok/s nunca */
-.rstat{display:flex; align-items:center; gap:8px; min-width:0; flex:1 1 auto}
+.rstat{display:flex; align-items:center; gap:8px; min-width:0;
+  /* no encoge (ni una fraccion: en 2x salia la elipsis): la barra cede
+     todo; con la barra en su minimo, el tope recorta la palabra */
+  flex:0 0 auto; max-width:calc(100% - 142px)}
 /* la palabra solo se ve mientras piensa, no mientras teclea */
 .rword{
   font:500 13px/1 var(--mono); color:var(--amber); letter-spacing:.02em;
@@ -1074,7 +1077,7 @@ html.hide-think .think-turn{display:none}
 .rsecs:empty, .rtps:empty{display:none}
 .ctx{
   width:min(62%, 260px); min-width:132px;
-  flex:0 60 auto;   /* cede ella primero; la palabra solo si no basta */
+  flex:0 1 auto;   /* cede ella primero; la palabra solo si no basta */
   height:22px; border-radius:11px;
   background:var(--raise); border:1px solid var(--rule);
   position:relative; overflow:hidden;

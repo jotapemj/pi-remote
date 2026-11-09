@@ -49,11 +49,16 @@ async def main():
     with Bridge():
         for width in (412, 360, 320):
             async with Page(width=width) as p:
+                # a 2x (como un movil real): una fraccion de pixel que se le
+                # quite a la palabra ya pinta la elipsis
+                await p.cmd("Emulation.setDeviceMetricsOverride",
+                            width=width, height=880, deviceScaleFactor=2,
+                            mobile=True)
                 await p.go()
                 await asyncio.sleep(0.8)
                 for lang, word in (("de", "Auskristallisierend"),
                                    ("es", "Tro-pi-calizando"),
-                                   ("en", "Think")):
+                                   ("en", "Crunching")):
                     await p.js(SETUP % {"lang": repr(lang),
                                         "word": repr(word)})
                     await asyncio.sleep(0.5)       # la palabra entra con fundido
@@ -69,8 +74,9 @@ async def main():
                          "tok/s" in m["secsText"] and not m["numsClip"]
                          and m["secsL"] >= 0 and m["secs"] <= m["ctx"]),
                     ]
-                    if width >= 360:
-                        # con sitio, la barra cede antes que la palabra
+                    if width >= 400:
+                        # con sitio, la barra cede antes que la palabra (a
+                        # 360 la barra ya esta en su minimo: cede la palabra)
                         checks.append(("%s: la palabra corta no se recorta"
                                        % tag, lang != "en"
                                        or not m["wordClip"]))
