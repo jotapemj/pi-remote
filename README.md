@@ -332,7 +332,7 @@ arguments and output.
 
 <p align="center">
   <img src="docs/transcript.png" width="300"
-       alt="A finished turn on the phone: the question, one folded line for the reasoning and three tool calls, the answer, and three suggested replies under it">
+       alt="A finished turn on the phone: the question, one folded line for the reasoning and three tool calls, the answer with its token counts, and three suggested replies under it">
 </p>
 
 - **Code blocks** have a copy button, and long lines scroll inside the block,
@@ -365,6 +365,13 @@ each file with its status letter (`M` modified, `A` added, `U` untracked,
 removed. Tap a file to read its diff. It answers the question you have on the
 phone after a turn: what did the agent actually touch.
 
+<p align="center">
+  <img src="docs/changes.png" width="280"
+       alt="The Changes tab on the phone: the branch name, then four files with their status letter, folder and lines added and removed; the header button shows a count of 4">
+  <img src="docs/diff.png" width="280"
+       alt="The diff of app/auth.py: added lines in green, a removed line in red, context lines plain">
+</p>
+
 - The count refreshes when a turn ends and when the list opens.
 - It is read-only. Nothing is staged, committed or reverted from here; ask
   the agent, or use `/bash`.
@@ -377,6 +384,11 @@ phone after a turn: what did the agent actually touch.
 back up, and the phone's back button climbs one level at a time. A file opens
 with line numbers (images are shown as images), and *Add path to message*
 drops its path into the composer, for "look at this file" without typing it.
+
+<p align="center">
+  <img src="docs/files.png" width="280"
+       alt="The Files tab: the project name as a breadcrumb, three folders first, then three files with their sizes">
+</p>
 
 - Read-only, and it never leaves the project folder: `..`, absolute paths and
   links pointing outside are refused by the bridge, not just hidden by the
@@ -392,6 +404,11 @@ drops its path into the composer, for "look at this file" without typing it.
 A project's `⋯` menu in the side rail has **Worktrees**: every checkout of
 that repository, with its branch. The main one and the one open now are
 labelled. From there:
+
+<p align="center">
+  <img src="docs/worktrees.png" width="280"
+       alt="The Worktrees sheet: a New worktree button, the main checkout marked open, and two more worktrees with their branch and folder">
+</p>
 
 - **New worktree** asks for a branch. An existing branch is checked out; a
   new name creates the branch from `HEAD`. The folder goes next to the
@@ -410,6 +427,11 @@ pi keeps a conversation as a tree: forking or editing an earlier message
 starts a branch, and the old path stays in the session file. `/tree` shows all
 of it on one screen. Branches you left sit right where they started, one lane
 to the right, dimmed and labelled; the active branch runs down the left.
+
+<p align="center">
+  <img src="docs/tree.png" width="280"
+       alt="The session tree: the active branch down the left with amber dots for the user's messages, and an abandoned branch one lane to the right, dimmed and labelled Branch">
+</p>
 
 - Tap any message to read it in full.
 - Tap one of **your messages on the active branch** to fork from it (the same
@@ -514,7 +536,7 @@ dangerous commands with a real dialog you can answer from the phone.
 
 <p align="center">
   <img src="docs/running.png" width="860"
-       alt="While generating, on desktop and phone: a rotating status word with the seconds, the context meter, and the send button turned into a stop square">
+       alt="While generating, on desktop and phone: a rotating status word with the seconds and the live tok/s, the context meter, and the send button turned into a stop square">
 </p>
 
 ## Commands
