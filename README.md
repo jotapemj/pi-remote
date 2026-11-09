@@ -345,6 +345,15 @@ arguments and output.
   this browser.
 - **Suggested replies** can appear under the answer (see
   [Functions](#settings-and-functions)); a tap sends one.
+- **Token counts** for the whole turn sit next to the answer's buttons:
+  `↑` prompt tokens the model had to read, `↓` tokens it generated, `R` tokens
+  served from the server's cache. A turn with a high `R` and a low `↑` reused
+  the context; a large `↑` on a long session means the cache was lost and the
+  model read everything again. The stats button keeps the per-reply detail.
+- **Live speed.** While the model writes, the status bar shows an estimate,
+  `~N tok/s`. pi reports token counts only when a reply ends, so the bridge
+  can't know the real rate mid-stream; the page counts characters (about four
+  per token) over the last three seconds. It disappears while a tool runs.
 
 ## Permission dialogs
 

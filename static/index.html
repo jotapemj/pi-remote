@@ -525,7 +525,10 @@ main{flex:1; overflow-y:auto; overflow-x:hidden; padding:16px var(--gut) 8px; po
 .cwrap{position:relative}
 .cwrap pre{padding-right:48px}
 /* los dos iconos bajo cada respuesta del asistente */
-.msgacts{display:flex; gap:4px; margin:2px 0 0 -2px}
+.msgacts{display:flex; gap:4px; margin:2px 0 0 -2px; align-items:center}
+.tokline{margin-left:6px; font:500 12px/1 var(--mono); color:var(--faint);
+  font-variant-numeric:tabular-nums; white-space:nowrap}
+.tokline b{font-weight:500; color:var(--dim); margin-right:2px}
 .mact{
   background:none; border:none; color:var(--faint); cursor:pointer;
   padding:5px; border-radius:6px; display:flex; line-height:0;
@@ -1896,6 +1899,8 @@ main:has(#spin) .empty{display:none}
 /* las acciones del mensaje lo sacan arriba: debajo no hay sitio */
 .mact[data-tip]{--tip-x:50%; --tip-y:auto; --tip-t:-50% 0; bottom:calc(100% + 8px)}
 .mact[data-tip]::after{bottom:calc(100% + 8px); top:auto}
+.tokline[data-tip]{--tip-x:50%; --tip-y:auto; --tip-t:-50% 0}
+.tokline[data-tip]::after{bottom:calc(100% + 8px); top:auto}
 /* la papelera del rail, por encima: esta al fondo */
 .trashb[data-tip]{--tip-y:auto}
 .trashb[data-tip]::after{bottom:calc(100% + 8px); top:auto; left:0; translate:0 0}
@@ -3754,12 +3759,24 @@ function placeActions(){
     + ` data-tip="${esc(T("copy"))}">${ico("copy")}</button>`
     + (it.stats ? `<button class="mact stats"`
         + ` aria-label="${esc(T("statsTitle"))}"`
-        + ` data-tip="${esc(T("statsTitle"))}">${ico("stats")}</button>` : "");
+        + ` data-tip="${esc(T("statsTitle"))}">${ico("stats")}</button>` : "")
+    + tokLine(it.stats && it.stats.turn);
   last.appendChild(acts);
   placeSuggests(last);
   // al terminar, las sugerencias crecen el feed: si seguias el final, baja
   // al fondo absoluto para no dejarlas fuera de vista
   if(was) requestAnimationFrame(() => jumpTo(main.scrollHeight));
+}
+
+/* Tokens del turno entero: ↑ prompt ingerido, ↓ generado, R leido de cache.
+   R alto con ↑ bajo = el servidor reutilizo el contexto (sin prefill). */
+function tokLine(u){
+  if(!u || !(u.input || u.output)) return "";
+  const k = v => v >= 1000 ? (v / 1000).toFixed(v < 10000 ? 1 : 0)
+    .replace(/\.0$/, "") + "k" : String(v || 0);
+  return `<span class="tokline" data-tip="${esc(T("tokTip"))}">`
+    + `<b>↑</b>${k(u.input)} <b>↓</b>${k(u.output)}`
+    + (u.cacheRead ? ` <b>R</b>${k(u.cacheRead)}` : "") + `</span>`;
 }
 
 /* Filas de sugerencia bajo la ultima respuesta: mismo aspecto en escritorio y
@@ -5394,9 +5411,31 @@ function noteProduced(){
   produced = true; coldNext = false;
   paintStatus();               // quita "prefilling…" y su clase en cuanto sale algo
 }
+/* tok/s en vivo: pi solo da tokens en message_end, asi que se estiman
+   (~4 caracteres por token) sobre los deltas de los ultimos 3 s. Aproximado
+   (de ahi el ~); la cifra real queda en la hoja de estadisticas. */
+let rateWin = [];
+const RATE_MS = 3000;
+function noteRate(n){
+  if(n) rateWin.push([Date.now(), n]);
+}
+function liveRate(){
+  const now = Date.now();
+  while(rateWin.length && now - rateWin[0][0] > RATE_MS) rateWin.shift();
+  // callado mas de 1.5 s (herramienta, pausa): no hay velocidad que dar
+  if(rateWin.length < 2 || now - rateWin[rateWin.length - 1][0] > 1500)
+    return null;
+  const span = (rateWin[rateWin.length - 1][0] - rateWin[0][0]) / 1000;
+  if(span < 0.5) return null;
+  // el primer delta marca el inicio de la ventana: no cuenta
+  const chars = rateWin.slice(1).reduce((a, x) => a + x[1], 0);
+  return chars / 4 / span;
+}
 function paintStatus(){
   const rs = $("#rsecs");
-  if(rs) rs.textContent = state.running ? elapsed() : "";
+  const r = state.running ? liveRate() : null;
+  if(rs) rs.textContent = state.running
+    ? elapsed() + (r ? " · ~" + Math.round(r) + " tok/s" : "") : "";
   const pre = prefilling();
   $("#readout").classList.toggle("thinking", thinking() || pre);
   $("#readout").classList.toggle("prefill", pre);
@@ -5570,6 +5609,7 @@ function connect(){
     }
     else if(m.type === "item"){
       render(m.item);
+      if(m.item.streaming) noteRate((m.item.text || "").length);
       if(m.item.kind === "assistant" && m.item.streaming
          && motion === "block" && !REDUCED){
         const bel = nodes.get(m.item.id);
@@ -5620,6 +5660,7 @@ function connect(){
       const was = atBottom();
       el.__item = el.__item || {kind:"assistant", text:"", streaming:true, id:m.id};
       el.__item.text += m.delta;
+      noteRate((m.delta || "").length);  // pensar tambien genera tokens
       if(el.__item.kind !== "thinking"){   // pensar no cuenta como teclear
         lastDelta = Date.now();
         $("#readout").classList.remove("thinking");
@@ -6708,7 +6749,7 @@ const STR = {
       pasted:"Pasted text {n} lines", prefilling:"prefilling",
       ranOne:"ran 1 command", ranMany:"ran {n} commands", readOne:"read {f}", readMany:"read {n} files", editOne:"edited {f}", editMany:"edited {n} files",
       statsTitle:"Response stats", stGen:"Generation", stPrompt:"Prompt",
-      stCache:"Cached", stReason:"Reasoning", stTotal:"Total", stCost:"Cost",
+      stCache:"Cached", tokTip:"Turn tokens: ↑ prompt read, ↓ generated, R from cache", stReason:"Reasoning", stTotal:"Total", stCost:"Cost",
       tps:"tok/s", tks:"tokens"},
   es:{menu:"men\u00fa", send:"enviar", stop:"parar",
       addProject:"A\u00f1adir proyecto",
@@ -6867,7 +6908,7 @@ const STR = {
       motion_fade:"Fundido", motion_instant:"Directo", image:"Imagen", camera:"Cámara",
       ranOne:"ejecutó 1 comando", ranMany:"ejecutó {n} comandos", readOne:"leyó {f}", readMany:"leyó {n} ficheros", editOne:"editó {f}", editMany:"editó {n} ficheros",
       statsTitle:"Estad\u00edsticas de respuesta", stGen:"Generaci\u00f3n",
-      stPrompt:"Prompt", stCache:"En cach\u00e9", stReason:"Razonamiento",
+      stPrompt:"Prompt", stCache:"En cach\u00e9", tokTip:"Tokens del turno: ↑ prompt le\u00eddo, ↓ generados, R desde cach\u00e9", stReason:"Razonamiento",
       stTotal:"Total", stCost:"Coste", tps:"tok/s", tks:"tokens"},
   de:{menu:"Men\u00fc", send:"senden", stop:"stopp",
       addProject:"Projekt hinzuf\u00fcgen",
@@ -7029,7 +7070,7 @@ const STR = {
       motion_fade:"Einblenden", motion_instant:"Sofort", image:"Bild", camera:"Kamera",
       ranOne:"1 Befehl ausgeführt", ranMany:"{n} Befehle ausgeführt", readOne:"{f} gelesen", readMany:"{n} Dateien gelesen", editOne:"{f} bearbeitet", editMany:"{n} Dateien bearbeitet",
       statsTitle:"Antwort-Statistik", stGen:"Generierung",
-      stPrompt:"Prompt", stCache:"Zwischengespeichert",
+      stPrompt:"Prompt", stCache:"Zwischengespeichert", tokTip:"Tokens der Runde: ↑ Prompt gelesen, ↓ erzeugt, R aus dem Cache",
       stReason:"Gedankengang", stTotal:"Gesamt", stCost:"Kosten",
       tps:"Tok/s", tks:"Tokens"},
   fr:{menu:"menu", send:"envoyer", stop:"arr\u00eater",
@@ -7189,7 +7230,7 @@ const STR = {
       motion_fade:"fondu", motion_instant:"instantan\u00e9", image:"image", camera:"caméra",
       ranOne:"1 commande exécutée", ranMany:"{n} commandes exécutées", readOne:"{f} lu", readMany:"{n} fichiers lus", editOne:"{f} modifié", editMany:"{n} fichiers modifiés",
       statsTitle:"Statistiques de la r\u00e9ponse", stGen:"G\u00e9n\u00e9ration",
-      stPrompt:"Invite", stCache:"Mis en cache",
+      stPrompt:"Invite", stCache:"Mis en cache", tokTip:"Jetons du tour : ↑ invite lue, ↓ g\u00e9n\u00e9r\u00e9s, R depuis le cache",
       stReason:"Raisonnement", stTotal:"Total", stCost:"Co\u00fbt",
       tps:"t/s", tks:"jetons"},
   pt:{menu:"menu", send:"enviar", stop:"parar",
@@ -7349,7 +7390,7 @@ const STR = {
       motion_fade:"fundido", motion_instant:"instant\u00e2neo", image:"imagem", camera:"câmera",
       ranOne:"executou 1 comando", ranMany:"executou {n} comandos", readOne:"leu {f}", readMany:"leu {n} ficheiros", editOne:"editou {f}", editMany:"editou {n} ficheiros",
       statsTitle:"Estat\u00edsticas da resposta", stGen:"Gera\u00e7\u00e3o",
-      stPrompt:"Prompt", stCache:"Em cache",
+      stPrompt:"Prompt", stCache:"Em cache", tokTip:"Tokens do turno: ↑ prompt lido, ↓ gerados, R da cache",
       stReason:"Racioc\u00ednio", stTotal:"Total", stCost:"Custo",
       tps:"t/s", tks:"tokens"},
   zh:{menu:"菜单", send:"发送", stop:"停止",
@@ -7503,7 +7544,7 @@ const STR = {
       motion_fade:"淡入", motion_instant:"即时", image:"图片", camera:"相机",
       ranOne:"执行了 1 条命令", ranMany:"执行了 {n} 条命令", readOne:"读取了 {f}", readMany:"读取了 {n} 个文件", editOne:"编辑了 {f}", editMany:"编辑了 {n} 个文件",
       statsTitle:"回答统计", stGen:"生成",
-      stPrompt:"提示词", stCache:"缓存",
+      stPrompt:"提示词", stCache:"缓存", tokTip:"本轮 token：↑ 读入提示词，↓ 生成，R 来自缓存",
       stReason:"推理", stTotal:"总计", stCost:"费用",
       tps:"tok/s", tks:"tokens"},
 };

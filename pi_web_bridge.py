@@ -3001,6 +3001,7 @@ class Bridge:
         self.gen_last = None                 # instante del ultimo token de texto
         self.gen_prompt_ms = None            # prefill de la respuesta actual
         self.cur_usage = {}                  # usage acumulado de la respuesta
+        self.turn_usage = {}                 # suma de todas las llamadas del turno
         self.assistant_open = False          # hay una respuesta en curso
         self.produced = False                # el turno ya genero algo
         self.cur = None                      # assistant item being streamed
@@ -3355,6 +3356,7 @@ class Bridge:
             self.state.update(running=True, startedAt=time.time(), tool=None)
             self.cur = None
             self.prefill_t0 = time.time()
+            self.turn_usage = {"input": 0, "output": 0, "cacheRead": 0}
             self.push_state()
 
         elif t == "message_start":
@@ -3424,6 +3426,13 @@ class Bridge:
                                  if b.get("type") == "text")
             u = grab_usage(ev) or self.cur_usage
             stats = self.build_stats(u)
+            # cada llamada del turno (tambien las que solo lanzan una
+            # herramienta) suma: R alto y ↑ bajo = la cache del servidor sirvio
+            for k in ("input", "output", "cacheRead"):
+                v = (u or {}).get(k)
+                if isinstance(v, (int, float)):
+                    self.turn_usage[k] = self.turn_usage.get(k, 0) + v
+            stats["turn"] = dict(self.turn_usage)
             self.assistant_open = False
             if text.strip():
                 # la respuesta que el usuario acaba de leer: base de las

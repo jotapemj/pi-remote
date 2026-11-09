@@ -288,6 +288,26 @@ def turn(text, nimg=0):
         out({"type": "agent_end", "messages": [], "willRetry": False})
         out({"type": "agent_settled"})
         return
+    if "cachehit" in text:    # turno de dos llamadas: la segunda tira de cache
+        out({"type": "agent_start"})
+        out({"type": "message_start",
+             "message": {"role": "assistant", "content": []}})
+        out({"type": "message_end", "message": {
+            "role": "assistant", "content": [],
+            "usage": {"input": 9000, "output": 60, "cacheRead": 0}}})
+        out({"type": "message_start",
+             "message": {"role": "assistant", "content": []}})
+        for _ in range(12):           # ~1.2 s a 40 car/0.1 s: ~100 tok/s
+            out({"type": "message_update", "assistantMessageEvent":
+                 {"type": "text_delta", "contentIndex": 0, "delta": "x" * 40}})
+            time.sleep(0.1)
+        out({"type": "message_end", "message": {
+            "role": "assistant",
+            "content": [{"type": "text", "text": "x" * 480}],
+            "usage": {"input": 500, "output": 120, "cacheRead": 9000}}})
+        out({"type": "agent_end", "messages": [], "willRetry": False})
+        out({"type": "agent_settled"})
+        return
     if "<hint:" in text:      # el puente inyecto la instruccion de sugerencia
         out({"type": "agent_start"})
         # el marcador se streamea como un chunk mas (el pi real lo genera token
