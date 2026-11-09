@@ -405,6 +405,11 @@ file" without typing it.
   page is drawn at the screen's density when it scrolls into view; PDF.js is
   only loaded the first time a PDF is opened, and the PDF's own JavaScript
   never runs. Up to 40 MB.
+- **Zoom** up to 4x: pinch on a phone (the point under your fingers stays
+  put), or the − / % / + buttons and Ctrl+wheel with a mouse; % goes back to
+  the sheet's width. Pages are redrawn sharp once you stop, and pages far
+  from view are dropped, so a long PDF at 4x doesn't eat the phone's
+  memory.
 - `/files` in the command palette opens this tab directly.
 
 ## Worktrees
