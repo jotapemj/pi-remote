@@ -846,6 +846,102 @@ def git_file_diff(cwd, path):
     return out
 
 
+# ---- ficheros del proyecto: solo lectura, nunca fuera de la carpeta ----
+FS_HIDE = {".git", "node_modules", "__pycache__", ".venv", "venv",
+           ".gradle", ".idea", ".mypy_cache", ".pytest_cache"}
+FS_LIST_CAP = 1000
+FS_TEXT_MAX = 512 * 1024       # texto mas grande no se pinta en un movil
+FS_LINES_CAP = 5000
+FS_IMG_MAX = 15 * 1024 * 1024
+# sin SVG: abierta directamente en el origen del puente ejecutaria scripts
+FS_IMAGES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+             ".gif": "image/gif", ".webp": "image/webp", ".bmp": "image/bmp",
+             ".ico": "image/x-icon"}
+
+
+def fs_resolve(cwd, rel):
+    """(ruta real, ruta relativa con /) si cae dentro del proyecto; None si
+    no. realpath antes de comparar: ni ../ ni un enlace que salga cuelan."""
+    if not cwd or not os.path.isdir(cwd):
+        return None
+    root = os.path.realpath(cwd)
+    fp = os.path.realpath(os.path.join(root, (rel or "").lstrip("/\\")))
+    try:
+        if os.path.normcase(os.path.commonpath([fp, root])) \
+                != os.path.normcase(root):
+            return None
+    except ValueError:                       # otra unidad
+        return None
+    r = os.path.relpath(fp, root).replace("\\", "/")
+    return fp, ("" if r == "." else r)
+
+
+def fs_list(cwd, rel):
+    got = fs_resolve(cwd, rel)
+    if not got or not os.path.isdir(got[0]):
+        return {"error": "not a folder in the project", "path": rel}
+    fp, rel = got
+    entries = []
+    try:
+        with os.scandir(fp) as it:
+            for e in it:
+                if e.name in FS_HIDE:
+                    continue
+                try:
+                    isdir = e.is_dir()
+                    size = 0 if isdir else e.stat().st_size
+                except OSError:
+                    continue
+                entries.append({"name": e.name, "dir": isdir, "size": size})
+    except OSError as e:
+        return {"error": str(e), "path": rel}
+    entries.sort(key=lambda x: (not x["dir"], x["name"].casefold()))
+    return {"path": rel, "root": os.path.basename(os.path.realpath(cwd)),
+            "entries": entries[:FS_LIST_CAP],
+            "more": max(0, len(entries) - FS_LIST_CAP)}
+
+
+def fs_read(cwd, rel):
+    got = fs_resolve(cwd, rel)
+    if not got or not os.path.isfile(got[0]):
+        return {"error": "not a file in the project", "path": rel}
+    fp, rel = got
+    try:
+        size = os.path.getsize(fp)
+    except OSError as e:
+        return {"error": str(e), "path": rel}
+    out = {"path": rel, "size": size}
+    if os.path.splitext(fp)[1].lower() in FS_IMAGES:
+        return dict(out, image=size <= FS_IMG_MAX, big=size > FS_IMG_MAX)
+    if size > FS_TEXT_MAX:
+        return dict(out, big=True)
+    try:
+        with open(fp, "rb") as fh:
+            data = fh.read()
+    except OSError as e:
+        return {"error": str(e), "path": rel}
+    if b"\0" in data[:8192]:
+        return dict(out, binary=True)
+    lines = data.decode("utf-8", "replace").splitlines()
+    return dict(out, lines=lines[:FS_LINES_CAP],
+                truncated=len(lines) > FS_LINES_CAP)
+
+
+def fs_image(cwd, rel):
+    """(bytes, tipo) de una imagen del proyecto, o None."""
+    got = fs_resolve(cwd, rel)
+    if not got or not os.path.isfile(got[0]):
+        return None
+    ctype = FS_IMAGES.get(os.path.splitext(got[0])[1].lower())
+    try:
+        if not ctype or os.path.getsize(got[0]) > FS_IMG_MAX:
+            return None
+        with open(got[0], "rb") as fh:
+            return fh.read(), ctype
+    except OSError:
+        return None
+
+
 def pct(tokens, window):
     """El porcentaje que pi no siempre manda, pero que se deduce."""
     try:
@@ -4812,6 +4908,15 @@ class Bridge:
             threading.Thread(target=diff, daemon=True).start()
             return
 
+        if t in ("fs_list", "fs_read"):
+            path, cwd = msg.get("path") or "", self.cwd
+
+            def fs():
+                data = (fs_list if t == "fs_list" else fs_read)(cwd, path)
+                self.emit({"type": "rpc", "command": t, "data": data})
+            threading.Thread(target=fs, daemon=True).start()
+            return
+
         if t == "whitelist_get":
             self.emit({"type": "rpc", "command": t,
                        "data": {"dirs": read_allowed()}})
@@ -5120,6 +5225,21 @@ async def img(u: str = Query(""), token: str = Query("")):
         "Cache-Control": "no-store",
         # un SVG abierto a pelo no puede ejecutar nada
         "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'",
+        "X-Content-Type-Options": "nosniff"})
+
+
+@app.get("/api/file")
+async def project_file(path: str = Query(""), token: str = Query("")):
+    """Una imagen del proyecto abierto, para el visor de ficheros. Solo
+    imagenes (sin SVG) y solo dentro de la carpeta: no es un lector de disco."""
+    if not good_token(token):
+        return JSONResponse({"error": "bad token"}, status_code=403)
+    got = await asyncio.to_thread(fs_image, bridge.cwd, path)
+    if not got:
+        return Response(status_code=404)
+    return Response(got[0], media_type=got[1], headers={
+        "Cache-Control": "no-store",
+        "Content-Security-Policy": "default-src 'none'",
         "X-Content-Type-Options": "nosniff"})
 
 

@@ -355,10 +355,11 @@ arguments and output.
   can't know the real rate mid-stream; the page counts characters (about four
   per token) over the last three seconds. It disappears while a tool runs.
 
-## Changes
+## Changes and files
 
-When the project folder is inside a git repository, a button next to the
-settings shows how many files differ from the last commit. Tap it for the list:
+A button next to the settings opens two tabs: **Changes** and **Files**. When
+the project folder is inside a git repository, the button shows how many files
+differ from the last commit, and **Changes** lists them:
 each file with its status letter (`M` modified, `A` added, `U` untracked,
 `D` deleted, `R` renamed, `!` conflict), its folder, and the lines added and
 removed. Tap a file to read its diff. It answers the question you have on the
@@ -371,6 +372,20 @@ phone after a turn: what did the agent actually touch.
   arbitrary paths. Binary files and new files over 1 MB are named, not shown,
   and a diff longer than 3,000 lines is cut.
 - `/changes` in the command palette opens the same list.
+
+**Files** browses the project folder: folders first, a breadcrumb to jump
+back up, and the phone's back button climbs one level at a time. A file opens
+with line numbers (images are shown as images), and *Add path to message*
+drops its path into the composer, for "look at this file" without typing it.
+
+- Read-only, and it never leaves the project folder: `..`, absolute paths and
+  links pointing outside are refused by the bridge, not just hidden by the
+  page.
+- `.git`, `node_modules`, `__pycache__` and virtualenv folders are not listed.
+- Text files over 512 KB and binaries are named, not shown; past 5,000 lines
+  the view is cut. Images are served by the bridge (`/api/file`), which only
+  hands out image types from inside the project, and never SVG.
+- `/files` in the command palette opens this tab directly.
 
 ## Permission dialogs
 
