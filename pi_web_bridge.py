@@ -846,6 +846,89 @@ def git_file_diff(cwd, path):
     return out
 
 
+def git_err(cwd, *args):
+    """Como git_run, pero con el mensaje de error de git (stderr): al quitar
+    un worktree con cambios, lo que hay que ensenar es lo que dice git."""
+    try:
+        r = subprocess.run(
+            ["git", "-C", cwd, "-c", "core.quotepath=false", *args],
+            capture_output=True, encoding="utf-8", errors="replace",
+            timeout=60,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return -1, str(e)
+    return r.returncode, (r.stderr or r.stdout).strip()
+
+
+def wt_list(cwd):
+    """Los worktrees del repo que contiene la carpeta. El primero es el
+    principal (el que no se puede quitar)."""
+    if not cwd or not os.path.isdir(cwd):
+        return {"repo": False}
+    rc, raw = git_run(cwd, "worktree", "list", "--porcelain")
+    if rc != 0:
+        return {"repo": False}
+    out, cur = [], None
+    for ln in raw.splitlines() + [""]:
+        if ln.startswith("worktree "):
+            cur = {"path": os.path.normpath(ln[9:]), "branch": None,
+                   "detached": False, "locked": False, "prunable": False}
+        elif cur is None:
+            continue
+        elif ln.startswith("branch "):
+            cur["branch"] = ln[7:].replace("refs/heads/", "", 1)
+        elif ln == "detached":
+            cur["detached"] = True
+        elif ln.startswith("locked"):
+            cur["locked"] = True
+        elif ln.startswith("prunable"):
+            cur["prunable"] = True
+        elif ln == "" and cur:
+            cur["main"] = not out
+            cur["current"] = same_path(cur["path"], cwd)
+            out.append(cur)
+            cur = None
+    return {"repo": True, "worktrees": out}
+
+
+def wt_add(cwd, branch):
+    """Worktree nuevo en <repo>-worktrees/<rama>, fuera del repo. Rama que
+    existe: se saca; si no, se crea desde HEAD. (ruta, error)."""
+    branch = (branch or "").strip()
+    lst = wt_list(cwd)
+    if not lst.get("repo") or not lst["worktrees"]:
+        return None, "not a git repository"
+    rc, _ = git_run(cwd, "check-ref-format", "--branch", branch)
+    if not branch or rc != 0:
+        return None, "invalid branch name"
+    main = lst["worktrees"][0]["path"]
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "-", branch).strip("-.") or "wt"
+    dest = os.path.join(os.path.dirname(main),
+                        os.path.basename(main) + "-worktrees", safe)
+    if os.path.exists(dest):
+        return None, "folder already exists: " + dest
+    known, _ = git_run(cwd, "rev-parse", "--verify", "-q",
+                       "refs/heads/" + branch)
+    args = (["worktree", "add", dest, branch] if known == 0
+            else ["worktree", "add", "-b", branch, dest])
+    rc, msg = git_err(cwd, *args)
+    return (dest, None) if rc == 0 else (None, msg or "git worktree add failed")
+
+
+def wt_remove(cwd, path):
+    """Quita un worktree de la lista, nunca el principal, y SIN --force: con
+    cambios sin guardar git se niega, y su mensaje es la respuesta."""
+    lst = wt_list(cwd)
+    w = next((x for x in lst.get("worktrees", [])
+              if same_path(x["path"], path)), None)
+    if w is None:
+        return "not a worktree of this repository"
+    if w["main"]:
+        return "the main worktree cannot be removed"
+    rc, msg = git_err(cwd, "worktree", "remove", w["path"])
+    return None if rc == 0 else (msg or "git worktree remove failed")
+
+
 # ---- ficheros del proyecto: solo lectura, nunca fuera de la carpeta ----
 FS_HIDE = {".git", "node_modules", "__pycache__", ".venv", "venv",
            ".gradle", ".idea", ".mypy_cache", ".pytest_cache"}
@@ -4978,6 +5061,27 @@ class Bridge:
                 self.emit({"type": "rpc", "command": t,
                            "data": git_file_diff(cwd, path)})
             threading.Thread(target=diff, daemon=True).start()
+            return
+
+        if t in ("wt_list", "wt_add", "wt_remove"):
+            repo = msg.get("cwd") or self.cwd
+
+            def wt():
+                if t == "wt_list":
+                    data = wt_list(repo)
+                elif t == "wt_add":
+                    path, err = wt_add(repo, msg.get("branch"))
+                    data = {"error": err} if err else {"path": path}
+                elif same_path(msg.get("path") or "", self.cwd):
+                    # pi vive dentro: en Windows la carpeta esta en uso
+                    data = {"error": "it is the open project: open another "
+                                     "one first"}
+                else:
+                    err = wt_remove(repo, msg.get("path") or "")
+                    data = {"error": err} if err else {}
+                data["cwd"] = repo
+                self.emit({"type": "rpc", "command": t, "data": data})
+            threading.Thread(target=wt, daemon=True).start()
             return
 
         if t == "session_tree":

@@ -387,6 +387,23 @@ drops its path into the composer, for "look at this file" without typing it.
   hands out image types from inside the project, and never SVG.
 - `/files` in the command palette opens this tab directly.
 
+## Worktrees
+
+A project's `⋯` menu in the side rail has **Worktrees**: every checkout of
+that repository, with its branch. The main one and the one open now are
+labelled. From there:
+
+- **New worktree** asks for a branch. An existing branch is checked out; a
+  new name creates the branch from `HEAD`. The folder goes next to the
+  repository, never inside it: `<repo>-worktrees/<branch>`.
+- **Tap one** to open it as a project, with its own pi, sessions and
+  settings. Two agents can then work on two branches without stepping on each
+  other's files.
+- **Remove** deletes the folder and keeps the branch. It runs
+  `git worktree remove` without `--force`: with uncommitted changes git
+  refuses, and its message is shown as is. The main worktree and the open
+  project cannot be removed from here.
+
 ## Session tree
 
 pi keeps a conversation as a tree: forking or editing an earlier message

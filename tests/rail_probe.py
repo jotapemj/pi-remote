@@ -318,7 +318,7 @@ async def main():
                                 " document.querySelector('.ctxpop')?.style.left]")
                 print("  clic derecho:", menu[1])
                 checks.append(("el clic derecho abre el popup flotante",
-                               menu[0] is True and len(menu[1]) == 2
+                               menu[0] is True and len(menu[1]) == 3   # nueva, worktrees, quitar
                                and menu[2] not in (None, "")))
                 await js("closeCtxPop()")
 

@@ -113,7 +113,7 @@ async def main():
             print("  menu: popup=%s modal=%s sheet=%s filas=%s" % tuple(fancy))
             checks.append(("el menu es un popup, no un dialogo",
                            fancy[0] is True and fancy[1] is False
-                           and fancy[2] is False and fancy[3] == 2))
+                           and fancy[2] is False and fancy[3] == 3))   # nueva, worktrees, quitar
 
             await js("closeCtxPop();"
                      " sessMenu($('#rail'), 'X', {label:'s', path:'y.jsonl'})")
