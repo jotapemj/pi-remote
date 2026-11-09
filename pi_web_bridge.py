@@ -695,6 +695,157 @@ def edit_diff(args):
     return {"lines": lines, "added": added, "removed": removed}
 
 
+# ---- git: que ha tocado el agente ----
+GIT_TIMEOUT = 15
+GIT_DIFF_CAP = 3000            # lineas por diff: mas no se lee en un movil
+GIT_UNTRACKED_MAX = 1 << 20    # un fichero nuevo mas grande no se pinta entero
+EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"   # repo sin commits
+
+
+def git_run(cwd, *args):
+    """git sin ventana (el puente corre con pythonw). (codigo, stdout)."""
+    try:
+        r = subprocess.run(
+            ["git", "-C", cwd, "-c", "core.quotepath=false", *args],
+            capture_output=True, encoding="utf-8", errors="replace",
+            timeout=GIT_TIMEOUT,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return -1, str(e)
+    return r.returncode, r.stdout
+
+
+def git_base(top):
+    """Contra que se compara: HEAD, o el arbol vacio si aun no hay commits."""
+    rc, _ = git_run(top, "rev-parse", "--verify", "-q", "HEAD")
+    return "HEAD" if rc == 0 else EMPTY_TREE
+
+
+def git_kind(xy):
+    if xy == "??":
+        return "new"
+    if "U" in xy or xy in ("AA", "DD"):
+        return "conflict"
+    if "R" in xy:
+        return "renamed"
+    if "A" in xy:
+        return "added"
+    if "D" in xy:
+        return "deleted"
+    return "modified"
+
+
+def git_changes(cwd):
+    """Ficheros cambiados del repo que contiene la carpeta del proyecto, con
+    sus lineas +/-. Las rutas son relativas a la raiz del repo, como en git.
+    {"repo": False} si la carpeta no esta en un repo (o git no esta)."""
+    if not cwd or not os.path.isdir(cwd):
+        return {"repo": False}
+    rc, top = git_run(cwd, "rev-parse", "--show-toplevel")
+    if rc != 0 or not top.strip():
+        return {"repo": False}
+    top = top.strip()
+    _, branch = git_run(top, "rev-parse", "--abbrev-ref", "HEAD")
+    rc, raw = git_run(top, "status", "--porcelain=v1", "-z",
+                      "--untracked-files=all")
+    if rc != 0:
+        return {"repo": True, "error": "git status failed", "files": []}
+    files, parts, i = [], raw.split("\0"), 0
+    while i < len(parts):
+        e = parts[i]
+        i += 1
+        if len(e) < 4:
+            continue
+        xy, path = e[:2], e[3:]
+        f = {"path": path, "xy": xy, "kind": git_kind(xy)}
+        if "R" in xy or "C" in xy:          # -z: la ruta vieja va detras
+            f["from"] = parts[i] if i < len(parts) else ""
+            i += 1
+        files.append(f)
+    # lineas +/- de lo seguido (trabajo + indice contra la base)
+    nums = {}
+    _, ns = git_run(top, "diff", git_base(top), "--numstat", "-z", "-M")
+    p, j = ns.split("\0"), 0
+    while j < len(p):
+        cols = p[j].split("\t")
+        j += 1
+        if len(cols) < 3:
+            continue
+        a, d, path = cols[0], cols[1], cols[2]
+        if not path:                        # renombrado: viejo y nuevo detras
+            path = p[j + 1] if j + 1 < len(p) else ""
+            j += 2
+        nums[path] = (None if a == "-" else int(a),
+                      None if d == "-" else int(d))
+    for f in files:
+        if f["path"] in nums:
+            f["added"], f["removed"] = nums[f["path"]]
+        elif f["kind"] == "new":
+            fp = os.path.join(top, f["path"])
+            try:
+                if os.path.getsize(fp) <= GIT_UNTRACKED_MAX:
+                    with open(fp, "rb") as fh:
+                        data = fh.read()
+                    if b"\0" not in data[:8192]:
+                        f["added"], f["removed"] = data.count(b"\n") + (
+                            0 if not data or data.endswith(b"\n") else 1), 0
+            except OSError:
+                pass
+    return {"repo": True, "root": top, "branch": branch.strip(),
+            "files": files}
+
+
+def git_file_diff(cwd, path):
+    """Diff unificado de un fichero de la lista de cambios. Solo vale una ruta
+    que git_changes devuelva: el cliente no elige ficheros arbitrarios."""
+    ch = git_changes(cwd)
+    if not ch.get("repo"):
+        return {"error": "not a git repository"}
+    f = next((x for x in ch.get("files", []) if x["path"] == path), None)
+    if f is None:
+        return {"error": "no changes in that file"}
+    top = ch["root"]
+    out = {"path": path, "kind": f["kind"]}
+    if f["kind"] == "new":
+        fp = os.path.realpath(os.path.join(top, path))
+        try:
+            inside = same_path(
+                os.path.commonpath([fp, os.path.realpath(top)]), top)
+        except ValueError:                  # otra unidad
+            inside = False
+        if not inside:
+            return {"error": "outside the repository"}
+        try:
+            if os.path.getsize(fp) > GIT_UNTRACKED_MAX:
+                return dict(out, big=True, lines=[])
+            with open(fp, "rb") as fh:
+                data = fh.read()
+        except OSError as e:
+            return {"error": str(e)}
+        if b"\0" in data[:8192]:
+            return dict(out, binary=True, lines=[])
+        body = data.decode("utf-8", "replace").splitlines()
+        lines = ["@@ -0,0 +1,%d @@" % len(body)] + ["+" + x for x in body]
+    else:
+        args = ["diff", git_base(top), "-M", "--no-color", "--", path]
+        if f.get("from"):
+            args.append(f["from"])
+        rc, raw = git_run(top, *args)
+        if rc != 0:
+            return {"error": "git diff failed"}
+        lines, started = [], False
+        for ln in raw.splitlines():
+            if ln.startswith("Binary files"):
+                return dict(out, binary=True, lines=[])
+            if ln.startswith("@@"):
+                started = True
+            if started:
+                lines.append(ln)
+    out["truncated"] = len(lines) > GIT_DIFF_CAP
+    out["lines"] = lines[:GIT_DIFF_CAP]
+    return out
+
+
 def pct(tokens, window):
     """El porcentaje que pi no siempre manda, pero que se deduce."""
     try:
@@ -2989,6 +3140,8 @@ class Bridge:
             "update": None,           # release mas nueva que la que corre
             # ask_user: lo pedido (state.json) y lo que el pi vivo cargo
             "askUser": read_ask_user(), "askUserLive": False,
+            # ficheros cambiados en el repo del proyecto; None = no es repo
+            "changes": None,
         }
         self.autoname_done = False           # un solo intento por sesion
         self.lang = "en"                     # ultimo idioma del cliente
@@ -3100,8 +3253,9 @@ class Bridge:
         self.state.update(alive=True, running=False, tool=None, cwd=cwd,
                           context=None, sessionName=None, waiting=False,
                           recent=remember(cwd), loading=True,
-                          askUserLive=ask)
+                          askUserLive=ask, changes=None)
         self.refresh_proj_state()
+        self.refresh_changes()
         threading.Thread(target=self.reader, args=(self.proc, self.gen),
                          daemon=True).start()
         self.note("info", "project", f"project: {cwd}", path=cwd)
@@ -3158,6 +3312,25 @@ class Bridge:
                 if gen != self.gen or not self.proc:
                     return
                 self.send_pi({"type": "get_session_stats"})
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def refresh_changes(self, then=None):
+        """Recuenta en un hilo los ficheros cambiados (git tarda en repos
+        grandes; en el loop congelaba la pagina). Solo empuja si cambia.
+        `then` recibe el resultado entero (la hoja de cambios lo pinta)."""
+        cwd = self.cwd
+
+        def run():
+            ch = git_changes(cwd)
+            if cwd != self.cwd:                  # se cambio de proyecto
+                return
+            n = len(ch.get("files", [])) if ch.get("repo") else None
+            if n != self.state.get("changes"):
+                self.state["changes"] = n
+                self.push_state()
+            if then:
+                then(ch)
 
         threading.Thread(target=run, daemon=True).start()
 
@@ -3484,6 +3657,7 @@ class Bridge:
         elif t == "agent_settled":
             self.state.update(running=False, tool=None)
             self.settle_tools()      # el turno acabo: nada sigue en marcha
+            self.refresh_changes()   # el agente pudo tocar ficheros
             # un dialogo bloquea su turno: si el turno asento, los que
             # nacieron en el ya no los espera nadie (pi los cerro por
             # timeout o por senal de aborto, sin decirlo)
@@ -4622,6 +4796,20 @@ class Bridge:
             if not err and same_path(msg.get("cwd") or "", self.cwd):
                 self.refresh_proj_state()
                 self.push_state()
+            return
+
+        if t == "git_status":
+            self.refresh_changes(then=lambda ch: self.emit(
+                {"type": "rpc", "command": t, "data": ch}))
+            return
+
+        if t == "git_diff":
+            path, cwd = msg.get("path") or "", self.cwd
+
+            def diff():
+                self.emit({"type": "rpc", "command": t,
+                           "data": git_file_diff(cwd, path)})
+            threading.Thread(target=diff, daemon=True).start()
             return
 
         if t == "whitelist_get":

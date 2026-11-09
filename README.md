@@ -355,6 +355,23 @@ arguments and output.
   can't know the real rate mid-stream; the page counts characters (about four
   per token) over the last three seconds. It disappears while a tool runs.
 
+## Changes
+
+When the project folder is inside a git repository, a button next to the
+settings shows how many files differ from the last commit. Tap it for the list:
+each file with its status letter (`M` modified, `A` added, `U` untracked,
+`D` deleted, `R` renamed, `!` conflict), its folder, and the lines added and
+removed. Tap a file to read its diff. It answers the question you have on the
+phone after a turn: what did the agent actually touch.
+
+- The count refreshes when a turn ends and when the list opens.
+- It is read-only. Nothing is staged, committed or reverted from here; ask
+  the agent, or use `/bash`.
+- Only files in that list can be opened, so the page cannot be used to read
+  arbitrary paths. Binary files and new files over 1 MB are named, not shown,
+  and a diff longer than 3,000 lines is cut.
+- `/changes` in the command palette opens the same list.
+
 ## Permission dialogs
 
 This is the part worth understanding, because it is where a remote agent
