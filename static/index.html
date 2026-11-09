@@ -1053,23 +1053,29 @@ html.hide-think .think-turn{display:none}
   display:flex; align-items:center; justify-content:space-between;
   gap:10px; margin:0 0 9px; font:500 12px/1 var(--mono);
 }
-.rstat{display:flex; align-items:center; gap:8px; min-width:0}
+/* izquierda: la palabra cede (se recorta); segundos y tok/s nunca */
+.rstat{display:flex; align-items:center; gap:8px; min-width:0; flex:1 1 auto}
 /* la palabra solo se ve mientras piensa, no mientras teclea */
 .rword{
   font:500 13px/1 var(--mono); color:var(--amber); letter-spacing:.02em;
   white-space:nowrap; opacity:0; transition:opacity .28s ease;
+  min-width:0; overflow:hidden; text-overflow:ellipsis; flex:0 1 auto;
 }
 .readout.thinking .rword{opacity:1}
 /* reingiriendo contexto: parpadeo suave y sin contador de tiempo */
 .readout.prefill .rword{color:var(--amber);
   animation:prefillBlink 1.6s cubic-bezier(.45,0,.15,1) infinite}
 @keyframes prefillBlink{0%,100%{opacity:1} 50%{opacity:.35}}
-.readout.prefill .rsecs{display:none}
+.readout.prefill .rsecs, .readout.prefill .rtps{display:none}
 .rword.out{opacity:0 !important}
-.rsecs{font:500 13px/1 var(--mono); color:var(--dim); white-space:nowrap}
-.rsecs:empty{display:none}
+.rsecs, .rtps{font:500 13px/1 var(--mono); color:var(--dim);
+  white-space:nowrap; flex:none; font-variant-numeric:tabular-nums}
+.rtps{font-size:12px; color:var(--faint)}
+.rsecs:empty, .rtps:empty{display:none}
 .ctx{
-  width:min(62%, 260px); min-width:0; height:22px; border-radius:11px;
+  width:min(62%, 260px); min-width:132px;
+  flex:0 60 auto;   /* cede ella primero; la palabra solo si no basta */
+  height:22px; border-radius:11px;
   background:var(--raise); border:1px solid var(--rule);
   position:relative; overflow:hidden;
 }
@@ -2677,7 +2683,7 @@ body,.plate,.readout,footer,.tool,.ask,.pick{
 <footer>
   <button class="godown" id="godown" aria-label="down"></button>
   <div class="readout" id="readout" hidden>
-    <span class="rstat"><span class="rword" id="rword"></span><span class="rsecs" id="rsecs"></span></span>
+    <span class="rstat"><span class="rword" id="rword"></span><span class="rsecs" id="rsecs"></span><span class="rtps" id="rtps"></span></span>
     <div class="ctx" id="bar"><i></i><span></span></div>
   </div>
   <div class="palette" id="palette">
@@ -5528,8 +5534,8 @@ function liveRate(){
 function paintStatus(){
   const rs = $("#rsecs");
   const r = state.running ? liveRate() : null;
-  if(rs) rs.textContent = state.running
-    ? elapsed() + (r ? " · ~" + Math.round(r) + " tok/s" : "") : "";
+  if(rs) rs.textContent = state.running ? elapsed() : "";
+  $("#rtps").textContent = r ? "~" + Math.round(r) + " tok/s" : "";
   const pre = prefilling();
   $("#readout").classList.toggle("thinking", thinking() || pre);
   $("#readout").classList.toggle("prefill", pre);

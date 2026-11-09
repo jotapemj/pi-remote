@@ -41,7 +41,7 @@ async def main():
             # durante el streaming: la barra da ~N tok/s
             seen = []
             for _ in range(20):
-                t = await js("$('#rsecs').textContent")
+                t = await js("$('#rsecs').textContent + ' ' + $('#rtps').textContent")
                 if t:
                     seen.append(t)
                 if "tok/s" in (t or ""):
@@ -72,7 +72,7 @@ async def main():
               const r = e.getBoundingClientRect();
               return {text: e.textContent, w: r.width, h: r.height,
                       tip: e.dataset.tip}; })()""")
-            after = await js("$('#rsecs').textContent")
+            after = await js("$('#rsecs').textContent + ' ' + $('#rtps').textContent")
             print("  turn:", turn, "| linea:", line, "| barra al parar:",
                   repr(after))
             checks += [
