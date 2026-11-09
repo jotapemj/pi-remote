@@ -382,8 +382,9 @@ phone after a turn: what did the agent actually touch.
 
 **Files** browses the project folder: folders first, a breadcrumb to jump
 back up, and the phone's back button climbs one level at a time. A file opens
-with line numbers (images are shown as images), and *Add path to message*
-drops its path into the composer, for "look at this file" without typing it.
+with line numbers, images are shown as images and PDFs page by page, and
+*Add path to message* drops its path into the composer, for "look at this
+file" without typing it.
 
 <p align="center">
   <img src="docs/files.png" width="280"
@@ -395,8 +396,15 @@ drops its path into the composer, for "look at this file" without typing it.
   page.
 - `.git`, `node_modules`, `__pycache__` and virtualenv folders are not listed.
 - Text files over 512 KB and binaries are named, not shown; past 5,000 lines
-  the view is cut. Images are served by the bridge (`/api/file`), which only
-  hands out image types from inside the project, and never SVG.
+  the view is cut. Images and PDFs are served by the bridge (`/api/file`),
+  which only hands out those types from inside the project, and never SVG.
+- **PDFs** render with [PDF.js](https://mozilla.github.io/pdf.js/), shipped
+  in the repository and served by the bridge, so it works on a tailnet with
+  no internet. Chrome on Android does not show PDFs inside a page (it
+  downloads them), which is why the browser's own viewer is not used. Each
+  page is drawn at the screen's density when it scrolls into view; PDF.js is
+  only loaded the first time a PDF is opened, and the PDF's own JavaScript
+  never runs. Up to 40 MB.
 - `/files` in the command palette opens this tab directly.
 
 ## Worktrees
@@ -841,5 +849,6 @@ sessions behind.
 MIT. See [LICENSE](LICENSE).
 
 Third-party components: FastAPI (MIT), Uvicorn and Starlette (BSD-3-Clause),
-Material Icons (Apache-2.0), Simple Icons brand logos (CC0-1.0), IBM Plex
-Mono, Plus Jakarta Sans, Inter and Source Serif 4 (OFL-1.1).
+Material Icons (Apache-2.0), PDF.js (Apache-2.0, `static/vendor/pdfjs`),
+Simple Icons brand logos (CC0-1.0), IBM Plex Mono, Plus Jakarta Sans, Inter
+and Source Serif 4 (OFL-1.1).

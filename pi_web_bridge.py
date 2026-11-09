@@ -940,6 +940,7 @@ FS_IMG_MAX = 15 * 1024 * 1024
 FS_IMAGES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
              ".gif": "image/gif", ".webp": "image/webp", ".bmp": "image/bmp",
              ".ico": "image/x-icon"}
+FS_PDF_MAX = 40 * 1024 * 1024   # lo pinta PDF.js en el movil, pagina a pagina
 
 
 def fs_resolve(cwd, rel):
@@ -994,8 +995,11 @@ def fs_read(cwd, rel):
     except OSError as e:
         return {"error": str(e), "path": rel}
     out = {"path": rel, "size": size}
-    if os.path.splitext(fp)[1].lower() in FS_IMAGES:
+    ext = os.path.splitext(fp)[1].lower()
+    if ext in FS_IMAGES:
         return dict(out, image=size <= FS_IMG_MAX, big=size > FS_IMG_MAX)
+    if ext == ".pdf":
+        return dict(out, pdf=size <= FS_PDF_MAX, big=size > FS_PDF_MAX)
     if size > FS_TEXT_MAX:
         return dict(out, big=True)
     try:
@@ -1011,13 +1015,16 @@ def fs_read(cwd, rel):
 
 
 def fs_image(cwd, rel):
-    """(bytes, tipo) de una imagen del proyecto, o None."""
+    """(bytes, tipo) de una imagen o un PDF del proyecto, o None."""
     got = fs_resolve(cwd, rel)
     if not got or not os.path.isfile(got[0]):
         return None
-    ctype = FS_IMAGES.get(os.path.splitext(got[0])[1].lower())
+    ext = os.path.splitext(got[0])[1].lower()
+    ctype = FS_IMAGES.get(ext) or ("application/pdf" if ext == ".pdf"
+                                   else None)
+    cap = FS_PDF_MAX if ext == ".pdf" else FS_IMG_MAX
     try:
-        if not ctype or os.path.getsize(got[0]) > FS_IMG_MAX:
+        if not ctype or os.path.getsize(got[0]) > cap:
             return None
         with open(got[0], "rb") as fh:
             return fh.read(), ctype
@@ -5364,6 +5371,22 @@ async def service_worker():
         "Cache-Control": "no-cache", "Service-Worker-Allowed": "/"})
 
 
+PDFJS_DIR = HERE / "static" / "vendor" / "pdfjs"
+PDFJS_FILES = {"pdf.min.mjs", "pdf.worker.min.mjs"}
+
+
+@app.get("/vendor/pdfjs/{name}")
+async def pdfjs(name: str):
+    """PDF.js servido por el puente: en un tailnet sin salida un CDN no
+    responde. Sin token, como las fuentes: es codigo, no datos. La URL
+    lleva ?v=<version>, asi que puede ser inmutable."""
+    f = PDFJS_DIR / name
+    if name not in PDFJS_FILES or not f.is_file():
+        return JSONResponse({"error": "no such file"}, status_code=404)
+    return FileResponse(f, media_type="text/javascript", headers={
+        "Cache-Control": "public, max-age=31536000, immutable"})
+
+
 @app.get("/fonts/{name}")
 async def font(name: str):
     """No token here: the browser fetches these from css, without the query."""
@@ -5414,8 +5437,10 @@ async def img(u: str = Query(""), token: str = Query("")):
 
 @app.get("/api/file")
 async def project_file(path: str = Query(""), token: str = Query("")):
-    """Una imagen del proyecto abierto, para el visor de ficheros. Solo
-    imagenes (sin SVG) y solo dentro de la carpeta: no es un lector de disco."""
+    """Una imagen o un PDF del proyecto abierto, para el visor de ficheros.
+    Solo esos tipos (sin SVG) y solo dentro de la carpeta: no es un lector de
+    disco. El PDF lo lee PDF.js con fetch; abierto a pelo, la CSP de abajo
+    no deja ejecutar nada."""
     if not good_token(token):
         return JSONResponse({"error": "bad token"}, status_code=403)
     got = await asyncio.to_thread(fs_image, bridge.cwd, path)
