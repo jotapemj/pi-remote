@@ -656,6 +656,30 @@ for line in sys.stdin:
     elif t == "fork":
         out({"type": "response", "command": "fork", "success": True,
              "data": {"cancelled": False, "text": "forked here"}})
+    elif t == "get_tree":
+        # u1 -> a1 -> u2 -> a2 (abandonada)
+        #             \-> u3 -> tool -> a3 (activa, hoja a3)
+        def msg(i, p, role, content):
+            return {"entry": {"type": "message", "id": i, "parentId": p,
+                              "message": {"role": role, "content": content}},
+                    "children": []}
+        u1 = msg("u1", None, "user", "primera pregunta")
+        a1 = msg("a1", "u1", "assistant",
+                 [{"type": "text", "text": "primera respuesta"}])
+        u2 = msg("u2", "a1", "user", "camino que se dejo")
+        a2 = msg("a2", "u2", "assistant", [{"type": "text", "text": "rama vieja"}])
+        u3 = msg("u3", "a1", "user", [{"type": "text", "text": "camino bueno"}])
+        tc = msg("t3", "u3", "assistant", [{"type": "toolCall", "id": "c"}])
+        tr = msg("r3", "t3", "toolResult", [{"type": "text", "text": "ok"}])
+        a3 = msg("a3", "r3", "assistant", [{"type": "text", "text": "hecho"}])
+        u2["children"] = [a2]
+        tr["children"] = [a3]
+        tc["children"] = [tr]
+        u3["children"] = [tc]
+        a1["children"] = [u3, u2]
+        u1["children"] = [a1]
+        out({"type": "response", "command": "get_tree", "success": True,
+             "data": {"tree": [u1], "leafId": "a3"}})
     elif t == "get_fork_messages":
         out({"type": "response", "command": "get_fork_messages",
              "success": True, "data": {"messages": [

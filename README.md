@@ -387,6 +387,21 @@ drops its path into the composer, for "look at this file" without typing it.
   hands out image types from inside the project, and never SVG.
 - `/files` in the command palette opens this tab directly.
 
+## Session tree
+
+pi keeps a conversation as a tree: forking or editing an earlier message
+starts a branch, and the old path stays in the session file. `/tree` shows all
+of it on one screen. Branches you left sit right where they started, one lane
+to the right, dimmed and labelled; the active branch runs down the left.
+
+- Tap any message to read it in full.
+- Tap one of **your messages on the active branch** to fork from it (the same
+  confirmation as `/fork`, including moving the original to the trash).
+- Jumping back into a branch you left is not possible from here. pi's RPC can
+  only fork from the active branch; switching branches inside a session is a
+  terminal-only command (`/tree` in the TUI). The bridge does not write
+  session files itself to work around that.
+
 ## Permission dialogs
 
 This is the part worth understanding, because it is where a remote agent

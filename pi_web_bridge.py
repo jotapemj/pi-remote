@@ -942,6 +942,69 @@ def fs_image(cwd, rel):
         return None
 
 
+# ---- arbol de la sesion (get_tree), aplanado para el movil ----
+TREE_ROWS_CAP = 3000
+
+
+def entry_text(m):
+    c = m.get("content")
+    if isinstance(c, str):
+        return c
+    return "\n".join(b.get("text") or "" for b in c or []
+                     if isinstance(b, dict) and b.get("type") == "text")
+
+
+def tree_rows(data):
+    """El arbol de get_tree como filas: solo los mensajes con texto (usuario
+    y asistente), cada uno con su carril. En cada bifurcacion las ramas
+    abandonadas salen primero, un carril a la derecha, y la activa sigue en
+    el carril de su padre: se leen justo donde nacieron. Iterativo: una
+    sesion larga es una cadena de miles de entradas y la recursion revienta.
+    Solo los mensajes del usuario en la rama activa admiten fork (RPC)."""
+    roots = data.get("tree") or []
+    parent, stack = {}, list(roots)
+    while stack:
+        n = stack.pop()
+        e = n.get("entry") or {}
+        parent[e.get("id")] = e.get("parentId")
+        stack.extend(n.get("children") or [])
+    active, cur = set(), data.get("leafId")
+    while cur and cur not in active:
+        active.add(cur)
+        cur = parent.get(cur)
+
+    rows = []
+    # (nodo, carril, abre rama): se apila al reves para salir en orden
+    stack = [(n, 0, False) for n in reversed(roots)]
+    while stack and len(rows) < TREE_ROWS_CAP:
+        n, lane, opens = stack.pop()
+        e = n.get("entry") or {}
+        m = e.get("message") or {}
+        role = m.get("role")
+        shown = False
+        if e.get("type") == "message" and role in ("user", "assistant"):
+            txt = SUGGEST_HINT_RE.sub("", entry_text(m)).strip()
+            if txt and not (role == "user" and is_stop_summary(txt)):
+                on = e.get("id") in active
+                rows.append({
+                    "id": e.get("id"), "role": role, "lane": lane,
+                    "active": on, "branch": opens,
+                    "fork": role == "user" and on,
+                    "text": txt[:4000] if role == "user" else txt[:600]})
+                shown = True
+        kids = n.get("children") or []
+        main = [k for k in kids if (k.get("entry") or {}).get("id") in active]
+        side = [k for k in kids if k not in main]
+        if not main and side:               # bifurcacion sin rama activa
+            main, side = side[:1], side[1:]
+        # el que abre rama la pasa a su primer descendiente visible
+        carry = opens and not shown
+        order = [(k, lane + 1, True) for k in side] \
+            + [(k, lane, carry) for k in main]
+        stack.extend(reversed(order))
+    return {"rows": rows, "more": len(rows) >= TREE_ROWS_CAP}
+
+
 def pct(tokens, window):
     """El porcentaje que pi no siempre manda, pero que se deduce."""
     try:
@@ -3969,6 +4032,11 @@ class Bridge:
         cmd, data = ev.get("command"), ev.get("data") or {}
 
         if not ev.get("success", True):
+            if cmd == "get_tree":                    # la hoja espera respuesta
+                self.emit({"type": "rpc", "command": "session_tree",
+                           "data": {"error": str(ev.get("error") or
+                                                 "get_tree failed")}})
+                return
             if cmd == "bash" and self.bash_rows:     # su tarjeta, en error
                 self.patch(self.bash_rows.popleft(), status="error",
                            output=str(ev.get("error") or "")[:8000])
@@ -4074,6 +4142,10 @@ class Bridge:
                 out.append({"entryId": m.get("entryId"), "text": txt})
             self.emit({"type": "rpc", "command": "get_fork_messages",
                        "data": {"messages": out}})
+
+        elif cmd == "get_tree":
+            self.emit({"type": "rpc", "command": "session_tree",
+                       "data": tree_rows(data)})
 
         elif cmd == "get_messages":
             self.load_history(data.get("messages"))
@@ -4906,6 +4978,14 @@ class Bridge:
                 self.emit({"type": "rpc", "command": t,
                            "data": git_file_diff(cwd, path)})
             threading.Thread(target=diff, daemon=True).start()
+            return
+
+        if t == "session_tree":
+            if not self.proc:
+                self.emit({"type": "rpc", "command": t,
+                           "data": {"error": "no session open"}})
+                return
+            self.send_pi({"type": "get_tree"})
             return
 
         if t in ("fs_list", "fs_read"):
