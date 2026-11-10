@@ -26,7 +26,10 @@ import * as path from "node:path";
 
 const KIND = "pi-remote:bg";
 const MAX_RUNNING = 3;
-const WAIT_MAX = 120;            // seconds bg_wait may block
+// seconds bg_wait may block: short on purpose. Measured with Strata: right
+// after bg_run the model called bg_wait for 120 s, blocking the very turn the
+// task was meant to free
+const WAIT_MAX = 30;
 const WAKE_MAX = 5;              // agent wake-ups in a row without the user
 const KEEP_DAYS = 7;
 const POLL_MS = 2000;
@@ -319,9 +322,10 @@ export default function background(pi: ExtensionAPI) {
 			"Start a long-running shell command (build, test suite, flashing, a dev server) " +
 			"in the background and return immediately with a task id, instead of blocking " +
 			"like bash does. Use it for anything that takes more than about a minute. " +
-			"You will get a message when it ends; meanwhile keep working or answer the user. " +
-			"Check on it with bg_list, bg_log or bg_wait; stop it with bg_kill. " +
-			"For quick commands use bash instead. Runs in the project folder.",
+			"After starting it, END YOUR TURN: tell the user it is running and stop. You " +
+			"will get a message with the result when it ends, even if you are idle. Do not " +
+			"wait for it with bg_wait or sleep. If the user asks how it is going, use bg_log. " +
+			"Stop it with bg_kill. For quick commands use bash instead. Runs in the project folder.",
 		parameters: Type.Object({
 			command: Type.String({ description: "The shell command, as you would pass to bash" }),
 			label: Type.Optional(Type.String({ description: "Short name for the task, e.g. 'android build'" })),
@@ -348,8 +352,9 @@ export default function background(pi: ExtensionAPI) {
 			}
 			const j = startJob(command, ctx.cwd, params.label as string | undefined);
 			return text(
-				`Started background task #${j.id} (${j.label}). You will be told when it ends. ` +
-				`Use bg_log ${j.id} to read its output, bg_wait to wait a little, bg_kill to stop it.`,
+				`Started background task #${j.id} (${j.label}). End your turn now: you will ` +
+				`get a message with the result when it ends. Do not call bg_wait for it. ` +
+				`If the user asks, bg_log ${j.id} shows its output; bg_kill ${j.id} stops it.`,
 				{ id: j.id },
 			);
 		},
@@ -390,8 +395,9 @@ export default function background(pi: ExtensionAPI) {
 		name: "bg_wait",
 		label: "Wait for task",
 		description:
-			`Wait up to ${WAIT_MAX} seconds for a background task to end, for when it is about to ` +
-			"finish and the next step needs its result. Returns early when it ends.",
+			`Wait up to ${WAIT_MAX} seconds for a background task to end. Only when your very ` +
+			"next step needs its result AND its output (bg_log) shows it is about to finish. " +
+			"Never right after bg_run: end your turn instead, you will be told when it ends.",
 		parameters: Type.Object({
 			id: Type.Number({ description: "Task id" }),
 			seconds: Type.Optional(Type.Number({ description: `Most seconds to wait (default 30, max ${WAIT_MAX})` })),
