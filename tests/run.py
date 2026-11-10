@@ -42,7 +42,7 @@ ORDER = ["static_check", "theme_check", "label_check", "notes_check",
          "undo_probe", "header_probe", "navback_probe", "railui_probe",
          "macros_probe",
          "image_probe",
-         "toolimg_probe", "stats_probe", "tokline_probe", "readout_probe", "typeface_probe", "gitchanges_probe", "files_probe", "pdf_probe", "pdfzoom_probe", "tree_probe", "worktree_probe", "multi_probe", "pwa_probe",
+         "toolimg_probe", "stats_probe", "tokline_probe", "readout_probe", "typeface_probe", "bg_probe", "bgpanel_probe", "gitchanges_probe", "files_probe", "pdf_probe", "pdfzoom_probe", "tree_probe", "worktree_probe", "multi_probe", "pwa_probe",
          "gesture_probe", "kb_anchor_probe",
          "store_probe", "restartcurtain_probe", "edgefade_probe",
          "overstretch_probe", "composerscroll_probe", "update_probe", "hscroll_probe", "activity_probe", "timesep_probe", "piexit_probe", "askexpire_probe", "pkgdetail_probe", "instructions_probe", "aggrabort_probe", "bashrow_probe", "msgmenu_probe", "restartnow_probe", "askuser_probe"]

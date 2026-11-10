@@ -1407,6 +1407,234 @@ def save_ask_user(on):
         print("state:", exc, file=sys.stderr)
 
 
+# Tareas en segundo plano: extensions/background.ts, cargada con -e cuando el
+# interruptor esta activo. La extension deja cada tarea en la carpeta de
+# abajo (<id>.json estado, <id>.log salida, <id>.code codigo al terminar); el
+# puente la lee para el panel, la para desde el panel y avisa con una nota
+# cuando llega el mensaje que la extension manda al agente al terminar.
+BG_EXT = HERE / "extensions" / "background.ts"
+BG_KIND = "pi-remote:bg"
+BG_RECENT = 15 * 60              # una terminada sigue en el panel 15 min
+PERM_PKG = (Path.home() / ".pi" / "agent" / "npm" / "node_modules"
+            / "@gotgenes" / "pi-permission-system")
+
+
+def read_bg_tasks():
+    return read_state().get("bgTasks") is True
+
+
+def save_bg_tasks(on):
+    d = read_state()
+    d["bgTasks"] = bool(on)
+    try:
+        with open(STATE_FILE, "w", encoding="utf-8") as fh:
+            json.dump(d, fh, indent=1)
+    except OSError as exc:
+        print("state:", exc, file=sys.stderr)
+
+
+def bg_dir():
+    return Path(os.environ.get("PI_REMOTE_JOBS")
+                or Path.home() / ".pi" / "agent" / "pi-remote-jobs")
+
+
+def pid_alive(pid):
+    """Sin matar nada: en Windows, os.kill(pid, 0) de Python NO comprueba,
+    llama a TerminateProcess. Ahi se pregunta el codigo de salida."""
+    if not pid:
+        return False
+    if os.name == "nt":
+        import ctypes
+        k = ctypes.windll.kernel32
+        h = k.OpenProcess(0x1000, False, int(pid))  # QUERY_LIMITED_INFORMATION
+        if not h:
+            return False
+        code = ctypes.c_ulong()
+        ok = k.GetExitCodeProcess(h, ctypes.byref(code))
+        k.CloseHandle(h)
+        return bool(ok) and code.value == 259       # STILL_ACTIVE
+    try:
+        os.kill(int(pid), 0)
+        return True
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+
+
+ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+
+
+def bg_tail(jid, n):
+    """Las ultimas n lineas con texto del log, sin colores y con las barras
+    de progreso (\r) resueltas a lo que la linea acaba mostrando."""
+    try:
+        with open(bg_dir() / ("%d.log" % int(jid)), "rb") as fh:
+            fh.seek(0, 2)
+            size = fh.tell()
+            fh.seek(max(0, size - 256 * 1024))
+            raw = fh.read().decode("utf-8", "replace")
+    except (OSError, ValueError):
+        return []
+    lines = [ln.split("\r")[-1] for ln in ANSI_RE.sub("", raw).split("\n")]
+    return [ln for ln in lines if ln.strip()][-n:]
+
+
+def bg_read(jid):
+    try:
+        return json.loads((bg_dir() / ("%d.json" % int(jid)))
+                          .read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return None
+
+
+def bg_write(j):
+    f = bg_dir() / ("%d.json" % int(j["id"]))
+    tmp = f.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(j), encoding="utf-8")
+    os.replace(tmp, f)
+
+
+def bg_view(j):
+    """Estado efectivo sin escribir nada: la extension lo apunta en su
+    sondeo, pero con pi apagado (interruptor fuera) nadie lo haria."""
+    st, code, ended = j.get("status"), j.get("code"), j.get("ended")
+    if st == "running":
+        try:
+            c = (bg_dir() / ("%d.code" % int(j["id"]))).read_text().strip()
+        except (OSError, ValueError):
+            c = ""
+        if c.lstrip("-").isdigit():
+            code = int(c)
+            st = "done" if code == 0 else "failed"
+            ended = ended or time.time() * 1000
+        elif not pid_alive(j.get("pid")):
+            st, code, ended = "killed", None, ended or time.time() * 1000
+    return {"id": j.get("id"), "label": j.get("label") or j.get("command"),
+            "command": j.get("command"), "status": st, "code": code,
+            "started": j.get("started"), "ended": ended, "pid": j.get("pid")}
+
+
+def bg_list(cwd):
+    """Las tareas de esta carpeta para el panel: las vivas y las que
+    terminaron hace poco, con su ultima linea."""
+    d = bg_dir()
+    if not cwd or not d.is_dir():
+        return []
+    now, out = time.time() * 1000, []
+    for f in d.glob("*.json"):
+        try:
+            j = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not same_path(j.get("cwd") or "", cwd):
+            continue
+        v = bg_view(j)
+        if v["status"] != "running" and now - (v["ended"] or 0) > BG_RECENT * 1000:
+            continue
+        v["last"] = (bg_tail(v["id"], 1) or [""])[0][-160:]
+        out.append(v)
+    return sorted(out, key=lambda v: v["id"] or 0)
+
+
+def bg_running_pids():
+    d = bg_dir()
+    out = set()
+    if d.is_dir():
+        for f in d.glob("*.json"):
+            try:
+                j = json.loads(f.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if j.get("status") == "running" and j.get("pid"):
+                out.add(int(j["pid"]))
+    return out
+
+
+def bg_protected(rows, pids=None):
+    """Los pids de las tareas en marcha y todo lo que cuelga de ellas: el
+    aborto agresivo no los toca (parar el turno no para las tareas)."""
+    pids = bg_running_pids() if pids is None else set(pids)
+    kids = {}
+    for pid, ppid, _t, _n in rows:
+        kids.setdefault(ppid, []).append(pid)
+    out, stack = set(), list(pids)
+    while stack:
+        pid = stack.pop()
+        if pid in out:
+            continue
+        out.add(pid)
+        stack.extend(kids.get(pid, []))
+    return out
+
+
+def bg_stop(cwd, jid):
+    """Parar desde el panel: solo una tarea de esta carpeta. Sin despertar
+    al agente (la paras tu); su resultado sigue en bg_list y bg_log."""
+    j = bg_read(jid)
+    if not j or not same_path(j.get("cwd") or "", cwd):
+        return "no such task in this project"
+    if bg_view(j)["status"] != "running":
+        return None
+    kill_tree(int(j["pid"]))
+    j.update(status="killed", code=None, ended=time.time() * 1000,
+             notified=True)
+    try:
+        bg_write(j)
+    except OSError as e:
+        return str(e)
+    return None
+
+
+def perm_cfg_path():
+    return Path(os.environ.get("PI_REMOTE_PERMCFG")
+                or Path.home() / ".pi" / "agent" / "extensions"
+                / "pi-permission-system" / "config.json")
+
+
+def bg_perm_status():
+    """pi-permission-system instalado, y si ya trata bg_run como una shell
+    (shellTools). editable: su config es JSON estricto y se puede tocar sin
+    perder comentarios."""
+    cfg = perm_cfg_path()
+    installed = PERM_PKG.is_dir() or bool(os.environ.get("PI_REMOTE_PERMCFG"))
+    covered = editable = False
+    try:
+        d = json.loads(cfg.read_text(encoding="utf-8"))
+        editable = isinstance(d, dict)
+        covered = bool(((d.get("shellTools") or {}) if editable else {})
+                       .get("bg_run"))
+    except FileNotFoundError:
+        editable = installed
+    except (OSError, ValueError):
+        pass
+    return {"installed": installed, "covered": covered, "editable": editable,
+            "path": str(cfg)}
+
+
+def bg_perm_add():
+    """Anade shellTools.bg_run a la config de pi-permission-system (lo pide
+    el usuario en un dialogo): bg_run pasa por las mismas reglas que bash."""
+    st = bg_perm_status()
+    if not st["installed"]:
+        return "pi-permission-system is not installed"
+    if st["covered"]:
+        return None
+    if not st["editable"]:
+        return "its config has comments; add shellTools.bg_run by hand"
+    cfg = perm_cfg_path()
+    try:
+        d = json.loads(cfg.read_text(encoding="utf-8")) if cfg.is_file() else {}
+        d.setdefault("shellTools", {})["bg_run"] = {"commandArgument": "command"}
+        cfg.parent.mkdir(parents=True, exist_ok=True)
+        tmp = cfg.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(d, indent=2), encoding="utf-8")
+        os.replace(tmp, cfg)
+    except (OSError, ValueError) as e:
+        return str(e)
+    return None
+
+
 def quiz_questions(prefill):
     """Las preguntas del dialogo de ask_user, saneadas (vienen del modelo)."""
     try:
@@ -3391,6 +3619,9 @@ class Bridge:
             "askUser": read_ask_user(), "askUserLive": False,
             # ficheros cambiados en el repo del proyecto; None = no es repo
             "changes": None,
+            # tareas en segundo plano: interruptor, si el pi vivo la cargo, y
+            # las del proyecto abierto para el panel
+            "bgTasks": read_bg_tasks(), "bgTasksLive": False, "bg": [],
         }
         self.autoname_done = False           # un solo intento por sesion
         self.lang = "en"                     # ultimo idioma del cliente
@@ -3484,6 +3715,9 @@ class Bridge:
         ask = read_ask_user() and ASK_EXT.is_file()
         if ask:
             args += ["-e", str(ASK_EXT)]
+        bgx = read_bg_tasks() and BG_EXT.is_file()
+        if bgx:
+            args += ["-e", str(BG_EXT)]
         try:
             self.proc = subprocess.Popen(
                 args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, cwd=cwd,
@@ -3502,7 +3736,8 @@ class Bridge:
         self.state.update(alive=True, running=False, tool=None, cwd=cwd,
                           context=None, sessionName=None, waiting=False,
                           recent=remember(cwd), loading=True,
-                          askUserLive=ask, changes=None)
+                          askUserLive=ask, changes=None, bgTasksLive=bgx,
+                          bg=bg_list(cwd))
         self.refresh_proj_state()
         self.refresh_changes()
         threading.Thread(target=self.reader, args=(self.proc, self.gen),
@@ -3621,6 +3856,31 @@ class Bridge:
         for item in self.log:
             if item.get("kind") == "tool" and item.get("status") == "running":
                 self.patch(item, status="stale")
+
+    def bg_loop(self):
+        """Panel de tareas: cada 2 s, las del proyecto abierto. Solo empuja
+        el estado si algo cambio (estado, o la ultima linea de salida)."""
+        while True:
+            time.sleep(2)
+            try:
+                rows = bg_list(self.cwd)
+            except Exception as e:                    # noqa: BLE001
+                print("bg:", e, file=sys.stderr)
+                continue
+            if rows != self.state.get("bg"):
+                self.state["bg"] = rows
+                self.push_state()
+
+    def bg_note(self, m):
+        """El aviso que la extension manda al agente al terminar una tarea,
+        tambien para quien mira: una nota con su resultado."""
+        d = m.get("details") or {}
+        st = d.get("status")
+        key = {"done": "bg_done", "failed": "bg_failed"}.get(st, "bg_killed")
+        return {"kind": "note", "level": "warn" if st == "failed" else "info",
+                "key": key, "text": text_of(m.get("content")).split("\n")[0],
+                "args": {"id": d.get("id"), "label": d.get("label") or "",
+                         "code": d.get("code")}}
 
     def update_loop(self):
         """Al arrancar y cada hora. Sin red, se calla y conserva lo sabido:
@@ -3835,6 +4095,9 @@ class Bridge:
 
         elif t == "message_end":
             m = ev.get("message") or {}
+            if m.get("role") == "custom" and m.get("customType") == BG_KIND:
+                self.push(self.bg_note(m))
+                return
             if m.get("role") != "assistant":
                 return
             if self.think:
@@ -4314,6 +4577,12 @@ class Bridge:
             role = m.get("role")
             stamp = m.get("timestamp")
 
+            if role == "custom" and m.get("customType") == BG_KIND:
+                note = self.bg_note(m)
+                note["t"] = stamp
+                add(note)
+                continue
+
             if role == "user":
                 text = SUGGEST_HINT_RE.sub("", text_of(m.get("content")))
                 # el prompt inyectado del resumen-al-parar no es del usuario
@@ -4512,6 +4781,41 @@ class Bridge:
                 # el cuestionario manda JSON a pi y un resumen legible al item
                 self.answer(rid, {"value": choice},
                             msg.get("label") or choice)
+            return
+
+        if t == "bg_tasks_set":
+            on = msg.get("on") is True
+            save_bg_tasks(on)
+            self.state["bgTasks"] = on
+            self.push_state()
+            return
+
+        if t in ("bg_perm_status", "bg_perm_add"):
+            if t == "bg_perm_add":
+                err = bg_perm_add()
+                data = dict(bg_perm_status(), error=err) if err \
+                    else bg_perm_status()
+            else:
+                data = bg_perm_status()
+            self.emit({"type": "rpc", "command": t, "data": data})
+            return
+
+        if t == "bg_log":
+            jid = msg.get("id")
+            j = bg_read(jid)
+            if not j or not same_path(j.get("cwd") or "", self.cwd):
+                data = {"id": jid, "error": "no such task in this project"}
+            else:
+                data = dict(bg_view(j), lines=bg_tail(jid, 300))
+            self.emit({"type": "rpc", "command": t, "data": data})
+            return
+
+        if t == "bg_stop":
+            err = bg_stop(self.cwd, msg.get("id"))
+            self.state["bg"] = bg_list(self.cwd)
+            self.push_state()
+            self.emit({"type": "rpc", "command": t,
+                       "data": {"id": msg.get("id"), "error": err}})
             return
 
         if t == "ask_user_set":
@@ -5246,8 +5550,10 @@ class Bridge:
             # de los huerfanos, solo las cabezas: /T se lleva a sus hijos
             orphans = [(pid, name) for pid, name in orphans
                        if alive[pid][1] not in ids]
+            # parar el turno no para las tareas en segundo plano
+            keep = bg_protected(rows)
             killed = [name for pid, name in heads + orphans
-                      if kill_tree(pid)]
+                      if pid not in keep and kill_tree(pid)]
             if killed:
                 self.note("warn", "aggr_killed",
                           "aggressive abort: killed %d stuck process(es): %s"
@@ -5297,6 +5603,7 @@ async def lifespan(app: FastAPI):
     print(f"pi-remote {VERSION}  (project: {bridge.cwd or 'none yet'})")
     if UPDATE_CHECK:
         threading.Thread(target=bridge.update_loop, daemon=True).start()
+    threading.Thread(target=bridge.bg_loop, daemon=True).start()
     if STORE_BASE != "https://pi.dev":
         print("store base: %s" % STORE_BASE)
     if READ_ONLY:

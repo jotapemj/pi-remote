@@ -288,6 +288,19 @@ def turn(text, nimg=0):
         out({"type": "agent_end", "messages": [], "willRetry": False})
         out({"type": "agent_settled"})
         return
+    if "bgnotify" in text:    # la extension de tareas avisa de que una acabo
+        msg = {"role": "custom", "customType": "pi-remote:bg", "display": True,
+               "content": "Background task #7 build: failed (exit code 2) "
+                          "after 3s.\nLast lines of its output:\nerror: x",
+               "details": {"id": 7, "status": "failed", "code": 2,
+                           "label": "build"}}
+        out({"type": "agent_start"})
+        out({"type": "message_start", "message": msg})
+        out({"type": "message_end", "message": msg})
+        say(["Visto: fallo el build."], "Visto: fallo el build.")
+        out({"type": "agent_end", "messages": [], "willRetry": False})
+        out({"type": "agent_settled"})
+        return
     if "cachehit" in text:    # turno de dos llamadas: la segunda tira de cache
         out({"type": "agent_start"})
         out({"type": "message_start",

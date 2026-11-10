@@ -752,6 +752,30 @@ of optional switches, each remembered per browser.
     session is reopened. The tool's description adds a few hundred tokens to
     every request. The setting is stored by the bridge (`askUser` in
     `state.json`) and applies after a restart.
+  - **Background tasks**: the agent can start a long command (a build, the
+    test suite, flashing a board) without waiting for it, keep working or
+    answer you meanwhile, and gets a message when it ends, which starts a turn
+    if it was idle. Ask "how is the build going?" and it reads the task's
+    output. pi remote's own extension (`extensions/background.ts`), loaded
+    with `pi -e` only while this is on, gives it `bg_run`, `bg_list`, `bg_log`
+    (cleaned of colours and progress bars, optionally filtered), `bg_wait`
+    (up to two minutes) and `bg_kill`. Running tasks show as chips above the
+    status bar; tap one for its output and a Stop button.
+    - **Permissions.** `bg_run` runs shell commands but is not called
+      `bash`, so rules written for `bash` would not see it. With
+      `pi-permission-system` installed, turning this on offers to add
+      `shellTools.bg_run` to its config, after which background commands go
+      through exactly the bash rules. Otherwise the extension asks before
+      every command (once, for this session, or deny), and denies when nobody
+      can answer.
+    - **Limits.** Three tasks at a time, always in the project folder; the
+      tools only see and stop the tasks of the open project. Stopping a turn
+      does not stop its tasks (aggressive abort leaves them alone); the chip's
+      Stop does. After five wake-ups in a row with no message from you, the
+      agent is told on its next turn instead of being woken. Finished tasks
+      are kept for seven days in `~/.pi/agent/pi-remote-jobs`.
+    - Tasks are detached from pi: switching project or restarting pi does not
+      stop them, and the next pi picks them up from disk.
   - **Notifications**: a local notification, with the last reply as its body,
     when a turn ends while the tab is hidden. The browser's own; no third
     parties.

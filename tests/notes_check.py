@@ -21,6 +21,9 @@ trash_fn = py[py.index("def trash_session"):py.index("def list_trashed")]
 keys |= {"del_" + w for w in re.findall(r'return "(\w+)"', trash_fn)}
 keys |= {"del_ok"}
 keys.discard("del_")
+# bg_*: el aviso de las tareas en segundo plano lo arma bg_note sin note()
+bg_fn = py[py.index("def bg_note"):py.index("def update_loop")]
+keys |= set(re.findall(r'"(bg_\w+)"', bg_fn))
 
 print("  claves del puente:", len(keys))
 print("  plantillas: en=%d es=%d" % (len(en), len(es)))
