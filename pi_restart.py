@@ -80,10 +80,74 @@ def port_owner():
     return int(x[0]) if x and x[0].isdigit() else None
 
 
+def process_rows():
+    """[(pid, ppid)] de todos los procesos; [] si no se puede leer."""
+    ps = ("Get-CimInstance Win32_Process | ForEach-Object "
+          "{ \"$($_.ProcessId) $($_.ParentProcessId)\" }")
+    try:
+        out = subprocess.run(["powershell", "-NoProfile", "-Command", ps],
+                             capture_output=True, text=True,
+                             timeout=60).stdout
+    except (OSError, subprocess.SubprocessError):
+        return []
+    rows = []
+    for line in out.splitlines():
+        a = line.split()
+        if len(a) == 2 and a[0].isdigit() and a[1].isdigit():
+            rows.append((int(a[0]), int(a[1])))
+    return rows
+
+
+def task_pids():
+    """Los pids de las tareas en segundo plano en marcha (la carpeta y el
+    formato de extensions/background.ts)."""
+    d = Path(os.environ.get("PI_REMOTE_JOBS")
+             or Path.home() / ".pi" / "agent" / "pi-remote-jobs")
+    out = set()
+    if d.is_dir():
+        import json
+        for f in d.glob("*.json"):
+            try:
+                j = json.loads(f.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if j.get("status") == "running" and j.get("pid"):
+                out.add(int(j["pid"]))
+    return out
+
+
 def kill_tree(pid):
-    # Lista, sin shell: /PID y /T llegan a taskkill intactos.
-    subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"],
-                   capture_output=True, text=True)
+    """El arbol del puente, MENOS las tareas en segundo plano y lo que
+    cuelga de ellas: un /restart no debe llevarse una compilacion que el
+    agente dejo corriendo. Sin tareas, el /T de siempre."""
+    keep = task_pids()
+    rows = process_rows() if keep else []
+    if not keep or not rows:
+        # Lista, sin shell: /PID y /T llegan a taskkill intactos.
+        subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"],
+                       capture_output=True, text=True)
+        return
+    kids = {}
+    for p, pp in rows:
+        kids.setdefault(pp, []).append(p)
+    spared, stack = set(), list(keep)
+    while stack:                          # las tareas y sus hijos
+        p = stack.pop()
+        if p not in spared:
+            spared.add(p)
+            stack.extend(kids.get(p, []))
+    doomed, stack = [], [pid]
+    while stack:                          # el arbol del puente sin ellas
+        p = stack.pop()
+        if p in spared or p in doomed:
+            continue
+        doomed.append(p)
+        stack.extend(kids.get(p, []))
+    for p in reversed(doomed):            # de las hojas a la raiz
+        subprocess.run(["taskkill", "/PID", str(p), "/F"],
+                       capture_output=True, text=True)
+    if spared & set(p for p, _ in rows):
+        log("cycle: %d background task(s) left running" % len(keep))
 
 
 def launch():
