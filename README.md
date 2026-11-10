@@ -759,8 +759,15 @@ of optional switches, each remembered per browser.
     output. pi remote's own extension (`extensions/background.ts`), loaded
     with `pi -e` only while this is on, gives it `bg_run`, `bg_list`, `bg_log`
     (cleaned of colours and progress bars, optionally filtered), `bg_wait`
-    (up to two minutes) and `bg_kill`. Running tasks show as chips above the
-    status bar; tap one for its output and a Stop button.
+    (up to two minutes) and `bg_kill`. While any task runs, one line of text at
+    the bottom of the chat says how many ("1 task running"); tap it (or `/tasks`) for
+    the project's tasks: *Running*, each with a stop button, and *Finished*,
+    newest first, foldable, with each task's output a tap away. In the chat,
+    the row of the `bg_run` call follows its task: *Running* while it runs,
+    then how it ended and how long it took; a tap opens its output. It
+    stands on its own instead of folding into a run of tool calls, and it is
+    rebuilt when the session is reopened (the task id is saved in the tool
+    result).
     - **Permissions.** `bg_run` runs shell commands but is not called
       `bash`, so rules written for `bash` would not see it. With
       `pi-permission-system` installed, turning this on offers to add

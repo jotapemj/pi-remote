@@ -45,6 +45,11 @@ def job(d, jid, cwd, status, pid=0, code=None, ended=None, label=None,
             f.write(codefile)
 
 
+def hex_rgb(h):
+    h = h.lstrip("#")
+    return "rgb(%d, %d, %d)" % tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+
+
 def unit():
     rows = [(10, 1, 0, "bash"), (11, 10, 0, "make"), (12, 11, 0, "gcc"),
             (20, 1, 0, "otro")]
@@ -80,46 +85,130 @@ async def in_page():
                 await asyncio.sleep(0.8)
                 await js("setLang('es'); send({type:'open_project', path:%s})"
                          % json.dumps(proj.path))
-                chips = []
+                line = None
                 for _ in range(40):
-                    chips = await js("""[...document.querySelectorAll(
-                      '#bgStrip .bgchip')].map(c => ({cls: c.className,
-                      t: c.textContent, w: c.getBoundingClientRect().width}))""")
-                    if len(chips) == 3:
+                    line = await js("""(() => { const b = $('#bgStrip .bgline');
+                      return b && !$('#bgStrip').hidden ? {t: b.textContent,
+                        h: b.getBoundingClientRect().height,
+                        c: getComputedStyle(b).color,
+                        mint: getComputedStyle(document.documentElement)
+                          .getPropertyValue('--mint').trim(),
+                        n: document.querySelectorAll('#bgStrip .bgline').length}
+                      : null; })()""")
+                    if line:
                         break
                     await asyncio.sleep(0.25)
-                for c in chips:
-                    print("   ", c)
-                cl = [c["cls"].split()[-1] for c in chips]
+                print("  linea:", line)
                 checks += [
-                    ("la tira muestra las de este proyecto, vivas o recientes",
-                     len(chips) == 3 and all(c["w"] > 0 for c in chips)),
-                    ("cada una con su estado (el .code manda sobre el json)",
-                     cl == ["running", "done", "failed"]),
-                    ("la viva da su tiempo y la ultima linea, limpia",
-                     bool(chips) and "en marcha" in chips[0]["t"]
-                     and chips[0]["t"].endswith("ok: modulo a")),
-                    ("la fallida dice su codigo",
-                     len(chips) == 3 and "falló (código 2)" in chips[2]["t"]),
+                    ("una sola linea al fondo, no una pastilla por tarea",
+                     bool(line) and line["n"] == 1 and 0 < line["h"] < 40),
+                    ("solo texto, como Claude: cuantas hay en marcha",
+                     bool(line) and line["t"] == "1 tarea en ejecución"),
+                    ("en el menta de los enlaces, sin un cuarto acento",
+                     bool(line) and line["mint"] != ""
+                     and line["c"] == hex_rgb(line["mint"])),
                 ]
 
-                await js("$('#bgStrip .bgchip').click()")
-                log = None
+                ROWS = """[...document.querySelectorAll('#sheetBody .bgrow')]
+                  .map(r => ({cls: r.className.split(' ').pop(),
+                              t: r.textContent,
+                              stop: !!r.querySelector('.bgstop svg')}))"""
+                await js("$('#bgStrip .bgline').click()")
+                rows = []
                 for _ in range(30):
-                    log = await js("(() => { const l = $('.bglog');"
-                                   " return l ? [l.textContent,"
-                                   " !!$('.fbar button')] : null; })()")
-                    if log:
+                    rows = await js(ROWS)
+                    if rows:
                         break
                     await asyncio.sleep(0.2)
-                print("  hoja:", log)
-                checks.append(("tocarla abre su log limpio y el boton Parar",
-                               bool(log) and log[0] == "100%\nok: modulo a"
-                               and log[1]))
+                heads = await js("[...document.querySelectorAll('#sheetBody"
+                                 " .bghead')].map(h => h.textContent)")
+                for r in rows:
+                    print("   ", r)
+                print("  secciones:", heads)
+                checks += [
+                    ("la linea abre la hoja con En ejecucion y Finalizadas",
+                     heads == ["En ejecución", "Finalizadas 3"]),
+                    ("todo el historial del proyecto, la ultima en acabar arriba",
+                     [r["t"][:2] for r in rows] == ["#1", "#2", "#3", "#5"]),
+                    ("cada fila con su estado (el .code manda sobre el json)",
+                     [r["cls"] for r in rows]
+                     == ["running", "done", "failed", "done"]),
+                    ("la que corre lleva su boton de parar; las demas no",
+                     [r["stop"] for r in rows] == [True, False, False, False]),
+                    ("la fallida dice su codigo",
+                     len(rows) == 4 and "falló (código 2)" in rows[2]["t"]),
+                ]
                 if os.environ.get("PI_SHOT"):
                     await asyncio.sleep(0.6)
                     await p.shot(os.environ["PI_SHOT"])
-                await js("$('.fbar button').click()")
+
+                await js("[...document.querySelectorAll('#sheetBody .bghead')]"
+                         ".pop().click()")
+                await asyncio.sleep(0.3)
+                folded = await js(ROWS)
+                checks.append(("Finalizadas se pliega", len(folded) == 1))
+                await js("[...document.querySelectorAll('#sheetBody .bghead')]"
+                         ".pop().click()")
+                await asyncio.sleep(0.3)
+
+                # la viva: su log limpio; atras vuelve a la lista
+                await js("$('#sheetBody .bgrow.running').click()")
+                log = None
+                for _ in range(30):
+                    log = await js("(() => { const l = $('.bglog');"
+                                   " return l ? l.textContent : null; })()")
+                    if log:
+                        break
+                    await asyncio.sleep(0.2)
+                await js("$('#sheetBack').click()")
+                await asyncio.sleep(0.5)
+                back = await js(ROWS)
+                checks += [
+                    ("tocar la fila abre su log limpio",
+                     log == "100%\nok: modulo a"),
+                    ("y atras vuelve a la lista", len(back) == 4),
+                ]
+
+                # la fila del chat de un bg_run sigue a su tarea (la #1 vive)
+                await js("$('#sheet').classList.remove('open');"
+                         " send({type:'prompt', message:'bgrunrow'})")
+                ROW = """(() => { const b = document.querySelector(
+                  '#feed .bgtool'); if(!b) return null;
+                  return {t: b.textContent, bg: b.dataset.bg,
+                    cls: b.className, shine: !!b.querySelector('.shine'),
+                    grouped: !!b.closest('.toolgroup'),
+                    groups: document.querySelectorAll('#feed .toolgroup').length,
+                    h: b.getBoundingClientRect().height}; })()"""
+                row = None
+                for _ in range(40):
+                    row = await js(ROW)
+                    if row and await js("state.running === false"):
+                        break
+                    await asyncio.sleep(0.25)
+                print("  fila:", row)
+                checks += [
+                    ("la fila de bg_run lleva su tarea y se pinta",
+                     bool(row) and row["bg"] == "1" and row["h"] > 0),
+                    ("mientras corre: Ejecutando, con brillo",
+                     bool(row) and row["t"].startswith("Ejecutando")
+                     and row["shine"] and "#1 tarea 1" in row["t"]),
+                    ("vive sola: no entra en el tramo plegado de los read",
+                     bool(row) and not row["grouped"] and row["groups"] >= 2),
+                ]
+                await js("$('#feed .bgtool').click()")
+                await asyncio.sleep(0.6)
+                opened = await js("[sheetPage, bgId, $('#sheet').classList"
+                                  ".contains('open')]")
+                checks.append(("tocarla abre la salida de su tarea",
+                               opened == ["bgtask", 1, True]))
+                await js("openBgList()")
+                for _ in range(30):
+                    if await js(ROWS):
+                        break
+                    await asyncio.sleep(0.2)
+
+                # parar desde la fila
+                await js("$('#sheetBody .bgstop').click()")
                 await asyncio.sleep(0.3)
                 await js("$('#modalOk').click()")
                 dead = False
@@ -131,13 +220,23 @@ async def in_page():
                 with open(os.path.join(jobs, "1.json"), encoding="utf-8") as f:
                     j1 = json.load(f)
                 await asyncio.sleep(2.5)
-                first = await js("$('#bgStrip .bgchip').textContent")
+                after = await js(ROWS)
+                gone = await js("$('#bgStrip').hidden")
                 checks += [
                     ("parar mata el proceso de verdad", dead),
                     ("y la apunta como parada, sin despertar al agente",
                      j1["status"] == "killed" and j1.get("notified") is True),
-                    ("la tira lo refleja", "parada" in (first or "")),
+                    ("la hoja la pasa a Finalizadas",
+                     not any(r["cls"] == "running" for r in after)
+                     and any(r["t"].startswith("#1") and "parada" in r["t"]
+                             for r in after)),
+                    ("sin nada en marcha, la linea desaparece", gone is True),
                 ]
+                row2 = await js(ROW)
+                checks.append(("la fila del chat pasa a parada, con lo que duro",
+                               bool(row2) and row2["t"].startswith("parada")
+                               and not row2["shine"]))
+                await js("$('#sheet').classList.remove('open')")
 
                 ajena = await js("""new Promise(r => {
                   const om = ws.onmessage;

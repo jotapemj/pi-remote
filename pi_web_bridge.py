@@ -1515,9 +1515,9 @@ def bg_view(j):
             "started": j.get("started"), "ended": ended, "pid": j.get("pid")}
 
 
-def bg_list(cwd):
-    """Las tareas de esta carpeta para el panel: las vivas y las que
-    terminaron hace poco, con su ultima linea."""
+def bg_list(cwd, recent=BG_RECENT):
+    """Las tareas de esta carpeta con su ultima linea: las vivas y las que
+    terminaron hace menos de `recent` s (None: todas, para la hoja)."""
     d = bg_dir()
     if not cwd or not d.is_dir():
         return []
@@ -1530,11 +1530,22 @@ def bg_list(cwd):
         if not same_path(j.get("cwd") or "", cwd):
             continue
         v = bg_view(j)
-        if v["status"] != "running" and now - (v["ended"] or 0) > BG_RECENT * 1000:
+        if (recent is not None and v["status"] != "running"
+                and now - (v["ended"] or 0) > recent * 1000):
             continue
-        v["last"] = (bg_tail(v["id"], 1) or [""])[0][-160:]
+        v["last"] = ((bg_tail(v["id"], 1) or [""])[0][-160:]
+                     if v["status"] == "running" else "")
         out.append(v)
     return sorted(out, key=lambda v: v["id"] or 0)
+
+
+def bg_task_id(tool, result):
+    """El id de la tarea que lanzo un bg_run: va en el `details` de su
+    resultado (en vivo y en el .jsonl). None si no lanzo nada (denegado)."""
+    if tool != "bg_run" or not isinstance(result, dict):
+        return None
+    tid = (result.get("details") or {}).get("id")
+    return tid if isinstance(tid, int) else None
 
 
 def bg_running_pids():
@@ -3737,7 +3748,7 @@ class Bridge:
                           context=None, sessionName=None, waiting=False,
                           recent=remember(cwd), loading=True,
                           askUserLive=ask, changes=None, bgTasksLive=bgx,
-                          bg=bg_list(cwd))
+                          bg=bg_list(cwd, None))
         self.refresh_proj_state()
         self.refresh_changes()
         threading.Thread(target=self.reader, args=(self.proc, self.gen),
@@ -3863,7 +3874,7 @@ class Bridge:
         while True:
             time.sleep(2)
             try:
-                rows = bg_list(self.cwd)
+                rows = bg_list(self.cwd, None)
             except Exception as e:                    # noqa: BLE001
                 print("bg:", e, file=sys.stderr)
                 continue
@@ -4160,6 +4171,9 @@ class Bridge:
                     imgs = images_of(content)      # p.ej. read de una imagen
                     if imgs:
                         fields["images"] = imgs
+                    tid = bg_task_id(item.get("name"), ev.get("result"))
+                    if tid:                  # la fila sigue a su tarea
+                        fields["bgTask"] = tid
                     self.patch(item, **fields)
                     break
             self.state["tool"] = None
@@ -4644,6 +4658,9 @@ class Bridge:
                     item.update(status=status, output=out)
                     if imgs:
                         item["images"] = imgs
+                    tid = bg_task_id(m.get("toolName"), m)
+                    if tid:
+                        item["bgTask"] = tid
                 else:                       # result without its call in range
                     it = {"kind": "tool", "name": m.get("toolName"),
                           "status": status, "output": out, "t": stamp}
@@ -4800,6 +4817,11 @@ class Bridge:
             self.emit({"type": "rpc", "command": t, "data": data})
             return
 
+        if t == "bg_all":
+            self.emit({"type": "rpc", "command": t,
+                       "data": {"tasks": bg_list(self.cwd, None)}})
+            return
+
         if t == "bg_log":
             jid = msg.get("id")
             j = bg_read(jid)
@@ -4812,7 +4834,7 @@ class Bridge:
 
         if t == "bg_stop":
             err = bg_stop(self.cwd, msg.get("id"))
-            self.state["bg"] = bg_list(self.cwd)
+            self.state["bg"] = bg_list(self.cwd, None)
             self.push_state()
             self.emit({"type": "rpc", "command": t,
                        "data": {"id": msg.get("id"), "error": err}})

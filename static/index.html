@@ -904,26 +904,46 @@ html.hide-think .think-turn{display:none}
 .pdfp{width:100%; background:#fff; border:1px solid var(--rule);
   border-radius:4px; overflow:hidden}
 .pdfp canvas{display:block; width:100%; height:auto}
-/* tareas en segundo plano: una pastilla por tarea encima de la lectura */
-.bgstrip{display:flex; gap:8px; overflow-x:auto; margin:0 0 8px;
-  scrollbar-width:none}
-.bgstrip::-webkit-scrollbar{display:none}
+/* tareas en segundo plano: una sola linea de texto al pie del chat
+   mientras haya alguna en marcha, como Claude Code. En menta: el color de lo
+   que se toca (los enlaces), sin un cuarto acento. Abre la hoja de tareas */
 .bgstrip[hidden]{display:none}
-.bgchip{flex:0 0 auto; max-width:min(78vw, 300px); display:flex;
-  align-items:center; gap:8px; background:var(--raise);
-  border:1px solid var(--rule); border-radius:10px; padding:6px 10px;
-  color:var(--ink); cursor:pointer; text-align:left}
+.bgline{display:block; margin:0 0 8px; padding:4px 2px; background:none;
+  border:none; cursor:pointer; color:var(--mint); text-align:left;
+  font:500 14px/1.3 var(--sans)}
+.bgline:hover{text-decoration:underline}
 .bgd{flex:none; width:8px; height:8px; border-radius:50%;
   background:var(--faint)}
-.bgchip.running .bgd{background:var(--amber);
+.bgrow.running .bgd{background:var(--amber);
   animation:prefillBlink 1.6s cubic-bezier(.45,0,.15,1) infinite}
-.bgchip.done .bgd{background:var(--mint)}
-.bgchip.failed .bgd{background:var(--coral)}
-.bgt{min-width:0; display:flex; flex-direction:column; gap:3px}
-.bgt b, .bgt small{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.bgt b{font:500 12px/1.2 var(--mono)}
-.bgt small{font:400 11px/1.2 var(--mono); color:var(--faint);
-  font-variant-numeric:tabular-nums}
+.bgrow.done .bgd{background:var(--mint)}
+.bgrow.failed .bgd{background:var(--coral)}
+/* la hoja: secciones plegables y filas como las de Cambios */
+.bghead{display:flex; align-items:center; gap:6px; width:100%;
+  background:none; border:none; cursor:pointer; padding:14px 2px 8px;
+  color:var(--dim); font:500 12px/1 var(--sans); text-align:left}
+.bghead .i{width:16px; height:16px; transform:rotate(90deg); transition:transform .2s ease}
+.bghead.folded .i{transform:none}
+.bgrow{display:flex; align-items:center; gap:10px; width:100%;
+  min-height:52px; background:none; border:none;
+  border-top:1px solid var(--rule); padding:8px 2px; color:var(--ink);
+  cursor:pointer; text-align:left}
+.bgrow:hover{background:var(--raise)}
+.bgrow .chp small{font-variant-numeric:tabular-nums}
+.bgrow > .ch{width:18px; height:18px; color:var(--faint); flex:none}
+.bgstop{flex:none; display:flex; padding:6px; border-radius:8px;
+  color:var(--dim)}
+.bgstop:hover{color:var(--coral); background:var(--surface)}
+.bgstop .i{width:20px; height:20px}
+/* la fila del chat de un bg_run: terminal, que hace y la tarea */
+.bgtool{display:flex; align-items:center; gap:8px; width:100%;
+  background:none; border:none; padding:6px 0; cursor:pointer;
+  color:var(--dim); text-align:left; font:400 14px/1.4 var(--sans)}
+.bgtool > .i{flex:none; width:18px; height:18px}
+.bgtool > .ch{width:16px; height:16px; color:var(--faint); margin-left:auto}
+.bgtx{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.bgtool .bgl{font-family:var(--mono); font-size:13px; color:var(--faint)}
+.bgtool.failed .bgtx > span:first-child{color:var(--coral)}
 .bglog{border:1px solid var(--rule); border-radius:6px; padding:8px 10px;
   font:400 12px/1.5 var(--mono); white-space:pre-wrap; word-break:break-word}
 .bgperm{display:flex; gap:8px; align-items:flex-start; margin-top:10px;
@@ -3725,7 +3745,10 @@ function render(item){
   const fresh = !el;
   if(!el){
     // el thinking es transparente: no cierra el tramo de herramientas
-    if(item.kind !== "tool" && item.kind !== "thinking") groupToolRun(false);
+    // y la fila de una tarea en segundo plano, que vive sola, tampoco abre
+    // ni alarga un tramo: lo cierra como lo haria el texto
+    if((item.kind !== "tool" && item.kind !== "thinking")
+       || item.name === "bg_run") groupToolRun(false);
     const t = +item.t || 0;
     if(item.kind === "user" && sepNeeded(convT, t)){
       const sep = timeSep(t);
@@ -3775,7 +3798,8 @@ function render(item){
    con la misma fila que un tramo, una sola forma para todo. El /bash del
    usuario no es un paso: es su mano y se ve entero. */
 const isStep = el => el && el.__item &&
-  ((el.__item.kind === "tool" && el.__item.name !== "bash (direct)")
+  ((el.__item.kind === "tool" && el.__item.name !== "bash (direct)"
+    && el.__item.name !== "bg_run")    // la fila de la tarea vive sola
    || el.__item.kind === "thinking");
 function groupToolRun(live){
   const run = [];
@@ -4074,6 +4098,7 @@ function html(it){
     return `<div class="note ${it.level||""}${it.key==="compacting"?" busy":""}">`
          + ico(NOTE_ICON[it.level] || "info")
          + `<span>${esc(noteText(it))}</span></div>`;
+  if(it.kind === "tool" && it.bgTask) return bgToolHtml(it);
   if(it.kind === "tool"){
     const done = it.status && it.status !== "running";
     // el comando completo va en el cuerpo (con ajuste de linea): el titulo
@@ -5972,6 +5997,8 @@ const CMDS = [
                 run:()=>openChanges("changes")},
   {n:"files",   h:"Browse the project files", hEs:"Ver los ficheros del proyecto",
                 run:()=>openChanges("files")},
+  {n:"tasks",   h:"Background tasks of this project", hEs:"Tareas en segundo plano del proyecto",
+                run:()=>openBgList()},
   {n:"tree",    h:"See every branch of the session", hEs:"Ver todas las ramas de la sesi\u00f3n",
                 run:()=>openTree()},
   {n:"cwd",     h:"Show the working directory", hEs:"Mostrar el directorio de trabajo",       run:()=>note(CWD||"unknown")},
@@ -6912,7 +6939,7 @@ const STR = {
       pasted:"Pasted text {n} lines", prefilling:"prefilling",
       ranOne:"ran 1 command", ranMany:"ran {n} commands", readOne:"read {f}", readMany:"read {n} files", editOne:"edited {f}", editMany:"edited {n} files",
       statsTitle:"Response stats", stGen:"Generation", stPrompt:"Prompt",
-      stCache:"Cached", tokTip:"Turn tokens: ↑ prompt read, ↓ generated, R from cache", bgTasks:"Background tasks", bgTasksWarn:"The agent gets tools to start long commands (builds, tests, flashing) without waiting for them, check on them and stop them, and is told when they end. Their descriptions add a few hundred tokens to every request. Applies after restarting pi remote.", bgPermCovered:"pi-permission-system checks these commands with your bash rules.", bgPermOffer:"pi-permission-system is installed, but it does not know that bg_run runs commands, so your bash rules would not apply to it.", bgPermAdd:"Apply the bash rules to background tasks (adds bg_run to its shellTools)", bgPermManual:"pi-permission-system's config has comments and is not edited automatically. Add \"shellTools\": {\"bg_run\": {\"commandArgument\": \"command\"}} to it so the bash rules apply. Meanwhile, every background command asks first.", bgPermNone:"With no permissions extension installed, every background command asks for confirmation first.", bgStop:"Stop", bgStopQ:"Stop task #{id}?", bgRunning:"running \u00b7 {t}", bgDoneS:"finished", bgFailedS:"failed (exit {code})", bgKilledS:"stopped", bgNoOut:"No output yet.", zoomIn:"Zoom in", zoomOut:"Zoom out", zoomReset:"Fit to width", pdfPages:"{n} pages", pdfFail:"Could not open this PDF.", worktrees:"Worktrees", newWorktree:"New worktree", branchName:"Branch (new or existing)", create:"Create", wtOpen:"open", wtMain:"main", wtDetached:"(detached)", wtRemove:"Remove worktree", wtRemoveQ:"Remove the {name} worktree?", wtRemoveB:"Its folder is deleted; the branch stays. git refuses if it has uncommitted changes.", sessTree:"Session tree", treeHint:"Every branch of this conversation. Dimmed messages belong to branches left behind; tap one of your messages on the active branch to fork from it.", treeBranch:"Branch", treeYou:"Your message", treeAgent:"Reply", files:"Files", emptyDir:"Empty folder.", emptyFile:"Empty file.", insertPath:"Add path to message", moreEntries:"{n} more not shown.", fileTruncated:"Only the first 5,000 lines are shown.", changes:"Changes", gitLoading:"Reading the repository\u2026", notRepo:"This folder is not in a git repository.", noChanges:"No changes.", binaryFile:"Binary file: no text diff.", bigFile:"File too large to show.", diffTruncated:"Diff cut off: it is too long to show whole.", stReason:"Reasoning", stTotal:"Total", stCost:"Cost",
+      stCache:"Cached", tokTip:"Turn tokens: ↑ prompt read, ↓ generated, R from cache", bgExec:"Running", bgBg:"In the background", bgRun1:"1 task running", bgRunN:"{n} tasks running", bgRunSec:"Running", bgDoneSec:"Finished {n}", bgNone:"No background tasks in this project.", bgTasks:"Background tasks", bgTasksWarn:"The agent gets tools to start long commands (builds, tests, flashing) without waiting for them, check on them and stop them, and is told when they end. Their descriptions add a few hundred tokens to every request. Applies after restarting pi remote.", bgPermCovered:"pi-permission-system checks these commands with your bash rules.", bgPermOffer:"pi-permission-system is installed, but it does not know that bg_run runs commands, so your bash rules would not apply to it.", bgPermAdd:"Apply the bash rules to background tasks (adds bg_run to its shellTools)", bgPermManual:"pi-permission-system's config has comments and is not edited automatically. Add \"shellTools\": {\"bg_run\": {\"commandArgument\": \"command\"}} to it so the bash rules apply. Meanwhile, every background command asks first.", bgPermNone:"With no permissions extension installed, every background command asks for confirmation first.", bgStop:"Stop", bgStopQ:"Stop task #{id}?", bgRunning:"running \u00b7 {t}", bgDoneS:"finished", bgFailedS:"failed (exit {code})", bgKilledS:"stopped", bgNoOut:"No output yet.", zoomIn:"Zoom in", zoomOut:"Zoom out", zoomReset:"Fit to width", pdfPages:"{n} pages", pdfFail:"Could not open this PDF.", worktrees:"Worktrees", newWorktree:"New worktree", branchName:"Branch (new or existing)", create:"Create", wtOpen:"open", wtMain:"main", wtDetached:"(detached)", wtRemove:"Remove worktree", wtRemoveQ:"Remove the {name} worktree?", wtRemoveB:"Its folder is deleted; the branch stays. git refuses if it has uncommitted changes.", sessTree:"Session tree", treeHint:"Every branch of this conversation. Dimmed messages belong to branches left behind; tap one of your messages on the active branch to fork from it.", treeBranch:"Branch", treeYou:"Your message", treeAgent:"Reply", files:"Files", emptyDir:"Empty folder.", emptyFile:"Empty file.", insertPath:"Add path to message", moreEntries:"{n} more not shown.", fileTruncated:"Only the first 5,000 lines are shown.", changes:"Changes", gitLoading:"Reading the repository\u2026", notRepo:"This folder is not in a git repository.", noChanges:"No changes.", binaryFile:"Binary file: no text diff.", bigFile:"File too large to show.", diffTruncated:"Diff cut off: it is too long to show whole.", stReason:"Reasoning", stTotal:"Total", stCost:"Cost",
       tps:"tok/s", tks:"tokens"},
   es:{menu:"men\u00fa", send:"enviar", stop:"parar",
       addProject:"A\u00f1adir proyecto",
@@ -7071,7 +7098,7 @@ const STR = {
       motion_fade:"Fundido", motion_instant:"Directo", image:"Imagen", camera:"Cámara",
       ranOne:"ejecutó 1 comando", ranMany:"ejecutó {n} comandos", readOne:"leyó {f}", readMany:"leyó {n} ficheros", editOne:"editó {f}", editMany:"editó {n} ficheros",
       statsTitle:"Estad\u00edsticas de respuesta", stGen:"Generaci\u00f3n",
-      stPrompt:"Prompt", stCache:"En cach\u00e9", tokTip:"Tokens del turno: ↑ prompt le\u00eddo, ↓ generados, R desde cach\u00e9", bgTasks:"Tareas en segundo plano", bgTasksWarn:"El agente recibe herramientas para lanzar comandos largos (compilaciones, tests, flasheos) sin esperarlos, consultarlos y pararlos, y recibe un aviso cuando terminan. Sus descripciones a\u00f1aden unos cientos de tokens a cada petici\u00f3n. Se aplica al reiniciar pi remote.", bgPermCovered:"pi-permission-system revisa estos comandos con las reglas de bash.", bgPermOffer:"pi-permission-system est\u00e1 instalado, pero no sabe que bg_run ejecuta comandos: las reglas de bash no se le aplicar\u00edan.", bgPermAdd:"Aplicar las reglas de bash a las tareas en segundo plano (a\u00f1ade bg_run a su shellTools)", bgPermManual:"La configuraci\u00f3n de pi-permission-system tiene comentarios y no se edita sola. A\u00f1ade \"shellTools\": {\"bg_run\": {\"commandArgument\": \"command\"}} para que se apliquen las reglas de bash. Mientras tanto, cada comando en segundo plano pide confirmaci\u00f3n.", bgPermNone:"Sin una extensi\u00f3n de permisos instalada, cada comando en segundo plano pide confirmaci\u00f3n antes.", bgStop:"Parar", bgStopQ:"\u00bfParar la tarea #{id}?", bgRunning:"en marcha \u00b7 {t}", bgDoneS:"terminada", bgFailedS:"fall\u00f3 (c\u00f3digo {code})", bgKilledS:"parada", bgNoOut:"A\u00fan sin salida.", zoomIn:"Acercar", zoomOut:"Alejar", zoomReset:"Ajustar al ancho", pdfPages:"{n} p\u00e1ginas", pdfFail:"No se pudo abrir este PDF.", worktrees:"Worktrees", newWorktree:"Worktree nuevo", branchName:"Rama (nueva o existente)", create:"Crear", wtOpen:"abierto", wtMain:"principal", wtDetached:"(sin rama)", wtRemove:"Quitar worktree", wtRemoveQ:"\u00bfQuitar el worktree {name}?", wtRemoveB:"Se borra su carpeta; la rama se queda. git se niega si tiene cambios sin commitear.", sessTree:"\u00c1rbol de la sesi\u00f3n", treeHint:"Todas las ramas de esta conversaci\u00f3n. Lo atenuado son ramas que se dejaron; tocar un mensaje propio de la rama activa ramifica desde \u00e9l.", treeBranch:"Rama", treeYou:"Mensaje propio", treeAgent:"Respuesta", files:"Ficheros", emptyDir:"Carpeta vac\u00eda.", emptyFile:"Fichero vac\u00edo.", insertPath:"A\u00f1adir ruta al mensaje", moreEntries:"{n} m\u00e1s sin mostrar.", fileTruncated:"Solo se muestran las primeras 5.000 l\u00edneas.", changes:"Cambios", gitLoading:"Leyendo el repositorio\u2026", notRepo:"Esta carpeta no est\u00e1 en un repositorio git.", noChanges:"Sin cambios.", binaryFile:"Fichero binario: sin diff de texto.", bigFile:"Fichero demasiado grande para mostrarlo.", diffTruncated:"Diff recortado: es demasiado largo para mostrarlo entero.", stReason:"Razonamiento",
+      stPrompt:"Prompt", stCache:"En cach\u00e9", tokTip:"Tokens del turno: ↑ prompt le\u00eddo, ↓ generados, R desde cach\u00e9", bgExec:"Ejecutando", bgBg:"En segundo plano", bgRun1:"1 tarea en ejecuci\u00f3n", bgRunN:"{n} tareas en ejecuci\u00f3n", bgRunSec:"En ejecuci\u00f3n", bgDoneSec:"Finalizadas {n}", bgNone:"No hay tareas en segundo plano en este proyecto.", bgTasks:"Tareas en segundo plano", bgTasksWarn:"El agente recibe herramientas para lanzar comandos largos (compilaciones, tests, flasheos) sin esperarlos, consultarlos y pararlos, y recibe un aviso cuando terminan. Sus descripciones a\u00f1aden unos cientos de tokens a cada petici\u00f3n. Se aplica al reiniciar pi remote.", bgPermCovered:"pi-permission-system revisa estos comandos con las reglas de bash.", bgPermOffer:"pi-permission-system est\u00e1 instalado, pero no sabe que bg_run ejecuta comandos: las reglas de bash no se le aplicar\u00edan.", bgPermAdd:"Aplicar las reglas de bash a las tareas en segundo plano (a\u00f1ade bg_run a su shellTools)", bgPermManual:"La configuraci\u00f3n de pi-permission-system tiene comentarios y no se edita sola. A\u00f1ade \"shellTools\": {\"bg_run\": {\"commandArgument\": \"command\"}} para que se apliquen las reglas de bash. Mientras tanto, cada comando en segundo plano pide confirmaci\u00f3n.", bgPermNone:"Sin una extensi\u00f3n de permisos instalada, cada comando en segundo plano pide confirmaci\u00f3n antes.", bgStop:"Parar", bgStopQ:"\u00bfParar la tarea #{id}?", bgRunning:"en marcha \u00b7 {t}", bgDoneS:"terminada", bgFailedS:"fall\u00f3 (c\u00f3digo {code})", bgKilledS:"parada", bgNoOut:"A\u00fan sin salida.", zoomIn:"Acercar", zoomOut:"Alejar", zoomReset:"Ajustar al ancho", pdfPages:"{n} p\u00e1ginas", pdfFail:"No se pudo abrir este PDF.", worktrees:"Worktrees", newWorktree:"Worktree nuevo", branchName:"Rama (nueva o existente)", create:"Crear", wtOpen:"abierto", wtMain:"principal", wtDetached:"(sin rama)", wtRemove:"Quitar worktree", wtRemoveQ:"\u00bfQuitar el worktree {name}?", wtRemoveB:"Se borra su carpeta; la rama se queda. git se niega si tiene cambios sin commitear.", sessTree:"\u00c1rbol de la sesi\u00f3n", treeHint:"Todas las ramas de esta conversaci\u00f3n. Lo atenuado son ramas que se dejaron; tocar un mensaje propio de la rama activa ramifica desde \u00e9l.", treeBranch:"Rama", treeYou:"Mensaje propio", treeAgent:"Respuesta", files:"Ficheros", emptyDir:"Carpeta vac\u00eda.", emptyFile:"Fichero vac\u00edo.", insertPath:"A\u00f1adir ruta al mensaje", moreEntries:"{n} m\u00e1s sin mostrar.", fileTruncated:"Solo se muestran las primeras 5.000 l\u00edneas.", changes:"Cambios", gitLoading:"Leyendo el repositorio\u2026", notRepo:"Esta carpeta no est\u00e1 en un repositorio git.", noChanges:"Sin cambios.", binaryFile:"Fichero binario: sin diff de texto.", bigFile:"Fichero demasiado grande para mostrarlo.", diffTruncated:"Diff recortado: es demasiado largo para mostrarlo entero.", stReason:"Razonamiento",
       stTotal:"Total", stCost:"Coste", tps:"tok/s", tks:"tokens"},
   de:{menu:"Men\u00fc", send:"senden", stop:"stopp",
       addProject:"Projekt hinzuf\u00fcgen",
@@ -7233,7 +7260,7 @@ const STR = {
       motion_fade:"Einblenden", motion_instant:"Sofort", image:"Bild", camera:"Kamera",
       ranOne:"1 Befehl ausgeführt", ranMany:"{n} Befehle ausgeführt", readOne:"{f} gelesen", readMany:"{n} Dateien gelesen", editOne:"{f} bearbeitet", editMany:"{n} Dateien bearbeitet",
       statsTitle:"Antwort-Statistik", stGen:"Generierung",
-      stPrompt:"Prompt", stCache:"Zwischengespeichert", tokTip:"Tokens der Runde: ↑ Prompt gelesen, ↓ erzeugt, R aus dem Cache", bgTasks:"Hintergrundaufgaben", bgTasksWarn:"Der Agent erh\u00e4lt Werkzeuge, um lange Befehle (Builds, Tests, Flashen) zu starten, ohne darauf zu warten, sie abzufragen und zu stoppen, und wird benachrichtigt, wenn sie enden. Ihre Beschreibungen f\u00fcgen jeder Anfrage einige hundert Tokens hinzu. Wird nach dem Neustart von pi remote wirksam.", bgPermCovered:"pi-permission-system pr\u00fcft diese Befehle mit den Bash-Regeln.", bgPermOffer:"pi-permission-system ist installiert, wei\u00df aber nicht, dass bg_run Befehle ausf\u00fchrt: Die Bash-Regeln w\u00fcrden nicht greifen.", bgPermAdd:"Bash-Regeln auf Hintergrundaufgaben anwenden (f\u00fcgt bg_run zu shellTools hinzu)", bgPermManual:"Die Konfiguration von pi-permission-system enth\u00e4lt Kommentare und wird nicht automatisch bearbeitet. \"shellTools\": {\"bg_run\": {\"commandArgument\": \"command\"}} hinzuf\u00fcgen, damit die Bash-Regeln greifen. Bis dahin fragt jeder Hintergrundbefehl nach.", bgPermNone:"Ohne installierte Berechtigungserweiterung fragt jeder Hintergrundbefehl vorher nach.", bgStop:"Stoppen", bgStopQ:"Aufgabe #{id} stoppen?", bgRunning:"l\u00e4uft \u00b7 {t}", bgDoneS:"fertig", bgFailedS:"fehlgeschlagen (Code {code})", bgKilledS:"gestoppt", bgNoOut:"Noch keine Ausgabe.", zoomIn:"Vergr\u00f6\u00dfern", zoomOut:"Verkleinern", zoomReset:"An Breite anpassen", pdfPages:"{n} Seiten", pdfFail:"Dieses PDF lie\u00df sich nicht \u00f6ffnen.", worktrees:"Worktrees", newWorktree:"Neuer Worktree", branchName:"Branch (neu oder vorhanden)", create:"Erstellen", wtOpen:"offen", wtMain:"Haupt", wtDetached:"(losgel\u00f6st)", wtRemove:"Worktree entfernen", wtRemoveQ:"Worktree {name} entfernen?", wtRemoveB:"Sein Ordner wird gel\u00f6scht; der Branch bleibt. git verweigert es bei nicht committeten \u00c4nderungen.", sessTree:"Sitzungsbaum", treeHint:"Alle Zweige dieser Unterhaltung. Abgeblendet sind verlassene Zweige; eine eigene Nachricht im aktiven Zweig antippen, um davon abzuzweigen.", treeBranch:"Zweig", treeYou:"Eigene Nachricht", treeAgent:"Antwort", files:"Dateien", emptyDir:"Leerer Ordner.", emptyFile:"Leere Datei.", insertPath:"Pfad zur Nachricht hinzuf\u00fcgen", moreEntries:"{n} weitere nicht angezeigt.", fileTruncated:"Nur die ersten 5.000 Zeilen werden angezeigt.", changes:"\u00c4nderungen", gitLoading:"Repository wird gelesen\u2026", notRepo:"Dieser Ordner liegt in keinem Git-Repository.", noChanges:"Keine \u00c4nderungen.", binaryFile:"Bin\u00e4rdatei: kein Text-Diff.", bigFile:"Datei zu gro\u00df f\u00fcr die Anzeige.", diffTruncated:"Diff gek\u00fcrzt: zu lang f\u00fcr die vollst\u00e4ndige Anzeige.",
+      stPrompt:"Prompt", stCache:"Zwischengespeichert", tokTip:"Tokens der Runde: ↑ Prompt gelesen, ↓ erzeugt, R aus dem Cache", bgExec:"L\u00e4uft", bgBg:"Im Hintergrund", bgRun1:"1 Aufgabe l\u00e4uft", bgRunN:"{n} Aufgaben laufen", bgRunSec:"Laufend", bgDoneSec:"Beendet {n}", bgNone:"Keine Hintergrundaufgaben in diesem Projekt.", bgTasks:"Hintergrundaufgaben", bgTasksWarn:"Der Agent erh\u00e4lt Werkzeuge, um lange Befehle (Builds, Tests, Flashen) zu starten, ohne darauf zu warten, sie abzufragen und zu stoppen, und wird benachrichtigt, wenn sie enden. Ihre Beschreibungen f\u00fcgen jeder Anfrage einige hundert Tokens hinzu. Wird nach dem Neustart von pi remote wirksam.", bgPermCovered:"pi-permission-system pr\u00fcft diese Befehle mit den Bash-Regeln.", bgPermOffer:"pi-permission-system ist installiert, wei\u00df aber nicht, dass bg_run Befehle ausf\u00fchrt: Die Bash-Regeln w\u00fcrden nicht greifen.", bgPermAdd:"Bash-Regeln auf Hintergrundaufgaben anwenden (f\u00fcgt bg_run zu shellTools hinzu)", bgPermManual:"Die Konfiguration von pi-permission-system enth\u00e4lt Kommentare und wird nicht automatisch bearbeitet. \"shellTools\": {\"bg_run\": {\"commandArgument\": \"command\"}} hinzuf\u00fcgen, damit die Bash-Regeln greifen. Bis dahin fragt jeder Hintergrundbefehl nach.", bgPermNone:"Ohne installierte Berechtigungserweiterung fragt jeder Hintergrundbefehl vorher nach.", bgStop:"Stoppen", bgStopQ:"Aufgabe #{id} stoppen?", bgRunning:"l\u00e4uft \u00b7 {t}", bgDoneS:"fertig", bgFailedS:"fehlgeschlagen (Code {code})", bgKilledS:"gestoppt", bgNoOut:"Noch keine Ausgabe.", zoomIn:"Vergr\u00f6\u00dfern", zoomOut:"Verkleinern", zoomReset:"An Breite anpassen", pdfPages:"{n} Seiten", pdfFail:"Dieses PDF lie\u00df sich nicht \u00f6ffnen.", worktrees:"Worktrees", newWorktree:"Neuer Worktree", branchName:"Branch (neu oder vorhanden)", create:"Erstellen", wtOpen:"offen", wtMain:"Haupt", wtDetached:"(losgel\u00f6st)", wtRemove:"Worktree entfernen", wtRemoveQ:"Worktree {name} entfernen?", wtRemoveB:"Sein Ordner wird gel\u00f6scht; der Branch bleibt. git verweigert es bei nicht committeten \u00c4nderungen.", sessTree:"Sitzungsbaum", treeHint:"Alle Zweige dieser Unterhaltung. Abgeblendet sind verlassene Zweige; eine eigene Nachricht im aktiven Zweig antippen, um davon abzuzweigen.", treeBranch:"Zweig", treeYou:"Eigene Nachricht", treeAgent:"Antwort", files:"Dateien", emptyDir:"Leerer Ordner.", emptyFile:"Leere Datei.", insertPath:"Pfad zur Nachricht hinzuf\u00fcgen", moreEntries:"{n} weitere nicht angezeigt.", fileTruncated:"Nur die ersten 5.000 Zeilen werden angezeigt.", changes:"\u00c4nderungen", gitLoading:"Repository wird gelesen\u2026", notRepo:"Dieser Ordner liegt in keinem Git-Repository.", noChanges:"Keine \u00c4nderungen.", binaryFile:"Bin\u00e4rdatei: kein Text-Diff.", bigFile:"Datei zu gro\u00df f\u00fcr die Anzeige.", diffTruncated:"Diff gek\u00fcrzt: zu lang f\u00fcr die vollst\u00e4ndige Anzeige.",
       stReason:"Gedankengang", stTotal:"Gesamt", stCost:"Kosten",
       tps:"Tok/s", tks:"Tokens"},
   fr:{menu:"menu", send:"envoyer", stop:"arr\u00eater",
@@ -7393,7 +7420,7 @@ const STR = {
       motion_fade:"fondu", motion_instant:"instantan\u00e9", image:"image", camera:"caméra",
       ranOne:"1 commande exécutée", ranMany:"{n} commandes exécutées", readOne:"{f} lu", readMany:"{n} fichiers lus", editOne:"{f} modifié", editMany:"{n} fichiers modifiés",
       statsTitle:"Statistiques de la r\u00e9ponse", stGen:"G\u00e9n\u00e9ration",
-      stPrompt:"Invite", stCache:"Mis en cache", tokTip:"Jetons du tour : ↑ invite lue, ↓ g\u00e9n\u00e9r\u00e9s, R depuis le cache", bgTasks:"T\u00e2ches en arri\u00e8re-plan", bgTasksWarn:"L\u2019agent re\u00e7oit des outils pour lancer des commandes longues (compilations, tests, flashage) sans les attendre, les consulter et les arr\u00eater, et il est pr\u00e9venu quand elles se terminent. Leurs descriptions ajoutent quelques centaines de tokens \u00e0 chaque requ\u00eate. S\u2019applique au red\u00e9marrage de pi remote.", bgPermCovered:"pi-permission-system contr\u00f4le ces commandes avec les r\u00e8gles bash.", bgPermOffer:"pi-permission-system est install\u00e9, mais il ne sait pas que bg_run ex\u00e9cute des commandes : les r\u00e8gles bash ne s\u2019y appliqueraient pas.", bgPermAdd:"Appliquer les r\u00e8gles bash aux t\u00e2ches en arri\u00e8re-plan (ajoute bg_run \u00e0 shellTools)", bgPermManual:"La configuration de pi-permission-system contient des commentaires et n\u2019est pas modifi\u00e9e automatiquement. Ajouter \"shellTools\": {\"bg_run\": {\"commandArgument\": \"command\"}} pour que les r\u00e8gles bash s\u2019appliquent. En attendant, chaque commande en arri\u00e8re-plan demande une confirmation.", bgPermNone:"Sans extension de permissions install\u00e9e, chaque commande en arri\u00e8re-plan demande une confirmation.", bgStop:"Arr\u00eater", bgStopQ:"Arr\u00eater la t\u00e2che n\u00b0{id} ?", bgRunning:"en cours \u00b7 {t}", bgDoneS:"termin\u00e9e", bgFailedS:"\u00e9chec (code {code})", bgKilledS:"arr\u00eat\u00e9e", bgNoOut:"Pas encore de sortie.", zoomIn:"Agrandir", zoomOut:"R\u00e9duire", zoomReset:"Ajuster \u00e0 la largeur", pdfPages:"{n} pages", pdfFail:"Impossible d'ouvrir ce PDF.", worktrees:"Worktrees", newWorktree:"Nouveau worktree", branchName:"Branche (nouvelle ou existante)", create:"Cr\u00e9er", wtOpen:"ouvert", wtMain:"principal", wtDetached:"(d\u00e9tach\u00e9)", wtRemove:"Retirer le worktree", wtRemoveQ:"Retirer le worktree {name} ?", wtRemoveB:"Son dossier est supprim\u00e9 ; la branche reste. git refuse s'il a des modifications non commit\u00e9es.", sessTree:"Arbre de la session", treeHint:"Toutes les branches de cette conversation. En gris\u00e9, les branches abandonn\u00e9es ; toucher un de ses messages sur la branche active cr\u00e9e une branche \u00e0 partir de lui.", treeBranch:"Branche", treeYou:"Message envoy\u00e9", treeAgent:"R\u00e9ponse", files:"Fichiers", emptyDir:"Dossier vide.", emptyFile:"Fichier vide.", insertPath:"Ajouter le chemin au message", moreEntries:"{n} de plus non affich\u00e9s.", fileTruncated:"Seules les 5 000 premi\u00e8res lignes sont affich\u00e9es.", changes:"Modifications", gitLoading:"Lecture du d\u00e9p\u00f4t\u2026", notRepo:"Ce dossier n'est pas dans un d\u00e9p\u00f4t git.", noChanges:"Aucune modification.", binaryFile:"Fichier binaire : pas de diff texte.", bigFile:"Fichier trop volumineux pour \u00eatre affich\u00e9.", diffTruncated:"Diff tronqu\u00e9 : trop long pour \u00eatre affich\u00e9 en entier.",
+      stPrompt:"Invite", stCache:"Mis en cache", tokTip:"Jetons du tour : ↑ invite lue, ↓ g\u00e9n\u00e9r\u00e9s, R depuis le cache", bgExec:"En cours", bgBg:"En arri\u00e8re-plan", bgRun1:"1 t\u00e2che en cours", bgRunN:"{n} t\u00e2ches en cours", bgRunSec:"En cours", bgDoneSec:"Termin\u00e9es {n}", bgNone:"Aucune t\u00e2che en arri\u00e8re-plan dans ce projet.", bgTasks:"T\u00e2ches en arri\u00e8re-plan", bgTasksWarn:"L\u2019agent re\u00e7oit des outils pour lancer des commandes longues (compilations, tests, flashage) sans les attendre, les consulter et les arr\u00eater, et il est pr\u00e9venu quand elles se terminent. Leurs descriptions ajoutent quelques centaines de tokens \u00e0 chaque requ\u00eate. S\u2019applique au red\u00e9marrage de pi remote.", bgPermCovered:"pi-permission-system contr\u00f4le ces commandes avec les r\u00e8gles bash.", bgPermOffer:"pi-permission-system est install\u00e9, mais il ne sait pas que bg_run ex\u00e9cute des commandes : les r\u00e8gles bash ne s\u2019y appliqueraient pas.", bgPermAdd:"Appliquer les r\u00e8gles bash aux t\u00e2ches en arri\u00e8re-plan (ajoute bg_run \u00e0 shellTools)", bgPermManual:"La configuration de pi-permission-system contient des commentaires et n\u2019est pas modifi\u00e9e automatiquement. Ajouter \"shellTools\": {\"bg_run\": {\"commandArgument\": \"command\"}} pour que les r\u00e8gles bash s\u2019appliquent. En attendant, chaque commande en arri\u00e8re-plan demande une confirmation.", bgPermNone:"Sans extension de permissions install\u00e9e, chaque commande en arri\u00e8re-plan demande une confirmation.", bgStop:"Arr\u00eater", bgStopQ:"Arr\u00eater la t\u00e2che n\u00b0{id} ?", bgRunning:"en cours \u00b7 {t}", bgDoneS:"termin\u00e9e", bgFailedS:"\u00e9chec (code {code})", bgKilledS:"arr\u00eat\u00e9e", bgNoOut:"Pas encore de sortie.", zoomIn:"Agrandir", zoomOut:"R\u00e9duire", zoomReset:"Ajuster \u00e0 la largeur", pdfPages:"{n} pages", pdfFail:"Impossible d'ouvrir ce PDF.", worktrees:"Worktrees", newWorktree:"Nouveau worktree", branchName:"Branche (nouvelle ou existante)", create:"Cr\u00e9er", wtOpen:"ouvert", wtMain:"principal", wtDetached:"(d\u00e9tach\u00e9)", wtRemove:"Retirer le worktree", wtRemoveQ:"Retirer le worktree {name} ?", wtRemoveB:"Son dossier est supprim\u00e9 ; la branche reste. git refuse s'il a des modifications non commit\u00e9es.", sessTree:"Arbre de la session", treeHint:"Toutes les branches de cette conversation. En gris\u00e9, les branches abandonn\u00e9es ; toucher un de ses messages sur la branche active cr\u00e9e une branche \u00e0 partir de lui.", treeBranch:"Branche", treeYou:"Message envoy\u00e9", treeAgent:"R\u00e9ponse", files:"Fichiers", emptyDir:"Dossier vide.", emptyFile:"Fichier vide.", insertPath:"Ajouter le chemin au message", moreEntries:"{n} de plus non affich\u00e9s.", fileTruncated:"Seules les 5 000 premi\u00e8res lignes sont affich\u00e9es.", changes:"Modifications", gitLoading:"Lecture du d\u00e9p\u00f4t\u2026", notRepo:"Ce dossier n'est pas dans un d\u00e9p\u00f4t git.", noChanges:"Aucune modification.", binaryFile:"Fichier binaire : pas de diff texte.", bigFile:"Fichier trop volumineux pour \u00eatre affich\u00e9.", diffTruncated:"Diff tronqu\u00e9 : trop long pour \u00eatre affich\u00e9 en entier.",
       stReason:"Raisonnement", stTotal:"Total", stCost:"Co\u00fbt",
       tps:"t/s", tks:"jetons"},
   pt:{menu:"menu", send:"enviar", stop:"parar",
@@ -7553,7 +7580,7 @@ const STR = {
       motion_fade:"fundido", motion_instant:"instant\u00e2neo", image:"imagem", camera:"câmera",
       ranOne:"executou 1 comando", ranMany:"executou {n} comandos", readOne:"leu {f}", readMany:"leu {n} ficheiros", editOne:"editou {f}", editMany:"editou {n} ficheiros",
       statsTitle:"Estat\u00edsticas da resposta", stGen:"Gera\u00e7\u00e3o",
-      stPrompt:"Prompt", stCache:"Em cache", tokTip:"Tokens do turno: ↑ prompt lido, ↓ gerados, R da cache", bgTasks:"Tarefas em segundo plano", bgTasksWarn:"O agente recebe ferramentas para lan\u00e7ar comandos longos (compila\u00e7\u00f5es, testes, grava\u00e7\u00e3o de firmware) sem esperar por eles, consult\u00e1-los e par\u00e1-los, e \u00e9 avisado quando terminam. As descri\u00e7\u00f5es acrescentam algumas centenas de tokens a cada pedido. Aplica-se ao reiniciar o pi remote.", bgPermCovered:"O pi-permission-system verifica estes comandos com as regras de bash.", bgPermOffer:"O pi-permission-system est\u00e1 instalado, mas n\u00e3o sabe que o bg_run executa comandos: as regras de bash n\u00e3o se lhe aplicariam.", bgPermAdd:"Aplicar as regras de bash \u00e0s tarefas em segundo plano (acrescenta bg_run ao shellTools)", bgPermManual:"A configura\u00e7\u00e3o do pi-permission-system tem coment\u00e1rios e n\u00e3o \u00e9 editada automaticamente. Acrescentar \"shellTools\": {\"bg_run\": {\"commandArgument\": \"command\"}} para que as regras de bash se apliquem. Entretanto, cada comando em segundo plano pede confirma\u00e7\u00e3o.", bgPermNone:"Sem uma extens\u00e3o de permiss\u00f5es instalada, cada comando em segundo plano pede confirma\u00e7\u00e3o antes.", bgStop:"Parar", bgStopQ:"Parar a tarefa #{id}?", bgRunning:"em curso \u00b7 {t}", bgDoneS:"terminada", bgFailedS:"falhou (c\u00f3digo {code})", bgKilledS:"parada", bgNoOut:"Ainda sem sa\u00edda.", zoomIn:"Aproximar", zoomOut:"Afastar", zoomReset:"Ajustar \u00e0 largura", pdfPages:"{n} p\u00e1ginas", pdfFail:"N\u00e3o foi poss\u00edvel abrir este PDF.", worktrees:"Worktrees", newWorktree:"Novo worktree", branchName:"Ramo (novo ou existente)", create:"Criar", wtOpen:"aberto", wtMain:"principal", wtDetached:"(destacado)", wtRemove:"Remover worktree", wtRemoveQ:"Remover o worktree {name}?", wtRemoveB:"A pasta \u00e9 apagada; o ramo fica. O git recusa se tiver altera\u00e7\u00f5es por fazer commit.", sessTree:"\u00c1rvore da sess\u00e3o", treeHint:"Todos os ramos desta conversa. O esbatido s\u00e3o ramos deixados para tr\u00e1s; tocar numa mensagem pr\u00f3pria do ramo ativo ramifica a partir dela.", treeBranch:"Ramo", treeYou:"Mensagem pr\u00f3pria", treeAgent:"Resposta", files:"Ficheiros", emptyDir:"Pasta vazia.", emptyFile:"Ficheiro vazio.", insertPath:"Adicionar caminho \u00e0 mensagem", moreEntries:"Mais {n} n\u00e3o mostrados.", fileTruncated:"S\u00f3 se mostram as primeiras 5000 linhas.", changes:"Altera\u00e7\u00f5es", gitLoading:"A ler o reposit\u00f3rio\u2026", notRepo:"Esta pasta n\u00e3o est\u00e1 num reposit\u00f3rio git.", noChanges:"Sem altera\u00e7\u00f5es.", binaryFile:"Ficheiro bin\u00e1rio: sem diff de texto.", bigFile:"Ficheiro demasiado grande para mostrar.", diffTruncated:"Diff cortado: \u00e9 demasiado longo para mostrar inteiro.",
+      stPrompt:"Prompt", stCache:"Em cache", tokTip:"Tokens do turno: ↑ prompt lido, ↓ gerados, R da cache", bgExec:"A executar", bgBg:"Em segundo plano", bgRun1:"1 tarefa em execu\u00e7\u00e3o", bgRunN:"{n} tarefas em execu\u00e7\u00e3o", bgRunSec:"Em execu\u00e7\u00e3o", bgDoneSec:"Terminadas {n}", bgNone:"N\u00e3o h\u00e1 tarefas em segundo plano neste projeto.", bgTasks:"Tarefas em segundo plano", bgTasksWarn:"O agente recebe ferramentas para lan\u00e7ar comandos longos (compila\u00e7\u00f5es, testes, grava\u00e7\u00e3o de firmware) sem esperar por eles, consult\u00e1-los e par\u00e1-los, e \u00e9 avisado quando terminam. As descri\u00e7\u00f5es acrescentam algumas centenas de tokens a cada pedido. Aplica-se ao reiniciar o pi remote.", bgPermCovered:"O pi-permission-system verifica estes comandos com as regras de bash.", bgPermOffer:"O pi-permission-system est\u00e1 instalado, mas n\u00e3o sabe que o bg_run executa comandos: as regras de bash n\u00e3o se lhe aplicariam.", bgPermAdd:"Aplicar as regras de bash \u00e0s tarefas em segundo plano (acrescenta bg_run ao shellTools)", bgPermManual:"A configura\u00e7\u00e3o do pi-permission-system tem coment\u00e1rios e n\u00e3o \u00e9 editada automaticamente. Acrescentar \"shellTools\": {\"bg_run\": {\"commandArgument\": \"command\"}} para que as regras de bash se apliquem. Entretanto, cada comando em segundo plano pede confirma\u00e7\u00e3o.", bgPermNone:"Sem uma extens\u00e3o de permiss\u00f5es instalada, cada comando em segundo plano pede confirma\u00e7\u00e3o antes.", bgStop:"Parar", bgStopQ:"Parar a tarefa #{id}?", bgRunning:"em curso \u00b7 {t}", bgDoneS:"terminada", bgFailedS:"falhou (c\u00f3digo {code})", bgKilledS:"parada", bgNoOut:"Ainda sem sa\u00edda.", zoomIn:"Aproximar", zoomOut:"Afastar", zoomReset:"Ajustar \u00e0 largura", pdfPages:"{n} p\u00e1ginas", pdfFail:"N\u00e3o foi poss\u00edvel abrir este PDF.", worktrees:"Worktrees", newWorktree:"Novo worktree", branchName:"Ramo (novo ou existente)", create:"Criar", wtOpen:"aberto", wtMain:"principal", wtDetached:"(destacado)", wtRemove:"Remover worktree", wtRemoveQ:"Remover o worktree {name}?", wtRemoveB:"A pasta \u00e9 apagada; o ramo fica. O git recusa se tiver altera\u00e7\u00f5es por fazer commit.", sessTree:"\u00c1rvore da sess\u00e3o", treeHint:"Todos os ramos desta conversa. O esbatido s\u00e3o ramos deixados para tr\u00e1s; tocar numa mensagem pr\u00f3pria do ramo ativo ramifica a partir dela.", treeBranch:"Ramo", treeYou:"Mensagem pr\u00f3pria", treeAgent:"Resposta", files:"Ficheiros", emptyDir:"Pasta vazia.", emptyFile:"Ficheiro vazio.", insertPath:"Adicionar caminho \u00e0 mensagem", moreEntries:"Mais {n} n\u00e3o mostrados.", fileTruncated:"S\u00f3 se mostram as primeiras 5000 linhas.", changes:"Altera\u00e7\u00f5es", gitLoading:"A ler o reposit\u00f3rio\u2026", notRepo:"Esta pasta n\u00e3o est\u00e1 num reposit\u00f3rio git.", noChanges:"Sem altera\u00e7\u00f5es.", binaryFile:"Ficheiro bin\u00e1rio: sem diff de texto.", bigFile:"Ficheiro demasiado grande para mostrar.", diffTruncated:"Diff cortado: \u00e9 demasiado longo para mostrar inteiro.",
       stReason:"Racioc\u00ednio", stTotal:"Total", stCost:"Custo",
       tps:"t/s", tks:"tokens"},
   zh:{menu:"菜单", send:"发送", stop:"停止",
@@ -7707,7 +7734,7 @@ const STR = {
       motion_fade:"淡入", motion_instant:"即时", image:"图片", camera:"相机",
       ranOne:"执行了 1 条命令", ranMany:"执行了 {n} 条命令", readOne:"读取了 {f}", readMany:"读取了 {n} 个文件", editOne:"编辑了 {f}", editMany:"编辑了 {n} 个文件",
       statsTitle:"回答统计", stGen:"生成",
-      stPrompt:"提示词", stCache:"缓存", tokTip:"本轮 token：↑ 读入提示词，↓ 生成，R 来自缓存", bgTasks:"\u540e\u53f0\u4efb\u52a1", bgTasksWarn:"\u4ee3\u7406\u5c06\u83b7\u5f97\u4e00\u7ec4\u5de5\u5177\uff1a\u542f\u52a8\u8017\u65f6\u547d\u4ee4\uff08\u6784\u5efa\u3001\u6d4b\u8bd5\u3001\u70e7\u5f55\uff09\u800c\u65e0\u9700\u7b49\u5f85\u3001\u67e5\u770b\u548c\u505c\u6b62\u5b83\u4eec\uff0c\u5e76\u5728\u5b8c\u6210\u65f6\u6536\u5230\u901a\u77e5\u3002\u5176\u63cf\u8ff0\u4f1a\u4e3a\u6bcf\u6b21\u8bf7\u6c42\u589e\u52a0\u51e0\u767e\u4e2a token\u3002\u91cd\u542f pi remote \u540e\u751f\u6548\u3002", bgPermCovered:"pi-permission-system \u4f1a\u7528 bash \u89c4\u5219\u68c0\u67e5\u8fd9\u4e9b\u547d\u4ee4\u3002", bgPermOffer:"\u5df2\u5b89\u88c5 pi-permission-system\uff0c\u4f46\u5b83\u4e0d\u77e5\u9053 bg_run \u4f1a\u6267\u884c\u547d\u4ee4\uff1abash \u89c4\u5219\u4e0d\u4f1a\u5bf9\u5176\u751f\u6548\u3002", bgPermAdd:"\u5c06 bash \u89c4\u5219\u5e94\u7528\u4e8e\u540e\u53f0\u4efb\u52a1\uff08\u5c06 bg_run \u52a0\u5165\u5176 shellTools\uff09", bgPermManual:"pi-permission-system \u7684\u914d\u7f6e\u5305\u542b\u6ce8\u91ca\uff0c\u4e0d\u4f1a\u81ea\u52a8\u7f16\u8f91\u3002\u8bf7\u6dfb\u52a0 \"shellTools\": {\"bg_run\": {\"commandArgument\": \"command\"}} \u4ee5\u5e94\u7528 bash \u89c4\u5219\u3002\u5728\u6b64\u4e4b\u524d\uff0c\u6bcf\u4e2a\u540e\u53f0\u547d\u4ee4\u90fd\u4f1a\u5148\u8bf7\u6c42\u786e\u8ba4\u3002", bgPermNone:"\u672a\u5b89\u88c5\u6743\u9650\u6269\u5c55\u65f6\uff0c\u6bcf\u4e2a\u540e\u53f0\u547d\u4ee4\u90fd\u4f1a\u5148\u8bf7\u6c42\u786e\u8ba4\u3002", bgStop:"\u505c\u6b62", bgStopQ:"\u505c\u6b62\u4efb\u52a1 #{id}\uff1f", bgRunning:"\u8fd0\u884c\u4e2d \u00b7 {t}", bgDoneS:"\u5df2\u5b8c\u6210", bgFailedS:"\u5931\u8d25\uff08\u4ee3\u7801 {code}\uff09", bgKilledS:"\u5df2\u505c\u6b62", bgNoOut:"\u6682\u65e0\u8f93\u51fa\u3002", zoomIn:"\u653e\u5927", zoomOut:"\u7f29\u5c0f", zoomReset:"\u9002\u5408\u5bbd\u5ea6", pdfPages:"\u5171 {n} \u9875", pdfFail:"\u65e0\u6cd5\u6253\u5f00\u6b64 PDF\u3002", worktrees:"\u5de5\u4f5c\u6811", newWorktree:"\u65b0\u5efa\u5de5\u4f5c\u6811", branchName:"\u5206\u652f\uff08\u65b0\u5efa\u6216\u5df2\u6709\uff09", create:"\u521b\u5efa", wtOpen:"\u5df2\u6253\u5f00", wtMain:"\u4e3b", wtDetached:"\uff08\u5206\u79bb\uff09", wtRemove:"\u79fb\u9664\u5de5\u4f5c\u6811", wtRemoveQ:"\u79fb\u9664\u5de5\u4f5c\u6811 {name}\uff1f", wtRemoveB:"\u5176\u6587\u4ef6\u5939\u4f1a\u88ab\u5220\u9664\uff0c\u5206\u652f\u4fdd\u7559\u3002\u82e5\u6709\u672a\u63d0\u4ea4\u7684\u66f4\u6539\uff0cgit \u4f1a\u62d2\u7edd\u3002", sessTree:"\u4f1a\u8bdd\u6811", treeHint:"\u6b64\u5bf9\u8bdd\u7684\u6240\u6709\u5206\u652f\u3002\u53d8\u6697\u7684\u662f\u5df2\u79bb\u5f00\u7684\u5206\u652f\uff1b\u70b9\u51fb\u5f53\u524d\u5206\u652f\u4e0a\u81ea\u5df1\u7684\u6d88\u606f\u5373\u53ef\u4ece\u6b64\u5206\u53c9\u3002", treeBranch:"\u5206\u652f", treeYou:"\u81ea\u5df1\u7684\u6d88\u606f", treeAgent:"\u56de\u590d", files:"\u6587\u4ef6", emptyDir:"\u7a7a\u6587\u4ef6\u5939\u3002", emptyFile:"\u7a7a\u6587\u4ef6\u3002", insertPath:"\u5c06\u8def\u5f84\u52a0\u5165\u6d88\u606f", moreEntries:"\u8fd8\u6709 {n} \u9879\u672a\u663e\u793a\u3002", fileTruncated:"\u4ec5\u663e\u793a\u524d 5000 \u884c\u3002", changes:"\u66f4\u6539", gitLoading:"\u6b63\u5728\u8bfb\u53d6\u4ed3\u5e93\u2026", notRepo:"\u6b64\u6587\u4ef6\u5939\u4e0d\u5728 git \u4ed3\u5e93\u4e2d\u3002", noChanges:"\u6ca1\u6709\u66f4\u6539\u3002", binaryFile:"\u4e8c\u8fdb\u5236\u6587\u4ef6\uff1a\u65e0\u6587\u672c\u5dee\u5f02\u3002", bigFile:"\u6587\u4ef6\u592a\u5927\uff0c\u65e0\u6cd5\u663e\u793a\u3002", diffTruncated:"\u5dee\u5f02\u5df2\u622a\u65ad\uff1a\u592a\u957f\uff0c\u65e0\u6cd5\u5b8c\u6574\u663e\u793a\u3002",
+      stPrompt:"提示词", stCache:"缓存", tokTip:"本轮 token：↑ 读入提示词，↓ 生成，R 来自缓存", bgExec:"\u8fd0\u884c\u4e2d", bgBg:"\u540e\u53f0", bgRun1:"1 \u4e2a\u4efb\u52a1\u8fd0\u884c\u4e2d", bgRunN:"{n} \u4e2a\u4efb\u52a1\u8fd0\u884c\u4e2d", bgRunSec:"\u8fd0\u884c\u4e2d", bgDoneSec:"\u5df2\u5b8c\u6210 {n}", bgNone:"\u6b64\u9879\u76ee\u6ca1\u6709\u540e\u53f0\u4efb\u52a1\u3002", bgTasks:"\u540e\u53f0\u4efb\u52a1", bgTasksWarn:"\u4ee3\u7406\u5c06\u83b7\u5f97\u4e00\u7ec4\u5de5\u5177\uff1a\u542f\u52a8\u8017\u65f6\u547d\u4ee4\uff08\u6784\u5efa\u3001\u6d4b\u8bd5\u3001\u70e7\u5f55\uff09\u800c\u65e0\u9700\u7b49\u5f85\u3001\u67e5\u770b\u548c\u505c\u6b62\u5b83\u4eec\uff0c\u5e76\u5728\u5b8c\u6210\u65f6\u6536\u5230\u901a\u77e5\u3002\u5176\u63cf\u8ff0\u4f1a\u4e3a\u6bcf\u6b21\u8bf7\u6c42\u589e\u52a0\u51e0\u767e\u4e2a token\u3002\u91cd\u542f pi remote \u540e\u751f\u6548\u3002", bgPermCovered:"pi-permission-system \u4f1a\u7528 bash \u89c4\u5219\u68c0\u67e5\u8fd9\u4e9b\u547d\u4ee4\u3002", bgPermOffer:"\u5df2\u5b89\u88c5 pi-permission-system\uff0c\u4f46\u5b83\u4e0d\u77e5\u9053 bg_run \u4f1a\u6267\u884c\u547d\u4ee4\uff1abash \u89c4\u5219\u4e0d\u4f1a\u5bf9\u5176\u751f\u6548\u3002", bgPermAdd:"\u5c06 bash \u89c4\u5219\u5e94\u7528\u4e8e\u540e\u53f0\u4efb\u52a1\uff08\u5c06 bg_run \u52a0\u5165\u5176 shellTools\uff09", bgPermManual:"pi-permission-system \u7684\u914d\u7f6e\u5305\u542b\u6ce8\u91ca\uff0c\u4e0d\u4f1a\u81ea\u52a8\u7f16\u8f91\u3002\u8bf7\u6dfb\u52a0 \"shellTools\": {\"bg_run\": {\"commandArgument\": \"command\"}} \u4ee5\u5e94\u7528 bash \u89c4\u5219\u3002\u5728\u6b64\u4e4b\u524d\uff0c\u6bcf\u4e2a\u540e\u53f0\u547d\u4ee4\u90fd\u4f1a\u5148\u8bf7\u6c42\u786e\u8ba4\u3002", bgPermNone:"\u672a\u5b89\u88c5\u6743\u9650\u6269\u5c55\u65f6\uff0c\u6bcf\u4e2a\u540e\u53f0\u547d\u4ee4\u90fd\u4f1a\u5148\u8bf7\u6c42\u786e\u8ba4\u3002", bgStop:"\u505c\u6b62", bgStopQ:"\u505c\u6b62\u4efb\u52a1 #{id}\uff1f", bgRunning:"\u8fd0\u884c\u4e2d \u00b7 {t}", bgDoneS:"\u5df2\u5b8c\u6210", bgFailedS:"\u5931\u8d25\uff08\u4ee3\u7801 {code}\uff09", bgKilledS:"\u5df2\u505c\u6b62", bgNoOut:"\u6682\u65e0\u8f93\u51fa\u3002", zoomIn:"\u653e\u5927", zoomOut:"\u7f29\u5c0f", zoomReset:"\u9002\u5408\u5bbd\u5ea6", pdfPages:"\u5171 {n} \u9875", pdfFail:"\u65e0\u6cd5\u6253\u5f00\u6b64 PDF\u3002", worktrees:"\u5de5\u4f5c\u6811", newWorktree:"\u65b0\u5efa\u5de5\u4f5c\u6811", branchName:"\u5206\u652f\uff08\u65b0\u5efa\u6216\u5df2\u6709\uff09", create:"\u521b\u5efa", wtOpen:"\u5df2\u6253\u5f00", wtMain:"\u4e3b", wtDetached:"\uff08\u5206\u79bb\uff09", wtRemove:"\u79fb\u9664\u5de5\u4f5c\u6811", wtRemoveQ:"\u79fb\u9664\u5de5\u4f5c\u6811 {name}\uff1f", wtRemoveB:"\u5176\u6587\u4ef6\u5939\u4f1a\u88ab\u5220\u9664\uff0c\u5206\u652f\u4fdd\u7559\u3002\u82e5\u6709\u672a\u63d0\u4ea4\u7684\u66f4\u6539\uff0cgit \u4f1a\u62d2\u7edd\u3002", sessTree:"\u4f1a\u8bdd\u6811", treeHint:"\u6b64\u5bf9\u8bdd\u7684\u6240\u6709\u5206\u652f\u3002\u53d8\u6697\u7684\u662f\u5df2\u79bb\u5f00\u7684\u5206\u652f\uff1b\u70b9\u51fb\u5f53\u524d\u5206\u652f\u4e0a\u81ea\u5df1\u7684\u6d88\u606f\u5373\u53ef\u4ece\u6b64\u5206\u53c9\u3002", treeBranch:"\u5206\u652f", treeYou:"\u81ea\u5df1\u7684\u6d88\u606f", treeAgent:"\u56de\u590d", files:"\u6587\u4ef6", emptyDir:"\u7a7a\u6587\u4ef6\u5939\u3002", emptyFile:"\u7a7a\u6587\u4ef6\u3002", insertPath:"\u5c06\u8def\u5f84\u52a0\u5165\u6d88\u606f", moreEntries:"\u8fd8\u6709 {n} \u9879\u672a\u663e\u793a\u3002", fileTruncated:"\u4ec5\u663e\u793a\u524d 5000 \u884c\u3002", changes:"\u66f4\u6539", gitLoading:"\u6b63\u5728\u8bfb\u53d6\u4ed3\u5e93\u2026", notRepo:"\u6b64\u6587\u4ef6\u5939\u4e0d\u5728 git \u4ed3\u5e93\u4e2d\u3002", noChanges:"\u6ca1\u6709\u66f4\u6539\u3002", binaryFile:"\u4e8c\u8fdb\u5236\u6587\u4ef6\uff1a\u65e0\u6587\u672c\u5dee\u5f02\u3002", bigFile:"\u6587\u4ef6\u592a\u5927\uff0c\u65e0\u6cd5\u663e\u793a\u3002", diffTruncated:"\u5dee\u5f02\u5df2\u622a\u65ad\uff1a\u592a\u957f\uff0c\u65e0\u6cd5\u5b8c\u6574\u663e\u793a\u3002",
       stReason:"推理", stTotal:"总计", stCost:"费用",
       tps:"tok/s", tks:"tokens"},
 };
@@ -8523,6 +8550,7 @@ let gitDiff = null, gitPath = null, gitAsked = false;
 let filesPath = "", filesData = null, fileData = null, filePath = null;
 let treeData = null;      // session_tree: filas del arbol de la sesion
 let bgId = null, bgLog = null, bgTimer = 0;   // la tarea abierta en la hoja
+let bgAll = null, bgFold = {run: false, done: false};   // la hoja de tareas
 let pdfLib = null, pdfDoc = null;   // PDF.js y el documento abierto
 let pdfIO = null, pdfZ = 1, pdfGen = 0, pdfRT = 0;   // vista, zoom, repintado
 let wtRepo = null, wtData = null;   // worktrees: carpeta pedida y su lista
@@ -9141,7 +9169,7 @@ function paintSheet(page){
   $("#sheet").classList.remove("forkmode");
   $("#sheet").classList.toggle("fullh",
     page === "store" || page === "gitdiff" || page === "fileview"
-    || page === "bgtask");
+    || page === "bgtask" || page === "bglist");
   if(page !== "bgtask"){ clearTimeout(bgTimer); bgTimer = 0; }
   const body = $("#sheetBody"), back = $("#sheetBack");
   body.innerHTML = "";
@@ -10281,6 +10309,51 @@ function paintSheet(page){
     if(fileData.truncated) msg(T("fileTruncated"));
     return;
   }
+  if(page === "bglist"){
+    $("#sheetTitle").textContent = T("bgTasks");
+    if(!bgAll){
+      send({type:"bg_all"});
+      return body.insertAdjacentHTML("beforeend",
+        `<div class="gmsg">${esc(T("gitLoading"))}</div>`);
+    }
+    if(!bgAll.length)
+      return body.insertAdjacentHTML("beforeend",
+        `<div class="gmsg">${esc(T("bgNone"))}</div>`);
+    const run = bgAll.filter(r => r.status === "running");
+    const done = bgAll.filter(r => r.status !== "running")   // la ultima en acabar, arriba
+      .sort((x, y) => (y.ended || y.started) - (x.ended || x.started));
+    const section = (key, title, rows) => {
+      if(!rows.length) return;
+      const h = document.createElement("button");
+      h.type = "button";
+      h.className = "bghead" + (bgFold[key] ? " folded" : "");
+      h.innerHTML = `<span>${esc(title)}</span>` + ico("chevron");
+      h.onclick = () => { bgFold[key] = !bgFold[key]; paintSheet("bglist"); };
+      body.appendChild(h);
+      if(bgFold[key]) return;
+      rows.forEach(r => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "bgrow " + r.status;
+        b.innerHTML = `<span class="bgd"></span><span class="chp">`
+          + `<b>#${r.id} ${esc(r.label || "")}</b>`
+          + `<small>${esc(bgStateText(r))}</small></span>`
+          + (r.status === "running"
+             ? `<span class="bgstop" role="button" aria-label="${esc(T("bgStop"))}">`
+               + ico("stop") + `</span>`
+             : ico("chevron", "ch"));
+        b.onclick = () => { bgId = r.id; bgLog = null; goPage("bgtask"); };
+        const stop = b.querySelector(".bgstop");
+        if(stop) stop.onclick = e => { e.stopPropagation();
+          confirmModal(T("bgStopQ").replace("{id}", r.id), "",
+            () => send({type:"bg_stop", id: r.id})); };
+        body.appendChild(b);
+      });
+    };
+    section("run", T("bgRunSec"), run);
+    section("done", T("bgDoneSec").replace("{n}", done.length), done);
+    return;
+  }
   if(page === "bgtask"){
     $("#sheetTitle").textContent = T("bgTasks");
     const r = (state.bg || []).find(x => x.id === bgId)
@@ -11355,19 +11428,32 @@ function bgStateText(r){
   if(r.status === "failed") return T("bgFailedS").replace("{code}", r.code);
   return T("bgKilledS");
 }
-let bgTick = 0;
 function paintBg(){
-  const el = $("#bgStrip"), rows = state.bg || [];
-  el.hidden = !rows.length;
-  el.innerHTML = rows.map(r => `<button type="button" class="bgchip ${r.status}"`
-    + ` data-id="${r.id}"><span class="bgd"></span><span class="bgt">`
-    + `<b>#${r.id} ${esc(r.label || "")}</b><small>${esc(bgStateText(r)
-      + (r.status === "running" && r.last ? " \u00b7 " + r.last : ""))}</small>`
-    + `</span></button>`).join("");
-  // el reloj de las que corren, sin esperar al puente
-  const live = rows.some(r => r.status === "running");
-  if(live && !bgTick) bgTick = setInterval(paintBg, 1000);
-  if(!live && bgTick){ clearInterval(bgTick); bgTick = 0; }
+  paintBgRows();
+  const el = $("#bgStrip");
+  const run = (state.bg || []).filter(r => r.status === "running");
+  el.hidden = !run.length;
+  // solo cuantas: el nombre y el tiempo estan en la hoja
+  const txt = !run.length ? ""
+    : run.length === 1 ? T("bgRun1") : T("bgRunN").replace("{n}", run.length);
+  const cur = el.firstChild && el.firstChild.textContent;
+  if(cur !== txt) el.innerHTML = txt
+    ? `<button type="button" class="bgline">${esc(txt)}</button>` : "";
+  // con la hoja abierta, el estado nuevo del puente la pone al dia
+  if(sheetPage === "bglist" && $("#sheet").classList.contains("open")
+     && bgAllKey !== bgKey()){
+    bgAllKey = bgKey();
+    send({type:"bg_all"});
+  }
+}
+// lo que cambia de verdad (no el reloj ni la ultima linea)
+const bgKey = () => (state.bg || []).map(r => r.id + r.status).join();
+let bgAllKey = "";
+function openBgList(){
+  sheetStack = []; sheetHome = "bglist";
+  bgAll = null; bgAllKey = bgKey();
+  paintSheet("bglist");
+  $("#sheet").classList.add("open"); navArm();
 }
 function openBgTask(id){
   sheetStack = []; sheetHome = "bgtask";
@@ -11376,8 +11462,7 @@ function openBgTask(id){
   $("#sheet").classList.add("open"); navArm();
 }
 $("#bgStrip").onclick = e => {
-  const b = e.target.closest(".bgchip");
-  if(b) openBgTask(+b.dataset.id);
+  if(e.target.closest(".bgline")) openBgList();
 };
 /* encender: antes, saber si hay permission-system y si ya vigila bg_run */
 let bgSwitch = null;
@@ -11398,6 +11483,35 @@ function bgEnableDialog(d){
     send({type:"bg_tasks_set", on:true});
   }, {ok: T("activate"), plain: true, restart: true});
 }
+/* la fila del chat de un bg_run sigue a su tarea, como en Claude Code:
+   ">_ Ejecutando" con brillo mientras corre; al acabar, como acabo y cuanto
+   tardo. Tocarla abre su salida */
+function bgToolHtml(it){
+  const r = (state.bg || []).find(x => x.id === it.bgTask);
+  const st = r ? r.status : "gone";
+  const label = (r && r.label) || (it.args && (it.args.label || it.args.command)) || "";
+  const took = r && r.ended ? " \u00b7 " + bgAgo(r.ended - r.started) : "";
+  const what = st === "running"
+      ? `<span class="shine">${esc(T("bgExec"))}</span>`
+      : `<span>${esc(st === "done" ? T("bgDoneS")
+          : st === "failed" ? T("bgFailedS").replace("{code}", r.code)
+          : st === "killed" ? T("bgKilledS") : T("bgBg"))}${esc(took)}</span>`;
+  return `<button type="button" class="bgtool ${st}" data-bg="${it.bgTask}">`
+    + ico("terminal") + `<span class="bgtx">${what}`
+    + `<span class="bgl"> \u00b7 #${it.bgTask} ${esc(label)}</span></span>`
+    + ico("chevron", "ch") + `</button>`;
+}
+/* el estado nuevo de las tareas repinta sus filas del chat */
+function paintBgRows(){
+  feed.querySelectorAll(".bgtool").forEach(b => {
+    const el = b.parentElement;
+    if(el && el.__item) b.outerHTML = bgToolHtml(el.__item);
+  });
+}
+feed.addEventListener("click", e => {
+  const b = e.target.closest(".bgtool");
+  if(b) openBgTask(+b.dataset.bg);
+});
 /* worktrees del repo de un proyecto del rail: listar, crear, abrir, quitar */
 function openWorktrees(path){
   sheetStack = []; sheetHome = "worktrees";
@@ -12067,6 +12181,11 @@ function onRpc(m){
     if(d.error) note(d.error);
     return;
   }
+  if(m.command === "bg_all"){
+    bgAll = d.tasks || [];
+    if(sheetPage === "bglist") paintSheet("bglist");
+    return;
+  }
   if(m.command === "bg_log"){
     if(d.id !== bgId) return;
     bgLog = d;
@@ -12077,6 +12196,7 @@ function onRpc(m){
     if(d.error) note(d.error);
     else if(sheetPage === "bgtask" && d.id === bgId){
       bgLog = null; send({type:"bg_log", id: bgId}); }
+    else if(sheetPage === "bglist") send({type:"bg_all"});
     return;
   }
   if(m.command === "ask_user_set"){

@@ -288,6 +288,29 @@ def turn(text, nimg=0):
         out({"type": "agent_end", "messages": [], "willRetry": False})
         out({"type": "agent_settled"})
         return
+    if "bgrunrow" in text:    # el agente lanza una tarea entre dos lecturas
+        out({"type": "agent_start"})
+        out({"type": "message_start",
+             "message": {"role": "assistant", "content": []}})
+        for cid, name, args, res in (
+                ("r1", "read", {"path": "a.py"}, {"content": [
+                    {"type": "text", "text": "x"}]}),
+                ("b1", "bg_run", {"command": "make all", "label": "tarea 1"},
+                 {"content": [{"type": "text", "text": "Started task #1"}],
+                  "details": {"id": 1}}),
+                ("r2", "read", {"path": "b.py"}, {"content": [
+                    {"type": "text", "text": "y"}]})):
+            out({"type": "tool_execution_start", "toolCallId": cid,
+                 "toolName": name, "args": args})
+            time.sleep(0.1)
+            out({"type": "tool_execution_end", "toolCallId": cid,
+                 "toolName": name, "result": res, "isError": False})
+        out({"type": "message_end", "message": {
+            "role": "assistant", "content": [], "usage": USAGE}})
+        say(["Lanzada."], "Lanzada.")
+        out({"type": "agent_end", "messages": [], "willRetry": False})
+        out({"type": "agent_settled"})
+        return
     if "bgnotify" in text:    # la extension de tareas avisa de que una acabo
         msg = {"role": "custom", "customType": "pi-remote:bg", "display": True,
                "content": "Background task #7 build: failed (exit code 2) "
