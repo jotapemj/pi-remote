@@ -936,13 +936,14 @@ html.hide-think .think-turn{display:none}
 .bgstop:hover{color:var(--coral); background:var(--surface)}
 .bgstop .i{width:20px; height:20px}
 /* la fila del chat de un bg_run: terminal, que hace y la tarea */
-.bgtool{display:flex; align-items:center; gap:8px; width:100%;
-  background:none; border:none; padding:6px 0; cursor:pointer;
-  color:var(--dim); text-align:left; font:400 14px/1.4 var(--sans)}
-.bgtool > .i{flex:none; width:18px; height:18px}
+/* la misma medida que la cabecera de un tramo (.ghead): van una tras otra */
+.bgtool{display:flex; align-items:center; gap:7px; width:100%;
+  background:none; border:none; padding:3px 0; cursor:pointer;
+  color:var(--dim); text-align:left; font:400 13.5px/1.35 var(--sans)}
+.bgtool > .i{flex:none; width:15px; height:15px}
 .bgtool > .ch{width:16px; height:16px; color:var(--faint); margin-left:auto}
 .bgtx{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.bgtool .bgl{font-family:var(--mono); font-size:13px; color:var(--faint)}
+.bgtool .bgl{font:500 12.5px var(--mono); color:var(--faint)}
 .bgtool.failed .bgtx > span:first-child{color:var(--coral)}
 .bglog{border:1px solid var(--rule); border-radius:6px; padding:8px 10px;
   font:400 12px/1.5 var(--mono); white-space:pre-wrap; word-break:break-word}
