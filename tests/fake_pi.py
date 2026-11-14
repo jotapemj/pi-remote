@@ -561,6 +561,11 @@ MESSAGES = [
         {"type": "image", "mimeType": "image/jpeg;base64",
          "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ"
                  "AAAADUlEQVR4nGNgYPj/PwAG9wJhQAAAAABJRU5ErkJggg=="}]},
+    # foto sola, sin texto: el puente la tiraba por no tener texto
+    {"role": "user", "timestamp": 1756000009500, "content": [
+        {"type": "image", "mimeType": "image/jpeg",
+         "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ"
+                 "AAAADUlEQVR4nGNgYPj/PwAG9wJhQAAAAABJRU5ErkJggg=="}]},
 ]
 
 # Sesiones grabadas por pi traen `arguments` a veces como string JSON (y

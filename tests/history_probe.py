@@ -78,6 +78,9 @@ async def main():
                      and i.get("text") == "mira esta foto"
                      and i.get("images")
                      for i in hist)),
+                ("una foto sin texto tambien sobrevive",
+                 any(i["kind"] == "user" and not i.get("text")
+                     and i.get("images") for i in hist)),
                 ("con el mime normalizado (sin ;base64)",
                  all(im["mimeType"] == "image/jpeg"
                      for i in hist if i.get("images")

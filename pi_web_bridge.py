@@ -4645,10 +4645,11 @@ class Bridge:
 
             if role == "user":
                 text = SUGGEST_HINT_RE.sub("", text_of(m.get("content")))
-                # el prompt inyectado del resumen-al-parar no es del usuario
-                if text.strip() and not is_stop_summary(text):
+                imgs = images_of(m.get("content"))
+                # el prompt inyectado del resumen-al-parar no es del usuario;
+                # una foto sin texto si lo es
+                if (text.strip() or imgs) and not is_stop_summary(text):
                     item = {"kind": "user", "text": text, "t": stamp}
-                    imgs = images_of(m.get("content"))
                     if imgs:
                         item["images"] = imgs
                     add(item)
