@@ -444,8 +444,8 @@ async def phase_sin_endpoint(p, js, checks, proj, log, before):
 
 
 def retry_unit():
-    """Medido con Strata: a veces contesta una sola linea. El puente reintenta
-    una vez, solo entonces, y junta sin repetir."""
+    """Medido con Strata: a veces contesta una sola linea o adorna. El puente
+    pide hasta juntar tres validas sin repetir, con tope de llamadas."""
     import pi_web_bridge as B
     replies, sent = [], []
 
@@ -462,7 +462,13 @@ def retry_unit():
 
     def fake(req, timeout=None):
         sent.append(req)
-        return R(replies.pop(0))
+        r = replies.pop(0) if replies else ""
+        if r is None:                       # el servidor no contesta a tiempo
+            raise OSError("timeout")
+        return R(r)
+
+    def asked(i):
+        return json.loads(sent[i].data)["messages"][0]["content"]
 
     old_ep, old_open = B.model_endpoint, B.urllib.request.urlopen
     B.model_endpoint = lambda prov: ("http://x/v1", None)
@@ -475,12 +481,40 @@ def retry_unit():
         sent.clear()
         replies[:] = ["uno\ndos\ntres"]
         one = B.suggest_lines("a", "u", "", "es", "p", "m")
+        n_one = len(sent)
+        # una por llamada: sigue pidiendo hasta tres, y el reintento sabe
+        # cuales ya hay
+        sent.clear()
+        replies[:] = ["uno", "uno", None, "dos", "tres"]
+        drip = B.suggest_lines("a", "u", "", "es", "p", "m")
+        n_drip = len(sent)
+        knows = "Already suggested" in asked(1) and "Uno" in asked(1)
+        # modelo mudo: se rinde en SUGGEST_TRIES, sin colgarse
+        sent.clear()
+        replies[:] = []
+        mute = B.suggest_lines("a", "u", "", "es", "p", "m")
+        n_mute = len(sent)
+        # formatos raros: think vacio, etiquetas, una linea, JSON
+        odd = [B.clean_suggestions(x) for x in (
+            "<think>\n\n</think>\nuno\ndos\ntres",
+            "Sugerencia 1: uno\nSugerencia 2: dos\nSugerencia 3: tres",
+            "Aquí tienes tres:\nuno\ndos\ntres",
+            "uno | dos | tres",
+            "1. uno 2. dos 3. tres",
+            '["uno", "dos", "tres"]')]
     finally:
         B.model_endpoint, B.urllib.request.urlopen = old_ep, old_open
     return [
         ("una linea: reintenta y junta sin repetir",
-         n_two == 2 and two == ["siguiente feature", "ver docs", "ver CI"]),
-        ("tres lineas: una sola llamada", len(sent) == 1 and len(one) == 3),
+         n_two == 2 and two == ["Siguiente feature", "Ver docs", "Ver CI"]),
+        ("tres lineas: una sola llamada", n_one == 1 and len(one) == 3),
+        ("de una en una: insiste hasta tres",
+         drip == ["Uno", "Dos", "Tres"] and n_drip == 5),
+        ("el reintento lleva las que ya hay", knows),
+        ("modelo mudo: tope de llamadas",
+         mute is None and n_mute == B.SUGGEST_TRIES),
+        ("formatos raros dan las tres, con mayuscula",
+         all(o == ["Uno", "Dos", "Tres"] for o in odd)),
     ]
 
 

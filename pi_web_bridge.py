@@ -180,12 +180,25 @@ SUGGEST_ASK = (
 SUGGEST_MAX = 3
 SUGGEST_LINE_MAX = 120
 SUGGEST_TIMEOUT = float(os.environ.get("PI_SUGGEST_TIMEOUT", "12"))
+# hasta tener tres validas se repite la peticion: tope de llamadas y de
+# tiempo total, para que un modelo caido no deje el hilo dando vueltas
+SUGGEST_TRIES = 5
+SUGGEST_DEADLINE = float(os.environ.get("PI_SUGGEST_DEADLINE", "45"))
 
 # El modelo pequeno siempre adorna: numero, vineta, flecha, negrita, comillas
 # y a veces imita el <hint: ...> del diseno viejo. Se tolera todo aqui.
 SUGGEST_PREFIX_RE = re.compile(r"^\s*(?:[-*+•·–→↳]|[0-9]{1,2}[.)\]]|#+)\s*")
 SUGGEST_MARK_RE = re.compile(r"^<\s*hint\s*:?\s*(.*?)\s*(?:</\s*hint\s*>)?>$",
                              re.I | re.S)
+# un servidor que no respeta enable_thinking deja <think>...</think> (a veces
+# vacio) delante: contaba como dos sugerencias
+SUGGEST_THINK_RE = re.compile(r"<think>[\s\S]*?</think>|</?think>", re.I)
+# "Sugerencia 2: texto" -> "texto" (antes se tiraba la linea entera)
+SUGGEST_LABEL_RE = re.compile(
+    r"^(?:suggestion|sugerencia|option|opci[oó]n|reply|respuesta)\s*#?\d*"
+    r"\s*[:.)\-–—]\s*", re.I)
+# las tres en una linea: "1. a 2. b 3. c"
+SUGGEST_INLINE_NUM_RE = re.compile(r"\s+(?=[0-9][.)]\s)")
 
 # SUGGEST_HINT_RE: la instruccion que el puente VIEJO pegaba al prompt. Ya no
 # se inyecta, pero pi la guardo en el .jsonl de las sesiones grabadas. Al
@@ -3454,29 +3467,50 @@ def clean_suggestions(raw):
     Adorna (numera, vineta, comillas, negrita) y a veces imita el marcador
     <hint: ...> del diseno viejo. Se tolera todo: la respuesta del turno no
     se parsea, asi que un formato raro cuesta una sugerencia menos."""
+    text = SUGGEST_THINK_RE.sub("\n", raw or "").strip()
+    lines = None
+    if text.startswith("["):                    # lista JSON
+        try:
+            arr = json.loads(text)
+            if isinstance(arr, list):
+                lines = [x for x in arr if isinstance(x, str)]
+        except ValueError:
+            pass
+    if lines is None:
+        lines = [l for l in text.splitlines() if l.strip()]
+        if len(lines) == 1:                     # las tres en una linea
+            one = lines[0].strip()
+            if " | " in one:
+                lines = one.strip("|").split("|")
+            elif SUGGEST_INLINE_NUM_RE.search(one):
+                lines = SUGGEST_INLINE_NUM_RE.split(one)
     out, seen = [], set()
-    for line in (raw or "").splitlines():
+    for line in lines:
         s = line.strip()
         m = SUGGEST_MARK_RE.match(s)
         if m:
             s = m.group(1)
         s = SUGGEST_PREFIX_RE.sub("", s).strip()
+        s = SUGGEST_LABEL_RE.sub("", s).strip()
         if len(s) > 4 and s.startswith("**") and s.endswith("**"):
             s = s[2:-2].strip()
         s = s.strip("`").strip()
         if len(s) > 1 and s[0] in "\"'“" and s[-1] in "\"'”":
             s = s[1:-1].strip()
-        s = s.strip(" -:–—\u2022").strip()
+        if s.endswith(":"):                     # "Aqui tienes tres:" anuncia
+            continue
+        s = s.strip(" -–—•").strip()
         low = s.casefold()
         if not s or len(set(s)) < 2:            # linea de adorno ("---", "**")
             continue
-        if low.startswith(("suggestion", "sugerencia", "here are",
-                           "aqui", "aqu\u00ed")):
+        if low.startswith(("here are", "aquí tienes", "aqui tienes")):
             continue                            # el modelo anuncia la lista
+        if len(s) > SUGGEST_LINE_MAX:           # un parrafo no es sugerencia
+            continue
         if low in seen:                         # "repites, no cuentas"
             continue
         seen.add(low)
-        out.append(s[:SUGGEST_LINE_MAX])
+        out.append(s[0].upper() + s[1:])        # mayuscula inicial, siempre
         if len(out) >= SUGGEST_MAX:
             break
     return out
@@ -3504,45 +3538,57 @@ def suggest_lines(answer, user_text, ctx, lang, provider, model_id):
                   + answer[-1200:])
     if ctx:
         instr += "\n\nWhat you were doing:\n" + ctx[-400:]
-    payload = json.dumps({
-        "model": model_id,
-        "max_tokens": 120,
-        # sin pensar: un Qwen3 con thinking se come el presupuesto en
-        # reasoning y devuelve content vacio (fin length)
-        "chat_template_kwargs": {"enable_thinking": False},
-        "messages": [{"role": "user", "content": instr}]},
-    ).encode("utf-8")
     headers = {"Content-Type": "application/json"}
     if key:
         headers["Authorization"] = "Bearer " + key
 
-    def ask():
+    def ask(have):
+        msg = instr
+        if have:
+            # el reintento sabe lo que ya hay: pide otras, no las mismas
+            msg += ("\n\nAlready suggested, do not repeat these:\n"
+                    + "\n".join(have))
+        body = {
+            "model": model_id,
+            "max_tokens": 160,
+            # sin pensar: un Qwen3 con thinking se come el presupuesto en
+            # reasoning y devuelve content vacio (fin length)
+            "chat_template_kwargs": {"enable_thinking": False},
+            "messages": [{"role": "user", "content": msg}]}
         try:
             with urllib.request.urlopen(
                     urllib.request.Request(
                         base.rstrip("/") + "/chat/completions",
-                        data=payload, headers=headers),
+                        data=json.dumps(body).encode("utf-8"),
+                        headers=headers),
                     timeout=SUGGEST_TIMEOUT) as r:
                 d = json.loads(r.read().decode("utf-8", "replace"))
-            return d["choices"][0]["message"]["content"]
-        except (OSError, ValueError, KeyError, IndexError):
+            return d["choices"][0]["message"]["content"] or ""
+        except (OSError, ValueError, KeyError, IndexError, TypeError):
             return None
 
-    raw = ask()
-    if raw is None:
-        return None
-    out = clean_suggestions(raw)
-    # medido con Strata: a veces devuelve una sola linea pese a pedir tres.
-    # Un reintento, solo entonces, y se juntan sin repetir
-    if len(out) < SUGGEST_MAX:
-        more = clean_suggestions(ask() or "")
-        seen = {x.casefold() for x in out}
-        for x in more:
+    # se pide hasta juntar tres validas (sin repetir): el modelo a veces da
+    # una linea, adorna o mete el <think>. Tope de llamadas y de tiempo
+    out, seen, raws = [], set(), []
+    t_end = time.monotonic() + SUGGEST_DEADLINE
+    for _ in range(SUGGEST_TRIES):
+        if time.monotonic() >= t_end:
+            break
+        raw = ask(out)
+        raws.append(raw)
+        for x in clean_suggestions(raw or ""):
             if len(out) >= SUGGEST_MAX:
                 break
             if x.casefold() not in seen:
                 seen.add(x.casefold())
                 out.append(x)
+        if len(out) >= SUGGEST_MAX:
+            break
+    if len(out) < SUGGEST_MAX:
+        # medir antes de afirmar: lo que dio el modelo, al log
+        print("suggest: %d de %d tras %d llamadas: %r"
+              % (len(out), SUGGEST_MAX, len(raws),
+                 [(r or "")[:300] if r is not None else None for r in raws]))
     return out or None
 
 

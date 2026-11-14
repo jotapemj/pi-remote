@@ -105,7 +105,8 @@ the fonts, all served locally so the page never calls out to anyone.
 | `PI_SESSION` | none | sessions start unnamed; set to name fresh ones |
 | `PI_AGENT_DIR` | `~/.pi/agent` | agent directory, for auto-naming (reads `models.json`) |
 | `PI_AUTONAME_TIMEOUT` | `8` | seconds to wait on the local model when naming a session |
-| `PI_SUGGEST_TIMEOUT` | `12` | seconds to wait on the model when asking for response suggestions |
+| `PI_SUGGEST_TIMEOUT` | `12` | seconds to wait on the model when asking for response suggestions (per call) |
+| `PI_SUGGEST_DEADLINE` | `45` | total seconds spent retrying until three valid suggestions arrive (at most 5 calls) |
 | `PI_MODELS_JSON` | none | explicit path to `models.json`, overriding `PI_AGENT_DIR` |
 | `PI_WEB_HOST` | `0.0.0.0` | bind address |
 | `PI_WEB_PORT` | `8770` | port |
@@ -710,7 +711,8 @@ of optional switches, each remembered per browser.
   - **Response suggestions**: when a turn settles, the bridge makes one extra
     request of its own to the model's endpoint — reasoning off, a couple of
     hundred tokens — and shows three likely replies as plain lines under the
-    answer; a tap sends one. They are a transient aid: sending a message clears
+    answer; a tap sends one. If the model returns fewer than three usable
+    lines, the bridge asks again (up to five calls) until it has three. They are a transient aid: sending a message clears
     them, and they never come back from the session history. Nothing is added
     to your prompts: it asks with the message you sent and the answer you just
     read. Needs a provider with its own `baseUrl` in `models.json`; without one
