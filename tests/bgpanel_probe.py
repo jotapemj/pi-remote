@@ -160,6 +160,32 @@ async def in_page():
                     if log:
                         break
                     await asyncio.sleep(0.2)
+                # la hoja de la tarea: nombre y estado arriba, comando en su
+                # caja mono con scroll propio y boton de copiar
+                SHEET = """(() => { const q = s => document.querySelector(
+                  '#sheetBody ' + s); const c = q('.bgcmd');
+                  return {tt: q('.bgtt') && q('.bgtt').textContent,
+                    stop: !!q('.bgstopb'), copy: !!q('.bgsh .bgcopy'),
+                    cmdH: c ? c.getBoundingClientRect().height : 0,
+                    ovf: c ? getComputedStyle(c).overflowX : null,
+                    mono: c ? /Plex Mono/.test(getComputedStyle(c).fontFamily) : false,
+                    heads: [...document.querySelectorAll('#sheetBody .shead')]
+                      .map(h => h.textContent.trim())}; })()"""
+                sheet = await js(SHEET)
+                print("  hoja:", sheet)
+                if os.environ.get("PI_SHOT_TASK"):
+                    await js("document.querySelector('#sheetBody').scrollTop = 0")
+                    await asyncio.sleep(0.4)
+                    await p.shot(os.environ["PI_SHOT_TASK"])
+                checks += [
+                    ("la hoja nombra la tarea y deja pararla",
+                     sheet["tt"] == "Tarea #1" and sheet["stop"]),
+                    ("comando en caja mono con scroll y copiar",
+                     sheet["cmdH"] > 0 and sheet["ovf"] == "auto"
+                     and sheet["mono"] and sheet["copy"]),
+                    ("secciones Comando y Salida",
+                     "Comando" in sheet["heads"] and "Salida" in sheet["heads"]),
+                ]
                 await js("$('#sheetBack').click()")
                 await asyncio.sleep(0.5)
                 back = await js(ROWS)
