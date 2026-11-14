@@ -146,6 +146,17 @@ async def in_page():
                            "'.blk-you .uimgs img').length,"
                            " i ? i.src.startsWith('data:image/png;base64,')"
                            " : false];})()")
+            # al pulsar la foto se abre en el lightbox
+            await js("document.querySelector('.blk-you .uimgs img').click()")
+            await asyncio.sleep(0.3)
+            lb = await js("[$('#lightbox').hidden,"
+                          " $('#lightbox img').src.startsWith("
+                          "'data:image/png;base64,')]")
+            await js("closeLightbox()")
+            await asyncio.sleep(0.3)
+            print("  foto pulsada: lightbox oculto=%s img=%s" % tuple(lb))
+            checks.append(("pulsar la foto la abre en grande",
+                           lb[0] is False and lb[1] is True))
             await js("feed.innerHTML=''; nodes.clear();"
                      " render({id:2, kind:'user', text:'x',"
                      " images:[{type:'image', data:'AAAA',"

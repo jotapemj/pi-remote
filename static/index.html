@@ -1392,7 +1392,7 @@ footer > *{position:relative; z-index:1}
 .uimgs{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:6px}
 .uimgs img{
   max-width:200px; max-height:220px; border-radius:10px; display:block;
-  border:1px solid var(--rule);
+  border:1px solid var(--rule); cursor:zoom-in;
 }
 .cmeta{                                 /* modelo y razonamiento, sutil */
   font:400 10.5px/1.4 var(--sans); color:var(--faint);
@@ -4275,7 +4275,8 @@ function legacyCopy(text){
 }
 /* los <details> nativos abren de golpe: se anima la altura a mano */
 feed.addEventListener("click", e=>{
-  const tim = e.target.closest(".tim");     // miniatura de tool -> a lo grande
+  // miniatura de tool o foto del usuario -> a lo grande
+  const tim = e.target.closest(".tim, .uimgs img");
   if(tim){ e.stopPropagation(); openLightbox(tim.src); return; }
   const uf = e.target.closest(".ufold");
   if(uf){ foldToggle(uf.closest(".blk-you")); return; }

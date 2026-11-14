@@ -594,7 +594,8 @@ command that opens a dialog or a sheet hides the keyboard first, so it is
 never covered. The same **+** menu attaches an image (paste one, pick it
 from the device, or take a photo with the phone's camera) for a model that
 can see; it rides along with your next message. Images over 2048 px are
-scaled down before they are sent.
+scaled down before they are sent. In the chat, tapping a sent image opens it
+full screen, with pinch zoom.
 
 <p align="center">
   <img src="docs/commands.png" width="860"
