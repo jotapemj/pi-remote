@@ -241,6 +241,36 @@ recommended here: both add an external dependency to a project whose whole
 point is that it has almost none. The first two options already give you
 everything a service would.
 
+**Firewall.** Windows Firewall filters by program, and `python.exe` and
+`pythonw.exe` are two different programs to it. Allowing one in the first-run
+prompt does not cover the other, and `/restart` always relaunches the bridge
+with `pythonw.exe`. A bridge that answers on the PC itself but times out from
+the phone usually means an inbound rule blocks `pythonw.exe`, often one created
+by dismissing that prompt. A rule by port avoids the problem whichever
+executable runs the bridge. From an administrator PowerShell, limited to
+Tailscale addresses:
+
+```powershell
+netsh advfirewall firewall add rule name="pi-remote 8770 (Tailscale)" dir=in action=allow protocol=TCP localport=8770 profile=private remoteip=100.64.0.0/10
+```
+
+Use your `PI_WEB_PORT` if it is not `8770`. Block rules win over allow
+rules, so look for existing ones first and remove any block rule for
+`pythonw.exe`:
+
+```powershell
+netsh advfirewall firewall show rule name=all dir=in verbose | findstr /i "pythonw"
+netsh advfirewall firewall delete rule name="pythonw.exe" dir=in
+```
+
+The Tailscale adapter is usually a *private* network; check with
+`Get-NetConnectionProfile` and adjust `profile=` if it is not.
+
+Open the bridge by the Tailscale IP (`http://100.x.y.z:8770/?token=...`)
+rather than by the `*.ts.net` name: `ts.net` is on the browsers' HSTS preload
+list, so they force `https://`, which the bridge does not serve without
+`tailscale serve` in front.
+
 ### Linux: systemd user service
 
 `~/.config/systemd/user/pi-remote.service`:
