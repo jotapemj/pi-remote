@@ -514,11 +514,14 @@ main{flex:1; overflow-y:auto; overflow-x:hidden; padding:16px var(--gut) 8px; po
   margin:.7em 0;
 }
 .said pre code{background:none;padding:0;color:var(--box-ink);font-size:12.5px}
-/* tablas GFM: rejilla de instrumento, datos en mono, scroll propio en movil */
+/* tablas GFM: rejilla de instrumento, datos en mono. El texto largo parte en
+   lineas, solo por espacios (partir palabras dejaba columnas de 2 letras), y
+   cada columna tiene un minimo; si no cabe, scroll propio */
 .said .twrap{overflow-x:auto; margin:.9em 0; -webkit-overflow-scrolling:touch}
 .said table{border-collapse:collapse; font:500 12.5px/1.5 var(--mono)}
 .said th,.said td{border:1px solid var(--rule); padding:6px 11px;
-  text-align:left; white-space:nowrap; vertical-align:top}
+  text-align:left; white-space:normal; min-width:10ch; vertical-align:top;
+  word-break:normal; overflow-wrap:normal}   /* .said parte palabras: aqui no */
 .said thead th{background:var(--raise); color:var(--amber); font-weight:600;
   letter-spacing:.02em; border-bottom:2px solid var(--rule)}
 .said tbody tr:nth-child(even){background:var(--surface)}
