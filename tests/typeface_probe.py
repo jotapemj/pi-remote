@@ -30,13 +30,37 @@ MEASURE = """(async () => {
 })()""" % MSG
 
 
+# interlineado aireado: se mide el pixel pintado, no la regla CSS
+LEAD = """(async () => {
+  feed.innerHTML = ''; nodes.clear();
+  render({id: 2, kind: 'assistant', streaming: false,
+          text: "Uno uno uno.\\n\\nDos dos dos.\\n\\n- a\\n- b"});
+  paint();
+  await document.fonts.ready;
+  const s = document.querySelector('.said');
+  const ps = s.querySelectorAll('p'), li = s.querySelectorAll('li');
+  const fs = parseFloat(getComputedStyle(ps[0]).fontSize);
+  const lh = ps[0].getBoundingClientRect().height;
+  return {fs, ratio: lh / fs,
+          pgap: ps[1].getBoundingClientRect().top - ps[0].getBoundingClientRect().bottom,
+          ligap: li[1].getBoundingClientRect().top - li[0].getBoundingClientRect().bottom};
+})()"""
+
+
 async def main():
     checks = []
     with Bridge():
         async with Page() as p:
             await p.go()
             await asyncio.sleep(0.8)
-            for fid in ("sans", "inter", "serif", "mono"):
+            ld = await p.js(LEAD)
+            print("  interlineado: %s" % ld)
+            checks += [
+                ("interlineado aireado (~1.7)", 1.6 <= ld["ratio"] <= 1.8),
+                ("un em entre parrafos", ld["pgap"] >= ld["fs"] * .9),
+                ("aire entre puntos de lista", ld["ligap"] >= ld["fs"] * .3),
+            ]
+            for fid in ("sans", "inter", "system", "serif", "mono"):
                 await p.js("setFont('%s')" % fid)
                 m = await p.js(MEASURE)
                 print("  %s: %s" % (fid, m))

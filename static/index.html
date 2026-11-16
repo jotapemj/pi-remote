@@ -496,22 +496,24 @@ main{flex:1; overflow-y:auto; overflow-x:hidden; padding:16px var(--gut) 8px; po
 .foldable.folded .ufold .i{transform:rotate(90deg)}       /* v: desplegar */
 .foldable:not(.folded) .ufold .i{transform:rotate(-90deg)} /* ^: comprimir */
 
+/* interlineado aireado (v0.122): 1.45 apretaba; JP prefirio el ritmo de
+   la web de Qwen, ~1.7 y un em entre parrafos */
 .said{word-break:break-word; font-size:var(--chat-size,14px);
-  font-family:var(--chat-font,var(--sans)); line-height:1.45}
+  font-family:var(--chat-font,var(--sans)); line-height:1.7}
 .blk-you{font-family:var(--chat-font,var(--sans))}
-.blk-you{font-size:var(--chat-size,14px); line-height:1.45}
-.said p{margin:0 0 .45em}
+.blk-you{font-size:var(--chat-size,14px); line-height:1.7}
+.said p{margin:0 0 1em}
 .said p:last-child{margin-bottom:0}
 /* titulos y negrita en la fuente elegida, y a 600: las cuatro lo traen
    de verdad (a 700 Plex Mono no llega y el navegador la fabricaba) */
-.said h4{font:600 15px/1.4 var(--chat-font,var(--sans));margin:1.1em 0 .4em}
+.said h4{font:600 15px/1.4 var(--chat-font,var(--sans));margin:1.4em 0 .6em}
 .said strong,.said b{font-weight:600}
-.said ul,.said ol{margin:.2em 0 .8em;padding-left:1.25em}
-.said li{margin:.15em 0}
+.said ul,.said ol{margin:.5em 0 1em;padding-left:1.25em}
+.said li{margin:.4em 0}
 .said a{color:var(--mint)}
 .said code{
-  font:500 13px/1.4 var(--mono); background:var(--raise);
-  padding:1px 5px; border-radius:3px; color:var(--lit);
+  font:500 13px/1 var(--mono); background:var(--raise);
+  padding:1px 4px; border-radius:3px; color:var(--lit);
 }
 .said pre{
   background:var(--box); border:1px solid var(--rule);
