@@ -119,6 +119,7 @@ the fonts, all served locally so the page never calls out to anyone.
 | `PI_AUTONAME_TIMEOUT` | `8` | seconds to wait on the local model when naming a session |
 | `PI_SUGGEST_TIMEOUT` | `12` | seconds to wait on the model when asking for response suggestions (per call) |
 | `PI_SUGGEST_DEADLINE` | `45` | total seconds spent retrying until three valid suggestions arrive (at most 5 calls) |
+| `PI_PAIR_WAIT` | `120` | seconds a device scanned from *Connect device* waits for the PC to approve it |
 | `PI_MODELS_JSON` | none | explicit path to `models.json`, overriding `PI_AGENT_DIR` |
 | `PI_WEB_HOST` | `0.0.0.0` | bind address |
 | `PI_WEB_PORT` | `8770` | port |
@@ -173,6 +174,39 @@ pip install -r requirements.txt
 
 Then restart it with `/restart` from the app. Both steps also work from the
 phone: `/bash git pull` runs the pull through the bridge itself.
+
+## Connect a device
+
+On the PC that runs the bridge, **Settings → Connect device** shows a QR
+code. Scanning it with the phone's camera opens pi remote there, and the PC
+has to approve the device before it gets in:
+
+1. The phone opens the link and waits on the splash screen, *Waiting for
+   the host to approve*, with a four-digit check code.
+2. Every pi remote window open on the PC shows a dialog: the device (from
+   its browser), its IP address and the same four digits. **Allow** only if
+   they match.
+3. On approval the phone receives the token, keeps it, and opens the app.
+   Denied, unanswered for two minutes (`PI_PAIR_WAIT`), or scanned from a
+   used code, the phone says so and gets nothing.
+
+When `PI_WEB_ORIGINS` names an `https://` origin (`tailscale serve`, see
+[Install it as an app](#install-it-as-an-app)), the QR code opens that one
+first: only over HTTPS can the phone install the app, and the token is
+stored for that origin. The Tailscale address and the home network one
+follow as alternatives.
+
+The QR code does **not** carry the token. It carries a random one-time
+code (128 bits) that expires after five minutes, is spent by the first
+device that uses it, and is renewed while the view stays open. A photo of
+the screen is worthless once used, and without the PC's approval it gives
+nothing at all. The link is also shown below the code, with a copy button,
+for a device without a camera.
+
+The card only appears in a browser on that same PC, and only those windows
+receive the approval dialog. The QR is drawn in the page by a vendored copy
+of [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator)
+(MIT): no QR service ever sees the link.
 
 ## Install it as an app
 
@@ -872,6 +906,13 @@ of optional switches, each remembered per browser.
   image types pass, and addresses on the local network are refused, on
   redirects too.
 - pi ships no permission prompts of its own. Install a guardrails extension.
+- **Connect device** never puts the token in the QR code: a device gets it
+  only after the PC approves it. Generating a code and approving a request
+  are reserved to the PC itself: `/api/pair` and `/api/pair/new` answer 403
+  to any other address, approvals from any other window are ignored, and
+  any request carrying proxy headers (`X-Forwarded-For`, `Forwarded`,
+  `X-Real-IP`, `Tailscale-User-Login`) counts as not local, since behind a
+  proxy every client looks like the PC.
 - The manifest, the service worker and the icons are the shell, not data, so
   they are served without a token; everything that acts still needs one.
 

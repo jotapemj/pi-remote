@@ -47,7 +47,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import urlparse
 
-from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse, Response
 
 PI_CMD = os.environ.get("PI_CMD") or shutil.which("pi") or "pi"
@@ -5819,6 +5819,178 @@ async def pdfjs(name: str):
         "Cache-Control": "public, max-age=31536000, immutable"})
 
 
+QRCODE_JS = HERE / "static" / "vendor" / "qrcode" / "qrcode.js"
+
+
+@app.get("/vendor/qrcode/qrcode.js")
+async def qrcode_js():
+    """qrcode-generator, para el QR de Conectar dispositivo. Local: un
+    servicio externo de QR recibiria el token."""
+    if not QRCODE_JS.is_file():
+        return JSONResponse({"error": "no such file"}, status_code=404)
+    return FileResponse(QRCODE_JS, media_type="text/javascript",
+                        headers={"Cache-Control": "no-cache"})
+
+
+# cabeceras que pone un proxy delante (tailscale serve, nginx): detras de
+# uno, todo cliente llega como 127.0.0.1 y pareceria este PC
+PROXY_HEADERS = ("x-forwarded-for", "forwarded", "x-real-ip",
+                 "tailscale-user-login")
+
+
+def own_addresses():
+    """Las IPv4 de esta maquina, mas el loopback."""
+    try:
+        got = {i[4][0] for i in socket.getaddrinfo(
+            socket.gethostname(), None, socket.AF_INET)}
+    except OSError:
+        got = set()
+    return got | {"127.0.0.1", "::1"}
+
+
+def is_local_client(host, headers):
+    """La peticion sale de este mismo PC (y no a traves de un proxy)."""
+    if any(h in headers for h in PROXY_HEADERS):
+        return False
+    return bool(host) and host in own_addresses()
+
+
+# ---- Conectar dispositivo: emparejar con aprobacion del PC ----
+#
+# El QR NO lleva el token: lleva un codigo de un solo uso. El movil lo
+# canjea por una solicitud, el PC la aprueba o la niega en un dialogo, y
+# solo al aprobar recibe el movil el token. Con el token en el QR, la
+# aprobacion seria decorativa: quien escanea ya podria entrar.
+PAIR_CODE_TTL = 300        # s que vale un codigo sin usar
+PAIR_WAIT = int(os.environ.get("PI_PAIR_WAIT", "120"))  # s hasta respuesta
+PAIR_POLL = 25             # s de cada long-poll del movil
+pair_code = {"code": "", "exp": 0.0}
+pair_reqs = {}             # id -> solicitud
+local_ws = set()           # websockets abiertos desde este PC
+
+
+def device_name(ua):
+    """'Android · Chrome' a partir del User-Agent: para que el PC reconozca
+    el aparato en el dialogo. Aproximado, no es una prueba de nada."""
+    ua = ua or ""
+    os_ = next((n for k, n in (("iPhone", "iPhone"), ("iPad", "iPad"),
+                               ("Android", "Android"), ("Windows", "Windows"),
+                               ("Mac OS", "macOS"), ("CrOS", "ChromeOS"),
+                               ("Linux", "Linux")) if k in ua), "")
+    br = next((n for k, n in (("SamsungBrowser", "Samsung Internet"),
+                              ("Edg/", "Edge"), ("Firefox", "Firefox"),
+                              ("FxiOS", "Firefox"), ("CriOS", "Chrome"),
+                              ("Chrome", "Chrome"), ("Safari", "Safari"))
+               if k in ua), "")
+    return " · ".join(x for x in (os_, br) if x)   # "" = no se sabe
+
+
+def local_only(request, token):
+    """None si la peticion vale (token y este PC); si no, la respuesta 403."""
+    if READ_ONLY or not good_token(token):
+        return JSONResponse({"error": "bad token"}, status_code=403)
+    host = request.client.host if request.client else ""
+    if not is_local_client(host, request.headers):
+        return JSONResponse({"error": "only from this PC"}, status_code=403)
+    return None
+
+
+async def pair_tell(payload):
+    """Solo a las pestanas de este PC: el dialogo no sale en el movil."""
+    for ws in list(local_ws):
+        try:
+            async with bridge.send_lock:
+                await ws.send_json(payload)
+        except Exception:                                   # noqa: BLE001
+            local_ws.discard(ws)
+
+
+async def pair_finish(rid, status, token=""):
+    """Cierra una solicitud (approved/denied/expired) y avisa a todos."""
+    r = pair_reqs.get(rid)
+    if not r or r["status"] != "pending":
+        return
+    r["status"], r["token"] = status, token
+    r["event"].set()
+    await pair_tell({"type": "pair_done", "id": rid, "status": status})
+    # el resultado queda un rato para el long-poll que llegue tarde
+    asyncio.get_running_loop().call_later(60, pair_reqs.pop, rid, None)
+
+
+@app.get("/api/pair")
+async def pair(request: Request, token: str = Query("")):
+    """Si este navegador puede ensenar el QR: solo uno de ESTE PC. Desde el
+    movil o el tailnet, 403 aunque traiga token, y la tarjeta no sale."""
+    return local_only(request, token) or JSONResponse(
+        {"local": True}, headers=SAFE_HEADERS)
+
+
+@app.post("/api/pair/new")
+async def pair_new(request: Request, token: str = Query("")):
+    """Codigo nuevo para el QR (invalida el anterior) y sus enlaces."""
+    bad = local_only(request, token)
+    if bad:
+        return bad
+    pair_code.update(code=secrets.token_urlsafe(16),
+                     exp=time.time() + PAIR_CODE_TTL)
+    q = "/?pair=" + pair_code["code"]
+    kind = {"Phone (HTTPS)": "https", "Phone (Tailscale)": "tailscale"}
+    links = [{"kind": kind.get(k, "lan"), "url": u}
+             for k, u in serve_links(query=q) if k != "This PC"]
+    return JSONResponse({"links": links, "ttl": PAIR_CODE_TTL},
+                        headers=SAFE_HEADERS)
+
+
+@app.post("/api/pair/request")
+async def pair_request(request: Request):
+    """El movil canjea el codigo del QR por una solicitud. Sin token: lo que
+    autoriza es el codigo, que se gasta aqui (un solo uso)."""
+    try:
+        code = str((await request.json()).get("code") or "")
+    except ValueError:
+        code = ""
+    if (not code or not pair_code["code"] or time.time() > pair_code["exp"]
+            or not hmac.compare_digest(code, pair_code["code"])):
+        return JSONResponse({"error": "expired"}, status_code=403)
+    if not local_ws:            # nadie en el PC que pueda aprobar
+        return JSONResponse({"error": "nohost"}, status_code=409)
+    pair_code.update(code="", exp=0.0)
+    rid = secrets.token_urlsafe(16)
+    # cifra de comprobacion: el PC ve que el aparato que pide es el suyo
+    digits = "%04d" % secrets.randbelow(10000)
+    # tras tailscale serve todo llega de 127.0.0.1: para ENSENAR al PC de
+    # donde viene, la IP que pasa el proxy (solo se muestra, no autoriza)
+    host = (request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+            or (request.client.host if request.client else ""))
+    pair_reqs[rid] = {"status": "pending", "token": "", "digits": digits,
+                      "event": asyncio.Event()}
+    await pair_tell({"type": "pair_ask", "id": rid, "digits": digits,
+                     "ip": host, "device": device_name(
+                         request.headers.get("user-agent"))})
+    asyncio.get_running_loop().call_later(
+        PAIR_WAIT, lambda: asyncio.ensure_future(
+            pair_finish(rid, "expired")))
+    return JSONResponse({"id": rid, "digits": digits, "wait": PAIR_WAIT},
+                        headers=SAFE_HEADERS)
+
+
+@app.get("/api/pair/wait")
+async def pair_wait(id: str = Query("")):
+    """Long-poll del movil: pending hasta que el PC conteste o caduque."""
+    r = pair_reqs.get(id)
+    if not r:
+        return JSONResponse({"status": "expired"}, headers=SAFE_HEADERS)
+    if r["status"] == "pending":
+        try:
+            await asyncio.wait_for(r["event"].wait(), PAIR_POLL)
+        except asyncio.TimeoutError:
+            pass
+    out = {"status": r["status"]}
+    if r["status"] == "approved":
+        out["token"] = r["token"]
+    return JSONResponse(out, headers=SAFE_HEADERS)
+
+
 @app.get("/fonts/{name}")
 async def font(name: str):
     """No token here: the browser fetches these from css, without the query."""
@@ -5923,15 +6095,28 @@ async def ws_endpoint(ws: WebSocket, token: str = Query("")):
         return
     await ws.accept()
     bridge.clients.add(ws)
+    host = ws.client.host if ws.client else ""
+    local = is_local_client(host, ws.headers)
+    if local:
+        local_ws.add(ws)
     await ws.send_json(bridge.snapshot())
     try:
         while True:
             msg = await ws.receive_json()
+            if isinstance(msg, dict) and msg.get("type") == "pair_answer":
+                # solo una pestana de ESTE PC aprueba; del movil se ignora
+                if local:
+                    ok = msg.get("ok") is True
+                    await pair_finish(str(msg.get("id") or ""),
+                                      "approved" if ok else "denied",
+                                      TOKEN if ok else "")
+                continue
             bridge.command(msg)
     except (WebSocketDisconnect, ValueError):
         pass
     finally:
         bridge.clients.discard(ws)
+        local_ws.discard(ws)
 
 
 if __name__ == "__main__":
