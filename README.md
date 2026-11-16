@@ -771,7 +771,9 @@ of optional switches, each remembered per browser.
 
 - **Appearance**: four theme families, each light, dark or following the
   system; the reading font (Plus Jakarta Sans, Inter, Source Serif 4 or IBM
-  Plex Mono, all served by the bridge) and the text size. **Language**: six
+  Plex Mono, all served by the bridge, or *System*: each device's own
+  interface font, such as Segoe UI on Windows, San Francisco on Apple and
+  Roboto on Android) and the text size. **Language**: six
   (English, Spanish, German, French, Portuguese, Chinese). Both remembered per
   browser.
 - **Restart now**: every dialog whose change only applies after a restart

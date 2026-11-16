@@ -150,7 +150,7 @@ async def wide(p, js):
         ("y las cuatro esquinas redondeadas",
          v[2].split()[0] == "16px" and len(set(v[2].split())) == 1),
         ("despegados de arriba y de abajo", v[3] > 40 and v[4] > 40),
-        ("con las fuentes disponibles", v[5] == 4),
+        ("con las fuentes disponibles", v[5] == 5),
     ]
 
     # la fuente elegida se aplica y se guarda
@@ -181,6 +181,27 @@ async def wide(p, js):
          g[0].replace('"', '').startswith('Inter,') and g[1] == "inter"),
         ("y se sirve desde el puente", g[2] is True),
     ]
+    # Sistema: la fuente de interfaz del aparato, sin descargar nada
+    await js("document.querySelector('.fontb[data-f=system]').click()")
+    await asyncio.sleep(0.3)
+    y = await js("[getComputedStyle(document.querySelector('.said'))"
+                 ".fontFamily, localStorage.getItem('pi.font'),"
+                 " document.querySelector('.fontb[data-f=system] span')"
+                 ".textContent,"
+                 " (() => { const s = document.querySelector("
+                 "'.fontb[data-f=system] span'); return s.scrollWidth"
+                 " <= s.clientWidth; })(),"
+                 " getComputedStyle(document.querySelector("
+                 "'.fontb[data-f=system] b')).fontFamily]")
+    print("  sistema : %r guardada=%r rotulo=%r cabe=%s boton=%r" % tuple(y))
+    checks += [
+        ("Sistema usa la fuente del aparato y se guarda",
+         y[0].startswith("system-ui") and y[1] == "system"),
+        ("con rotulo traducido, sin recortar", y[2] == "Sistema"
+         and y[3] is True),
+        ("y su boton se muestra en esa fuente",
+         y[4].startswith("system-ui")),
+    ]
     await js("setFont('sans'); $('#sheet').classList.remove('open')")
     return checks
 
@@ -199,7 +220,18 @@ async def narrow(p, js):
                  " getComputedStyle($('#slimRail')).display]")
     print("  estrecho: body=%s grip=%s menu=%s plegar=%s rail=%s radio=%s fino=%s"
           % tuple(n))
+    # las cinco fuentes caben a 412 px en los seis idiomas, sin recortar
+    cut = []
+    for lg in ("en", "es", "de", "fr", "pt", "zh"):
+        cut += await js("setLang('%s'); $('#sheet').classList.add('open');"
+                        " paintSheet('appearance');"
+                        " [...document.querySelectorAll('.fontb span')]"
+                        ".filter(s => s.scrollWidth > s.clientWidth)"
+                        ".map(s => '%s:' + s.textContent)" % (lg, lg))
+    await js("setLang('es'); $('#sheet').classList.remove('open')")
+    print("  fuentes a 412: recortadas=%s" % cut)
     return [
+        ("a 412 px, ningun rotulo de fuente recortado", cut == []),
         ("en estrecho la barra sigue siendo un cajon",
          n[0] == "flex" and n[4] == "fixed"),
         ("sin tirador ni boton de plegar",

@@ -2444,10 +2444,10 @@ body.hasproj .addp:not(.ghost):hover{background:var(--surface)}
 }
 .shead:first-child{margin-top:0}
 .shead[hidden]{display:none}
-.fonts{display:flex; gap:8px; margin-top:10px}
+.fonts{display:flex; gap:6px; margin-top:10px}   /* cinco a 412 px */
 .fontb{
   flex:1; min-width:0; background:var(--raise); color:var(--ink);
-  border:1px solid var(--rule); border-radius:9px; padding:10px 6px;
+  border:1px solid var(--rule); border-radius:9px; padding:10px 2px;
   cursor:pointer; display:flex; flex-direction:column; align-items:center;
   gap:4px; transition:border-color .15s ease, background-color .15s ease;
 }
@@ -6907,7 +6907,7 @@ const STR = {
       withToken:"a token is required", tokenRun:"protected with a temporary token",
       tokenSet:"protected with a fixed token", accessOff:"disabled", access:"Access",
       readOnlyCmd:"needs a token",
-      close:"close", theme:"Theme", fontSize:"Text size", font:"Font",
+      close:"close", theme:"Theme", fontSize:"Text size", font:"Font", fontSystem:"System",
       openSession:"open", deleteSession:"remove session",
       forkFrom:"Fork from a message",
       forkTitle:"A copy of the conversation up to this message will be created:",
@@ -7067,7 +7067,7 @@ const STR = {
       tokenSet:"protegido con token fijo", accessOff:"desactivado", access:"Acceso",
       readOnlyCmd:"necesita token",
       close:"cerrar", theme:"Tema", fontSize:"Tama\u00f1o del texto",
-      font:"Fuente",
+      font:"Fuente", fontSystem:"Sistema",
       openSession:"abrir", deleteSession:"quitar sesi\u00f3n",
       forkFrom:"Ramificar desde un mensaje",
       forkTitle:"Se crear\u00e1 una copia de la conversaci\u00f3n hasta este mensaje:",
@@ -7226,7 +7226,7 @@ const STR = {
       tokenSet:"geschützt mit festem Token", accessOff:"deaktiviert", access:"Zugang",
       readOnlyCmd:"ben\u00f6tigt ein Token",
       close:"schlie\u00dfen", theme:"Design", fontSize:"Textgr\u00f6\u00dfe",
-      font:"Schriftart",
+      font:"Schriftart", fontSystem:"System",
       openSession:"\u00f6ffnen", deleteSession:"Sitzung entfernen",
       forkFrom:"Von einer Nachricht abzweigen",
       menu:"Menü",
@@ -7388,7 +7388,7 @@ const STR = {
       withToken:"un jeton est requis", tokenRun:"protégé par un jeton temporaire",
       tokenSet:"protégé par un jeton fixe", accessOff:"désactivé", access:"Acc\u00e8s",
       readOnlyCmd:"n\u00e9cessite un jeton",
-      close:"Fermer", theme:"Th\u00e8me", fontSize:"Taille du texte", font:"Police",
+      close:"Fermer", theme:"Th\u00e8me", fontSize:"Taille du texte", font:"Police", fontSystem:"Syst\u00e8me",
       openSession:"ouvrir", deleteSession:"supprimer la session",
       forkFrom:"Bifurquer depuis un message",
       forkTitle:"Une copie de la conversation jusqu'à ce message sera créée :",
@@ -7548,7 +7548,7 @@ const STR = {
       withToken:"\u00e9 preciso um token", tokenRun:"protegido com token temporário",
       tokenSet:"protegido com token fixo", accessOff:"desativado", access:"Acesso",
       readOnlyCmd:"precisa de token",
-      close:"Fechar", theme:"Tema", fontSize:"tamanho do texto", font:"tipo de letra",
+      close:"Fechar", theme:"Tema", fontSize:"tamanho do texto", font:"tipo de letra", fontSystem:"Sistema",
       openSession:"abrir", deleteSession:"remover sess\u00e3o",
       forkFrom:"Ramificar a partir de uma mensagem",
       forkTitle:"Ser\u00e1 criada uma c\u00f3pia da conversa at\u00e9 esta mensagem:",
@@ -7703,7 +7703,7 @@ const STR = {
       withToken:"需要令牌", tokenRun:"临时令牌保护中",
       tokenSet:"固定令牌保护中", accessOff:"已禁用", access:"访问",
       readOnlyCmd:"需要令牌",
-      close:"关闭", theme:"主题", fontSize:"文字大小", font:"字体",
+      close:"关闭", theme:"主题", fontSize:"文字大小", font:"字体", fontSystem:"\u7cfb\u7edf",
       openSession:"打开", deleteSession:"删除会话",
       forkFrom:"从某条消息分叉",
       forkTitle:"将创建到此消息为止的对话副本：",
@@ -8555,6 +8555,10 @@ const FONTS = [
    css:'"Plus Jakarta Sans",system-ui,-apple-system,Segoe UI,sans-serif'},
   {id:"inter", name:"Inter", short:"Inter",
    css:'"Inter",system-ui,-apple-system,Segoe UI,sans-serif'},
+  // la del sistema: cada aparato pinta la suya (Segoe UI en Windows, San
+  // Francisco en Apple, Roboto en Android). Nada que servir ni licenciar
+  {id:"system", key:"fontSystem",
+   css:'system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans",sans-serif'},
   {id:"serif", name:"Source Serif 4", short:"Serif",
    css:'"Source Serif 4",Georgia,"Times New Roman",serif'},
   {id:"mono",  name:"IBM Plex Mono", short:"Plex Mono",
@@ -8585,9 +8589,10 @@ function fontCard(body){
     b.className = "fontb" + (f.id === fontPref() ? " on" : "");
     b.dataset.f = f.id;
     b.style.fontFamily = f.css;
-    // en el boton, el corto: con cuatro, el completo no cabe a 412 px
-    b.title = f.name;
-    b.innerHTML = `<b>Aa</b><span>${esc(f.short)}</span>`;
+    // en el boton, el corto: con cinco, el completo no cabe a 412 px
+    const label = f.key ? T(f.key) : f.short;
+    b.title = f.key ? label : f.name;
+    b.innerHTML = `<b>Aa</b><span>${esc(label)}</span>`;
     b.onclick = () => {
       setFont(f.id);
       row.querySelectorAll(".fontb").forEach(x =>
