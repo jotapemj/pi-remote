@@ -94,7 +94,19 @@ python pi_web_bridge.py
 It needs [pi](https://pi.dev) installed on the same machine. Tested with pi
 0.84 and 1.5 (see [Testing](#testing-without-a-model)).
 
-Open `http://<your-machine>:8770`. Over Tailscale, use the tailnet name.
+On start, the console lists the links to open: the Tailscale address for the
+phone, `localhost` for the same PC, and the home network address if there is
+one. Each carries the token. The Tailscale link uses the `100.x` address, not
+the `*.ts.net` name, which Chrome forces to https (see Firewall below).
+
+```
+  Phone (Tailscale): http://100.x.y.z:8770/?token=...
+  This PC:           http://localhost:8770/?token=...
+  The token runs commands on this PC: keep the link private.
+```
+
+Without a console (`pythonw`), the same block goes to `bridge.log`.
+
 Keep the `static/` folder next to the script: it holds the page, the icons and
 the fonts, all served locally so the page never calls out to anyone.
 

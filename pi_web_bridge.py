@@ -5658,6 +5658,63 @@ class Bridge:
 bridge: "Bridge | None" = None
 
 
+TAILNET = ipaddress.ip_network("100.64.0.0/10")    # rango CGNAT de Tailscale
+
+
+def serve_links(port=None, token=None, addrs=None, query=None,
+                origins=None):
+    """[(etiqueta, url)] por donde se sirve: HTTPS, Tailscale, este PC, red
+    local.
+
+    HTTPS primero: un origen https de PI_WEB_ORIGINS es un proxy delante
+    (tailscale serve) y solo por https se instala la PWA. Sin el, la IP y
+    no el nombre *.ts.net: ese dominio esta en la lista HSTS de Chrome, que
+    lo fuerza a https y el puente habla http.
+    """
+    origins = ALLOW_ORIGINS if origins is None else origins
+    port = PORT if port is None else port
+    token = TOKEN if token is None else token
+    if addrs is None:
+        try:
+            addrs = [i[4][0] for i in socket.getaddrinfo(
+                socket.gethostname(), None, socket.AF_INET)]
+        except OSError:
+            addrs = []
+    q = query or ("/?token=%s" % token if token else "/")
+    tail, lan = [], []
+    for a in dict.fromkeys(addrs):              # sin repetidas, en orden
+        try:
+            ip = ipaddress.ip_address(a)
+        except ValueError:
+            continue
+        if ip in TAILNET:
+            tail.append(a)
+        # 172.16/12 fuera: en Windows suele ser el adaptador de WSL/Hyper-V
+        elif a.startswith(("192.168.", "10.")):
+            lan.append(a)
+    out = [("Phone (HTTPS)", o.rstrip("/") + q) for o in origins
+           if o.startswith("https://")]
+    out += [("Phone (Tailscale)", "http://%s:%d%s" % (a, port, q))
+            for a in tail]
+    out.append(("This PC", "http://localhost:%d%s" % (port, q)))
+    out += [("Local network", "http://%s:%d%s" % (a, port, q)) for a in lan]
+    return out
+
+
+def print_links():
+    """El bloque informativo del arranque: donde abrir pi-remote."""
+    links = serve_links()
+    w = max(len(k) for k, _ in links) + 2
+    print("")
+    for k, url in links:
+        print("  %s%s" % ((k + ":").ljust(w), url))
+    if not any(k.startswith("Phone") for k, _ in links):
+        print("  (no Tailscale address found: the phone needs Tailscale,"
+              " or the same network)")
+    print("  The token runs commands on this PC: keep the link private.")
+    print("")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global bridge
@@ -5680,8 +5737,7 @@ async def lifespan(app: FastAPI):
     else:
         if TOKEN_MADE:
             print("no PI_WEB_TOKEN set: one was made for this run")
-        host = socket.gethostname()
-        print(f"\n  http://{host}:{PORT}/?token={TOKEN}\n")
+        print_links()
     yield
     bridge.shutdown()
 
